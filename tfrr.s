@@ -276,12 +276,12 @@ JOY2_FRAME      = $4017         ; Joypad #2/SOFTCLK (RW)
 
 
 .segment "HEADER"
-  ; .byte "NES", $1A    ; iNES header identifier
-  .byte $4E, $45, $53, $1A
+    
+  .byte $4E, $45, $53, $1A  ; iNES header identifier ().byte "NES", $1A  )
   .byte 2               ; 2x 16KB PRG code
   .byte 4               ; 4x  8KB CHR data
   .byte $31             ; mapper 1, vertical mirroring
-  .byte $56, $65, $6E, $75, $74, $65, $63, $68, $21
+  .byte $56, $65, $6E, $75, $74, $65, $63, $68, $21 ; This says "VENUTECH!"
  
 .segment "VECTORS"
   ;; When an NMI happens (once per frame if enabled) the label nmi:
@@ -573,14 +573,18 @@ vblankwait3:
   jmp :++
 :
   lda other_pl_stored_data
-  bmi :+++
+  bmi :++++
 :
   lda sub_state
-  bmi :+++++
+  bmi :++++++
   lda other_pl_stored_data
-  bmi :+
+  bmi :++         ; ***********this is around the line @82DF on the 6502 Debugger and @0x2E0 on the hex file
   ldy #$FF
   lda which_player
+  beq :+
+  ldy #$00
+:
+  sty which_player
   jsr swap_player_ram
 :
   jmp pre_stage_prep
@@ -593,7 +597,7 @@ main_jmp_1:
   jsr set_PPU_CTRL_b
   jsr disable_audio_channels
   lda state
-  and #$10
+  and #$10        ; ************@0x313
   bne :++
   lda unram_3
   bpl :+
@@ -763,7 +767,7 @@ stack_handler_1:
   cmp #$80
   bcs :++
   ldx #$00
-  ldy #$0f
+  ldy #$0F
   cmp #$0C
   bcc :+
   iny
@@ -801,9 +805,7 @@ flash_counter_jmp:
   jmp pull_stack_and_rti
 :
   lda #$80
-  sta unram_3
-  lda #$20
-  sta unram_3
+  sta unram_3         ;***********@8483, @0x49x
   lda #$20
   sta state
   jmp pull_stack_and_rti
@@ -881,6 +883,7 @@ game_jmp_1:
   jsr enemy_misc_rtn_9
   jsr enemy_misc_rtn_10
   jsr enemy_misc_rtn_12
+  lda current_level             ; ********@852F and @0x54x
   lsr
   bcs :+
   lda stage_orientation
@@ -1149,7 +1152,7 @@ set_PPU_MASK_b:
   sta ram_PPU_Mask    ; store the PPU_MASK value to RAM
   rts
 set_PPU_CTRL_a:
-  lda #90
+  lda #$90            ; @0x721
   .byte $AE           ;this is in order to change the next line to ldx $10A9 **********
 set_PPU_CTRL_b:
   lda #$10
@@ -1160,10 +1163,11 @@ clear_screen:
   jsr set_PPU_CTRL_b
   jsr set_PPU_MASK_b
   lda PPU_STATUS
-  sta $01             ; store PPU_STATUS @$01
+  lda #$20              ;***********0x734
+  sta $01
   lda #$20
   jsr write_blank_screen_a
-  lda #$00
+  lda #$24
 write_blank_screen_a:
   sta PPU_ADDR
   lda #$00
@@ -1176,7 +1180,6 @@ write_blank_screen_a:
   sta PPU_VRAM_IO
   dey
   bne :-
-  iny
   dec $00
   bne :-
 :
@@ -1200,6 +1203,7 @@ screen_reset:         ; related to loading screen
   lda $04
   sta PPU_VRAM_IO
   jsr dec_zero_ram
+  lda $00
   ora $01
   bne :-
   rts
@@ -1275,7 +1279,7 @@ chk_1up:
   sbc p2ScoreHi
   bcc p2_highscore      ; branch if player 2 has higher score
   lda hiScoreLo
-  sec
+  sec                   ; @882A
   sbc p1ScoreLo
   lda hiScoreMid
   sbc p1ScoreMid
@@ -1291,13 +1295,13 @@ chk_1up:
 b_exit:
   rts
 p2_highscore:
-  lda hiScoreLo
+  lda p2ScoreLo
   sec
-  sbc p2ScoreLo
-  lda hiScoreMid
-  sbc p2ScoreMid
-  lda hiScoreHi
-  sbc p2ScoreHi         
+  sbc hiScoreLo
+  lda p2ScoreMid
+  sbc hiScoreMid
+  lda p2ScoreHi
+  sbc hiScoreHi         
   bcs c_exit             ; branch out if score isnt higher than current high score
   lda p2ScoreLo
   sta hiScoreLo
@@ -1305,6 +1309,28 @@ p2_highscore:
   sta hiScoreMid
   lda p2ScoreHi
   sta hiScoreHi
+  rts
+p1_1_up_check:
+  lda which_player
+  bne p2_1_up_check  ;*************************** 8828
+  lda score_1_up_lo
+  sec
+  sbc p1ScoreLo
+  lda score_1_up_mid
+  sbc p1ScoreMid
+  lda score_1_up_hi
+  sbc p2ScoreHi
+  bcc offer_1up
+  rts
+p2_1_up_check:
+  lda score_1_up_lo
+  sec
+  sbc p2ScoreLo
+  lda score_1_up_mid
+  sbc p2ScoreMid
+  lda score_1_up_hi
+  sbc p2ScoreHi
+  bcc offer_1up
   rts
 offer_1up:
   lda score_1_up_lo
@@ -1405,8 +1431,7 @@ write_pl2_score_b:
   lda p2ScoreMid
   sta $01
   lda p2ScoreHi
-  sta $02
-  jmp draw_score
+  sta $02        ; ******@88f2 to 8607
 draw_score:
   jsr ram_misc_1
   ldx #$00
@@ -2064,9 +2089,12 @@ ram_misc_13:
   bmi :+
   ora plr_y_inc_fraction
   bne :++
-  jmp jmp_chk_A_press
+  jmp jmp_chk_A_press   ;*************@8e82
 :
   jsr ram_misc_7
+  bcs player_pose_2
+  jmp jmp_chk_A_press
+  jsr ram_misc_4
   bcs player_pose_2
 jmp_chk_A_press:
   lda controller_last
