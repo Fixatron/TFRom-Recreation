@@ -282,7 +282,7 @@ JOY2_FRAME      = $4017         ; Joypad #2/SOFTCLK (RW)
   .byte 4               ; 4x  8KB CHR data
   .byte $31             ; mapper 1, vertical mirroring
   .byte $56, $65, $6E, $75, $74, $65, $63, $68, $21
-
+ 
 .segment "VECTORS"
   ;; When an NMI happens (once per frame if enabled) the label nmi:
   .addr nmi
@@ -469,6 +469,8 @@ pre_stage_prep_b:
   lda #$02
   sta unram_16
   sta unram_17
+  lda #$03
+  sta unram_18
   lda #$00
   sta player_sprite
   lda #$01

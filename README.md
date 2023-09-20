@@ -20,3 +20,7 @@
 #   - better music
 #   - pause menu
 #   - health bar
+
+
+#   FCEUX stuff
+#   - Fn+] for pause/unpause rom
