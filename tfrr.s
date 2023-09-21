@@ -2181,6 +2181,7 @@ b_8f0b:
 b_8f14:
   ldx #$09
   lda plr_y_inc
+  bmi b_8ef4
   dex
   jmp b_8ef4
 b_8f1e:
@@ -2229,9 +2230,6 @@ ram_misc_11:
   and #$30
   beq b_8fe0
   cmp $00
-  bne b_8fe0
-  lda flight_status
-  and #$80
   bne b_8fe0
   lda flight_status
   and #$08
@@ -2465,6 +2463,9 @@ ram_misc_6:
   lda controller_current
   lsr
   bcc b_913d
+  lda controller_last
+  lsr
+  bcs b_910f
   lda flight_status
   and #$08
   bne b_910f
@@ -2483,6 +2484,7 @@ b_910f:
 b_9120:
   lda jump_hold
   and #$40
+  bne b_9144
   lda controller_current
   lsr
   bcc b_913e
@@ -2501,6 +2503,7 @@ b_913e:
   lda jump_hold
   ora #$40
   sta jump_hold
+b_9144:
   jmp ram_misc_5
 ram_misc_3:
   lda plr_x_inc_lo
@@ -2544,6 +2547,7 @@ b_918a:
   bit controller_current
   bmi right_is_pressed
   bvs left_is_pressed
+  rts
 left_is_pressed:
   jsr flip_bits_0
 right_is_pressed:
@@ -2656,6 +2660,8 @@ start_flight:
   bpl b_923b
   lda flight_status
   bmi b_923b
+  and #$20
+  beq b_923b
   lda #$10
   sta flight_status
   lda #$00
@@ -2825,7 +2831,7 @@ new_plr_y_pos:
   adc $00
   sta plr_y_prog_fr
   lda plr_y_prog_lo
-  and $04
+  adc $04
   sta plr_y_prog_lo
   lda plr_y_prog_hi
   adc #$00
@@ -2865,9 +2871,6 @@ b_93b0:
   sta plr_y_prog_hi
   lda y_scroll_lo
   clc
-  adc $00
-  sta y_scroll_lo
-  clc 
   adc $00
   sta y_scroll_lo
   lda y_scroll_hi
@@ -3133,6 +3136,12 @@ rtn_jmp_0:
   bcs rtn_jmp_0
   lda #$10
   sta state
+  rts
+  ldy #$04
+  jsr j_95aa
+  bcs rtn_jmp_0
+  lda #$10
+  sta state
   lda #$02
   ora sub_state
   sta sub_state
@@ -3159,6 +3168,8 @@ j_95b2:
   sta $00
   iny
   lda $01
+  sbc ($02),y
+  sta $01
   iny
   jsr flip_bits_1
   lda $01
@@ -3182,6 +3193,7 @@ j_95b2:
   lda $00
   cmp #$06
   bcs set_carry
+  rts
 set_carry:
   sec
   rts
@@ -3212,6 +3224,9 @@ b_9635:
   bpl b_9635
 b_9639:
   sta $00
+  sta unram_4
+  sec
+  sbc $00
   sta unram_4
   inc unram_5
   rts
@@ -3367,6 +3382,7 @@ b_9752:
   sta wpn_x_inc_lo,X
   lda $01
   sta wpn_x_inc_hi,x
+  jmp j_9773
 b_975f:
   lda #$00
   sta wpn_y_inc_lo,X
@@ -3376,6 +3392,7 @@ b_975f:
   sta wpn_x_inc_lo,X    ; give the vertical shot players x movement speed
   lda plr_x_inc_hi
   sta wpn_x_inc_hi,X
+j_9773:
   lda power_up
   and #$40              ; check for weapon powerup
   bne diag_bullet_rtn
@@ -3416,6 +3433,8 @@ fire_wpn:
   sta bullet_timer,X        ; set bullet timer
   lda #$80 
   sta wpn_status,X          ; set new bullet
+  lda #$00
+  sta wpn_sprite_type,x
 wpn_set_pos:
   lda plr_x_prog_fr
   clc
@@ -3468,7 +3487,8 @@ b_981b:
   lda wpn_status,X
   cmp #$C0
   beq b_9810
-  and #$80
+  and #$08
+  beq fire_missile
   txa
   clc
   adc #$10
@@ -3717,9 +3737,10 @@ next_wpn_ram:
   bpl wpn_misc_4a
   rts
 wpn_misc_6:
-  lda #<wpn_addr_tbl_2  ; #$B2
+  lda #$B2 ; lda #<wpn_addr_tbl_2  ??; #$B2
   sta $09
-  lda #>wpn_addr_tbl_2  ; #$9D ***** some code address lookup table
+  lda #$9D ; lda #>wpn_addr_tbl_2  ??; #$9D ***** some code address lookup table
+  sta $0A
   jmp j_9a7a
 wpn_lookup_rtn:
   lda stage_boss
@@ -4014,7 +4035,7 @@ lvl_misc_rtn_7:
   lda ($09),Y
   sta eny_spr_type,X
   iny
-  jsr ram_misc_25
+  jsr set_new_enemy
 b_a4c7:
   inc subtitle_timer
 b_a4c9:
@@ -4144,6 +4165,7 @@ b_a59b:
   bpl b_a5b0
   lda $04
   clc
+  adc #$10
   sta $04
 b_a5b0:
   lda $04
@@ -4320,7 +4342,7 @@ lvl_misc_rtn_10:
   bpl b_a6e0
   rts
 b_a6e0:
-  jsr ram_misc_25
+  jsr set_new_enemy
   lda #$00
   sta eny_spr_x_pos_fr,X
   sta eny_spr_y_pos_fr,X
@@ -4351,9 +4373,6 @@ lvl_misc_rtn_6:
   bne lvl_misc_rtn_6
 b_a719:
   rts
-ram_misc_25:
-  lda #$00
-  sta eny_exp_timer,X
 set_new_enemy:
   lda #$00
   sta eny_exp_timer,X
@@ -4367,6 +4386,7 @@ set_new_enemy:
   sta eny_spr_substatus,X
   lda #$80
   sta eny_spr_status,X      ; activate new enemy
+  rts
 clear_sprite_ram:
   lda #$00
   tax
@@ -4771,7 +4791,7 @@ enemy_misc_rtn_4:
   jsr lvl_misc_rtn_6
   lda $00
   beq b_aa68
-  jsr ram_misc_25
+  jsr set_new_enemy
   lda #$00
   sta eny_spr_x_pos_hi,X
   sta eny_spr_y_pos_hi,X
@@ -4896,11 +4916,6 @@ enemy_misc_rtn_3:
   clc
   adc $09
   sta $04
-  lda eny_spr_y_pos_hi,X
-  adc #$00
-  sta $05
-  jsr scroll_plr_up
-  lda $04
   lda eny_spr_y_pos_hi,X
   adc #$00
   sta $05
@@ -5654,6 +5669,7 @@ b_b176:
   lda eny_spr_substatus,X
   eor #$01
   sta eny_spr_substatus,X
+  rts
 enemy_misc_rtn_12:
   lda current_level
   cmp #$0E
@@ -5817,6 +5833,7 @@ b_b306:
   lda #$02
   sta $05
   jsr enemy_misc_rtn_5
+  rts
 ; @$B377
   lda eny_spr_x_pos_lo,X
   sta $00
@@ -5925,7 +5942,7 @@ b_b448:
   jsr lvl_misc_rtn_6
   lda $00
   beq b_b4aa
-  jsr ram_misc_25
+  jsr set_new_enemy
   stx $00
   ldx $0D
   ldy $00
@@ -5988,7 +6005,7 @@ b_b4c7:
   lda $00
   beq b_b50f
   jsr play_sound_j
-  jsr ram_misc_25
+  jsr set_new_enemy
   stx $00
   ldx $0d
   ldy $00
@@ -6041,6 +6058,9 @@ b_b52a:
   lda #$00
   sta eny_x_inc_hi,X
   lda eny_spr_x_pos_lo,X
+  sec
+  sbc $00
+  lda eny_spr_x_pos_hi,x
   sbc $01
   bcc b_b560
   lda #$40
@@ -6590,6 +6610,8 @@ b_b9cf:
   lda #$80
   sta unram_22
   lda #$19
+  sta $0B
+  lda #$19
   sta $0F
   lda #$12
   sta $0E
@@ -7021,6 +7043,9 @@ b_c2a4:                 ; weapon/enemy hit detection
   jsr flip_bits_1
   lda $01
   bne j_c2ec
+  lda $00
+  cmp $02
+  bcs j_c2ec
   lda #$00
   sta $00
   sta $01
@@ -7231,6 +7256,9 @@ b_c452:
   jsr flip_bits_1
   lda $01
   bne j_c494
+  lda $00
+  cmp $02
+  bcs j_c494
   jsr scroll_plr_up
   lda eny_spr_y_pos_lo,X
   sec
@@ -7385,6 +7413,7 @@ j_c564:
   sec
   sbc $04
   sta $08
+  cmp #$08
   bcs b_c5a5
   lda #$ff
   sta $06
@@ -7400,7 +7429,7 @@ b_c5a5:
   sta $00
   lda eny_spr_x_pos_hi,X
   sbc $01
-  sta$01
+  sta $01
   sta $07
   jsr flip_bits_1
   lda $01
@@ -7412,7 +7441,7 @@ b_c5a5:
   bcs b_c5dd
   lda plr_x_inc_hi
   eor $07
-  cmp b_c5dd
+  bmi b_c5dd
   lda #$00
   sta plr_x_inc_lo
   sta plr_x_inc_hi
@@ -7472,7 +7501,7 @@ b_c62b:
   lda #$06
   sta $03
 b_c644:
-  jsr scroll_plr_rt
+  jsr scroll_plr_up
   lda $00
   sec
   sbc bos_x_pos_hi,X
@@ -7483,7 +7512,10 @@ b_c644:
   jsr flip_bits_1
   lda $01
   bne b_c69a
-  jsr scroll_plr_up
+  lda $00
+  cmp $02
+  bcs b_c69a
+  jsr scroll_plr_rt
   lda $00
   sec
   sbc bos_y_pos_hi,X
@@ -7528,6 +7560,7 @@ b_c6a4:
   and #$DF
   sta power_up
   jsr play_sound_a
+  jmp b_c69a
 ram_misc_36:
   sta $0B
   txa
