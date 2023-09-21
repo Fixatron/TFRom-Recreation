@@ -7904,6 +7904,8 @@ scroll_logo:
   adc #$20
   sta $02
   lda $03
+  adc #$00
+  sta $03
   sta PPU_ADDR
   lda $02
   sta PPU_ADDR
@@ -8119,7 +8121,9 @@ rodimus_check:              ; this is where the end screen stuff starts, maybe
 :                   ; start of loading rodimus stuff
   lda rodimus_ram   
   lsr               ; shift right, if rodimus is activated there will be a carry
-  bcs :+            ; branch if rodimus is already enabled (if rodimus_ram = 01)
+  bcs b_d0bc        ; branch if rodimus is already enabled (if rodimus_ram = 01)
+  lda #$FF
+  sta rodimus_ram
   lda #$06          ; write "YUKE RODIMUS !"
   sta $02           ; load y offset for fetching text 
   lda #$D0
@@ -8137,8 +8141,8 @@ rodimus_check:              ; this is where the end screen stuff starts, maybe
   sta plr_y_pos_hi  ; text screen sprite y position
   lda #$0B
   sta player_sprite ; load stage start sprite
-  jmp :++++
-:
+  jmp j_d11e
+b_d0bc:
   lda #$00
   sta rodimus_ram
   lda #$01          ; write score
@@ -8157,18 +8161,19 @@ rodimus_check:              ; this is where the end screen stuff starts, maybe
   lda #$C8
   sta $0E
   lda which_player
-  bne :+                ; write player 2 score instead of 1
+  bne b_d0e9                 ; write player 2 score instead of 1
   jsr write_pl1_score_b ; @$88CF write pl1 score
-  jmp :++               ; skip writing player 2 score
-:
+  jmp j_d0ec            ; skip writing player 2 score
+b_d0e9:
   jsr write_pl2_score_b
-:
+j_d0ec:
   lda #$80              ; load sprite x position of 80
   sta plr_x_pos_hi      ; speed acts as the x position on the text screens
+  lda #$90
   sta plr_y_pos_hi
   lda #$0B              ; load Magnus stage/end screen sprite
   sta player_sprite
-  jmp :+
+  jmp j_d11e
 no_rodimus:
   lda #$07              ; write "destron wo.."
   sta $02
@@ -8187,7 +8192,7 @@ no_rodimus:
   sta plr_y_pos_hi
   lda #$0E              ; load prime head
   sta player_sprite
-:
+j_d11e:
   lda #$00
   sta timer_lo_byte
   sta timer_hi_byte
@@ -8201,26 +8206,26 @@ no_rodimus:
   jsr play_sound_e
   jsr set_PPU_CTRL_a
   jsr set_PPU_MASK_a
-:
+j_d13b:
   lda controller_p1_current
   and #$08
-  bne :++          ; branch out if start is pushed
+  bne b_d15f          ; branch out if start is pushed
   lda timer_hi_byte
   cmp #$F0
-  bcs :++          ; branch out if timer is up, 0F at the hi byte is pretty long
+  bcs b_d15f          ; branch out if timer is up, 0F at the hi byte is pretty long
   ldx #$20
   lda timer_lo_byte
   and #$08
-  bne :+          ; load $20 to stage_boss every 256 frames at frame 8
+  bne b_d151          ; load $20 to stage_boss every 256 frames at frame 8
   ldx #$16        ; load $16 to stage_boss every frame, except frame 8
-:
+b_d151:
   stx stage_boss
   lda timer_hi_byte
   cmp #$01
-  bne :--         ; loop back and check if controller pressed start on the second loop of the timer, only?***
+  bne j_d13b         ; loop back and check if controller pressed start on the second loop of the timer, only?***
   jsr flip_rodimus_ram  ; check if rodimus ram is FF, show magnus 
-  jmp :--         ; jump back and check for start press
-:
+  jmp j_d13b         ; jump back and check for start press
+b_d15f:
   jsr set_PPU_MASK_b
   jsr set_PPU_CTRL_b
   jsr disable_audio_channels
@@ -8237,11 +8242,11 @@ show_mag_flash_rod:
   lda  timer_lo_byte
   and #$08
   bne show_rodimus
-:
+b_d17c:
   lda magnus_pal_tbl,y
   sta player_palette_ram,Y  ; store magnus palette to ram
   dey
-  bpl :-                    ; load 3 bytes of the palette colours
+  bpl b_d17c                    ; load 3 bytes of the palette colours
   lda #$0B
   sta player_sprite         ; load magnus sprite
   rts
@@ -8276,11 +8281,11 @@ fetch_text:
   sta PPU_ADDR
   ldx #$00
   lda #$FF
-:
+b_d1c5:
   sta PPU_VRAM_IO
   inx
   cpx #$08
-  bcc :-
+  bcc b_d1c5
   jmp ppu_scroll
 end_text_tbl: ; @$D1D0-D353
 	.byte $DE,$D1,$F3,$D1,$07,$D2,$1B,$D2,$32,$D2,$42,$D2,$53,$D2                                                     ; text lookup table for the following text, second ending
@@ -8373,6 +8378,8 @@ start_pushed_at_title:
   lda #$80
   sta plr_x_pos_hi                 ; used for sprite x position
   lda #$01
+  sta stage_boss
+  lda #$15
   sta current_level
   jsr clear_sprite_ram
   jsr level_sub_a
@@ -8488,6 +8495,9 @@ b_d4cf:
   cmp #$FF
   beq b_d512
   lda apu_status_ram_0,Y
+  clc
+  adc #$01
+  sta apu_status_ram_0,Y
   lda audio_ram_0,X
   beq b_d51b
   inc audio_ram_C,X
@@ -8624,12 +8634,12 @@ apu_status_rtn_2:
 b_d5f0:
   and #$0f
   cmp #$0F
-  beq :+
+  beq b_d600
   dec audio_ram_9,X
   beq apu_status_rtn_2
-  bpl :+
+  bpl b_d600
   sta audio_ram_9,X
-:
+b_d600:
   lda ($10),Y
   clc
   adc audio_ram_0,X
@@ -8643,9 +8653,14 @@ b_d60c:
   lda audio_ram_6,X
   and #$10
   beq apu_status_rtn_2
+  lda ($10),Y
+  sta audio_ram_B,X
+  lda apu_status_ram_7
+  sta audio_ram_A,X
+  bpl apu_status_rtn_2
 apu_status_rtn:
   bit apu_status_ram_5 
-  bmi :+
+  bmi b_d63a
   lda ($10),Y
   and #$03
   ror
@@ -8653,7 +8668,7 @@ apu_status_rtn:
   ror
   sta apu_status_ram_7
   rts
-:
+b_d63a:
   lda ($10),Y
   and #$7F
   sta apu_status_ram_7
@@ -9371,7 +9386,9 @@ end_tbl_a:
 .byte $2A,$2E,$2F,$2B,$2C,$30,$31,$97,$98,$99,$9A,$78,$79,$7A,$7B,$3D,$3E,$44,$45,$4B,$4C,$51,$52,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$BC,$BD,$BE,$BF,$C5,$C6,$C7,$C8,$CB,$CC,$CD,$CE,$CF,$D0,$D1
 .byte $D2,$D4,$D5,$D6,$D7,$AC,$AD,$AE,$AF,$B0,$B1,$B1,$B0,$92,$93,$94,$95,$9B,$9C,$9D,$9E,$A0,$A1,$A2,$A3,$A5,$A6,$A7,$A8,$74,$75,$76,$77,$7C,$7D,$7E,$7F,$7E,$7F,$80,$81,$84,$85,$86,$87,$89
 .byte $8A,$8B,$8C,$2E,$2F,$35,$36,$30,$31,$37,$38,$3F,$40,$46,$47,$4D,$4E,$53,$54,$59,$5A,$63,$64,$6C,$6D,$75,$76,$7E,$7F,$83,$84,$1D,$09,$1E,$0B,$1F,$1F,$29,$29,$22,$1F,$24,$23,$1F,$22,$23
-.byte $24,$09,$0A,$0B,$0C,$00,$00,$00,$00,$20,$20,$20,$20,$FF,$FF,$FF,$FF,$20,$20,$01,$02,$E8,$E9,$20,$20,$00,$00,$00,$00,$6C,$83,$00,$81,$0A,$84
+.byte $24,$09,$0A,$0B,$0C,$00,$00,$00,$00,$20,$20,$20,$20,$FF,$FF,$FF,$FF,$20,$20,$01,$02,$E8,$E9,$20,$20,$00,$00,$00,$00
+; extra characters that are automatically put in, i guess.
+; $6C,$83,$00,$81,$0A,$84
 ; Character memory
 .segment "CHARS"
   .incbin "tfrr.chr"
