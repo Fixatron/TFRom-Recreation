@@ -113,7 +113,7 @@ palette_data_start_word = $0099
 unram_11                = $A7
 
 player_palette_ram      = $AA
-
+stage_boss2             = $A8
 unram_12                = $B8
 new_tile_x_PPU_ADDRESS  = $B9
 new_tile_y_PPU_ADDRESS  = $BA
@@ -281,7 +281,7 @@ JOY2_FRAME      = $4017         ; Joypad #2/SOFTCLK (RW)
   .byte 2               ; 2x 16KB PRG code
   .byte 4               ; 4x  8KB CHR data
   .byte $31             ; mapper 1, vertical mirroring
-  .byte $56, $65, $6E, $75, $74, $65, $63, $68, $21 ; This says "VENUTECH!"
+  .byte $44, $69, $73, $6B, $44, $75, $64, $65, $21 ; $56, $65, $6E, $75, $74, $65, $63, $68, $21 This says "VENUTECH!"
  
 .segment "VECTORS"
   ;; When an NMI happens (once per frame if enabled) the label nmi:
@@ -426,20 +426,20 @@ pre_stage_prep_a:
   lda stage_orientation_table,Y   ; load stage orientation table @$CC77
   sta stage_orientation         ; store in ram
   and #$40                      ; check for upwards levels, 3 or 10
-  beq :+                        ; branch if not
+  beq b_81c3                        ; branch if not
   lda #$00
   sta plr_y_prog_fr        ; store 00 enemy sprite x offset
   lda #$C0
   sta plr_y_prog_lo        ; store C0 enemey sprite y offset
   lda #$03
   sta plr_y_prog_hi         ; store 03 enemy orientation
-  jmp :++                       ; skip the part where we clear the enemy sprite offsets if level isnt 3 or 10
-:
+  jmp j_81cb                       ; skip the part where we clear the enemy sprite offsets if level isnt 3 or 10
+b_81c3:
   lda #$00                      ; clear enemy offsets on all levels except 3 and 10
   sta plr_y_prog_fr        
   sta plr_y_prog_lo        
   sta plr_y_prog_hi         
-:
+j_81cb:
   tya
   asl
   tay       ; multiply level index offset by 2
@@ -488,10 +488,10 @@ pre_stage_prep_b:
   lda unram_20              ; load @$73
   sta $00
   cmp #$07
-  bcc :+
+  bcc b_822f
   lda #$0F
   sta $00
-:
+b_822f:
   lda player_speed_tbl,Y    ; load player speed, although its always 20
   sec
   sbc $00
@@ -509,49 +509,50 @@ pre_stage_prep_b:
 vblankwait3:
   lda #$30
   bit state
-  bvs :++
-  bmi :+++++
-  beq :+
+  bvs b_8267
+  bmi b_82ac
+  beq b_8260
   jmp main_jmp_1
-:
+b_8260:
   lda controller_p1_current
   and #$04                  ; is select pressed?
   jmp vblankwait3
-:
+b_8267:
   jsr set_PPU_MASK_b
   jsr set_PPU_CTRL_b
   jsr disable_audio_channels
   lda current_level
   cmp #$10
-  bne :+
+  bne b_827d
   lda unram_4
-  beq :+
+  beq b_827d
   jmp pre_stage_prep
-:
+b_827d:
   inc current_level         ; next level
   lda #$00
   sta unram_21
   sta sub_state
   ldy current_level         ; load current level to Y
   cpy #$14
-  bcc :+
+  bcc b_829e
   jsr rodimus_check         ; @$D076 a bit mangled in the code, but its not too difficult to figure out
   inc unram_20
   ldy #$00
   lda  rodimus_ram
   and #$FE                  ; check for letters, play as rodiumus is in 0bit, letters are in the restr
   eor #$FE
-  beq :+                    ;branch if all letters are collected but rodimus not activated, yet
+  beq b_829e                    ;branch if all letters are collected but rodimus not activated, yet
   lda #$00
   sta  rodimus_ram
-:                          ; loop here until player pushes select
+b_829e:                          ; loop here until player pushes select
   sty current_level        ; storing y in current level isn't actually necessary because we've loaded y from the current level ******
+b_820a:                        
   jsr get_player_input
   lda #$04
   and controller_p1_current
-  bne :-                    ; branch if select is pushed
+  bne b_820a                    ; branch if select is pushed
   jmp pre_stage_prep
-:
+b_82ac:
   jsr set_PPU_MASK_b
   jsr set_PPU_CTRL_b
   jsr disable_audio_channels
@@ -623,16 +624,16 @@ main_jmp_1:
   jmp pre_stage_prep_a
 :
   jsr load_lvl_prog_bkup    ; @$9689
-  jsr pre_stage_prep_b ; @$81D8
+  jmp pre_stage_prep_b ; @$81D8
 swap_player_ram:
   ldx #$00
 :
   lda lives,X
   sta $00
-  lda other_pl_stored_data
+  lda other_pl_stored_data,X
   sta lives,X
   lda $00
-  sta other_pl_stored_data
+  sta other_pl_stored_data,X
   inx 
   cpx #$18
   bcc :-
@@ -670,7 +671,7 @@ nmi:                        ; beginning of frame
   lda rtn_trk_a             ; check routine status, do stuff if 0bit is set or if it isnt
   lsr
   bcc :+                    ; branch if stack is cleared
-  jsr stack_handler_1       ; @$840B ** did I do this yet?
+  jmp stack_handler_1       ; @$840B ** did I do this yet?
 :
   lda rtn_trk_a
   ora #$01                  ; set 0bit in routine status to 1
@@ -1131,7 +1132,7 @@ controller_input_check_b:
   sta rtn_trk_0
   lda rtn_trk_a
   ora #$40
-  sta rtn_trk_b
+  sta rtn_trk_a
   jsr disable_audio_channels
   jmp play_pause_sound   ;@$da03 (86f4)
 :
@@ -1187,7 +1188,7 @@ write_blank_screen_a:
   iny
   cpy #$C0
   bcc :-
-  lda $00
+  lda #$00
 :
   sta PPU_VRAM_IO
   iny
@@ -1267,9 +1268,9 @@ ram_misc_37:
   sta p2ScoreMid
   lda p2ScoreHi
   adc #$00
-  sta p1ScoreHi
-chk_1up:
-  jsr offer_1up
+  sta p2ScoreHi
+chk_1up: 
+  jsr p1_1_up_check
   lda p1ScoreLo
   sec
   sbc p2ScoreLo
@@ -1302,7 +1303,7 @@ p2_highscore:
   sbc hiScoreMid
   lda p2ScoreHi
   sbc hiScoreHi         
-  bcs c_exit             ; branch out if score isnt higher than current high score
+  bcc b_exit             ; branch out if score isnt higher than current high score
   lda p2ScoreLo
   sta hiScoreLo
   lda p2ScoreMid
@@ -1319,7 +1320,7 @@ p1_1_up_check:
   lda score_1_up_mid
   sbc p1ScoreMid
   lda score_1_up_hi
-  sbc p2ScoreHi
+  sbc p1ScoreHi
   bcc offer_1up
   rts
 p2_1_up_check:
@@ -1400,6 +1401,7 @@ roll_ram_4_5:
   rts
 send_palette_to_ram:
   ldy #$1F
+:
   lda ($00),Y
   sta palette_data_start_word,y    ; @$0099
   dey
@@ -1423,7 +1425,7 @@ write_pl1_score_b:
 write_pl2_score:
   lda #$18
   sta $0f
-  lda #$0E
+  lda #$E0
   sta $0E
 write_pl2_score_b:
   lda p2ScoreLo
@@ -1527,7 +1529,7 @@ enemy_misc_rtn_14:
   sta $0E
   lda stage_tbl_2+1,Y
   sta $0F                           ; get address from jump table
-  lda #$00
+  lda $00
   and #$30                          ; and @$00 with %00110000
   lsr
   lsr
@@ -1614,7 +1616,7 @@ enemy_misc_rtn_14:
   ldx #$24
 :
   sty palette_x_address
-  sty new_tile_x_PPU_ADDRESS
+  stx new_tile_x_PPU_ADDRESS
   lda $00
   lsr
   lsr
@@ -1656,10 +1658,10 @@ get_lvl_nmtbl_addr:
   lda ($09),Y
   asl
   tax
-  lda stage_tbl_4,Y
+  lda stage_tbl_4,X
   sta $02
   sta $07
-  lda stage_tbl_4+1,Y
+  lda stage_tbl_4+1,X
   sta $03
   sta $08
   rts
@@ -1675,7 +1677,7 @@ write_new_tile_column:
   ldx #$00
 :
   lda newTileColumnStart,X
-  sta PPU_ADDR
+  sta PPU_VRAM_IO
   inx
   cpx #$1E
   bcc :-
@@ -1806,7 +1808,7 @@ write_text:
   iny
 :                   ; loop writing Takara letters
   lda ($00),y
-  sta PPU_ADDR
+  sta PPU_VRAM_IO
   iny
   dex
   bpl :-
@@ -2089,11 +2091,12 @@ ram_misc_13:
   bmi :+
   ora plr_y_inc_fraction
   bne :++
-  jmp jmp_chk_A_press   ;*************@8e82
+  jmp jmp_chk_A_press   ;*************@8e92
 :
   jsr ram_misc_7
   bcs player_pose_2
   jmp jmp_chk_A_press
+:
   jsr ram_misc_4
   bcs player_pose_2
 jmp_chk_A_press:
@@ -2102,7 +2105,7 @@ jmp_chk_A_press:
   bcs :+
   lda controller_current
   lsr
-  bcs :+
+  bcc :+
   lda #$00
   sta flight_status
 :
@@ -2465,7 +2468,7 @@ ram_misc_6:
   bcc b_913d
   lda controller_last
   lsr
-  bcs b_910f
+  bcs b_913d
   lda flight_status
   and #$08
   bne b_910f
@@ -2552,7 +2555,7 @@ left_is_pressed:
   jsr flip_bits_0
 right_is_pressed:
   jsr ram_misc_18
-  lda #$08
+  lda $08
   sta plr_x_inc_lo
   lda $09
   sta plr_x_inc_hi
@@ -2648,7 +2651,7 @@ b_923b:
   rts
 start_flight:
   lda plr_y_inc_fraction
-  cmp #$20
+  cmp #$30
   bcs b_923b
   lda controller_current
   lsr
@@ -2746,7 +2749,7 @@ b_92e4:
   lda $01
   cmp #$90
   bcc b_92ad
-  lda $01
+  lda #$01
   sta state
   rts
 new_y_pos:
@@ -2943,7 +2946,7 @@ ram_misc_21:
   lsr $03
   sec
   lda $00
-  sbc $30
+  sbc $03
   sta $00
   lda $01
   sbc #$00
@@ -3224,7 +3227,7 @@ b_9635:
   bpl b_9635
 b_9639:
   sta $00
-  sta unram_4
+  lda unram_4
   sec
   sbc $00
   sta unram_4
@@ -3514,7 +3517,7 @@ fire_missile:
   sta $01
   lda player_direction
   bne b_9858
-  jsr flip_bits_1
+  jsr flip_bits_0  ;to @8962
 b_9858: 
   lda $00
   sta wpn_x_inc_lo,X
@@ -4117,7 +4120,7 @@ b_a54a:
   sta eny_spr_type,X
   lda #$00
   sta $04
-  jsr set_new_enemy
+  jsr set_new_enemy_no_reset_exp_timer
   jsr enemy_new_pos
   lda current_level
   asl
@@ -4174,7 +4177,7 @@ b_a5b0:
   and #$BF
   sta eny_spr_type,X
   jsr enemy_new_pos
-  jsr set_new_enemy
+  jsr set_new_enemy_no_reset_exp_timer
   dec $01
   bne b_a570
   rts
@@ -4186,7 +4189,7 @@ enemy_new_pos:
   lda plr_x_prog_hi
   adc #$01
   sta eny_spr_x_pos_hi,X
-  jsr set_new_enemy
+  jsr set_new_enemy_no_reset_exp_timer
   rts
 level_sub_a:
   lda #$00
@@ -4228,7 +4231,7 @@ b_a619:
   lda plr_y_prog_lo
   sta $02
   clc
-  adc #$0F
+  adc #$F0
   sta $04
   lda plr_y_prog_hi
   sta $03
@@ -4376,6 +4379,7 @@ b_a719:
 set_new_enemy:
   lda #$00
   sta eny_exp_timer,X
+set_new_enemy_no_reset_exp_timer:
   lda #$00
   sta eny_x_inc_lo,X
   sta eny_x_inc_hi,X
@@ -4430,7 +4434,7 @@ eny_spr_clear_data:
   cmp #$14
   beq b_a792
   cmp #$15
-  beq b_a7a0
+  bne b_a7a0
 b_a792:
   lsr unram_19
   bne b_a7a0
@@ -4508,7 +4512,7 @@ b_a7f8:
   jmp ($0000)
 b_a820:
   nop
-  lda #$0D
+  lda $0D
   clc
   adc #$10
   tax
@@ -4823,7 +4827,7 @@ b_aa69:
   sta state
   rts
 eny_misc_jmp_tbl:   ; @$AA6E-AA71
-  .byte $71,$AA,$F2,$AA
+  .byte $72,$AA,$F2,$AA
 enemy_lookup_tbl:   ; @$aa72-ab27
 	.byte $5C,$B2,$79,$B2,$CE,$B2,$23,$B3,$45,$B3,$55,$B3,$6B,$B3,$77,$B3,$F0,$B3,$5C,$B6,$B9,$B6,$22,$B4,$6A,$B6,$78,$B6,$2A,$B7,$64,$B7
 	.byte $87,$B7,$AC,$B7,$7B,$BB,$1C,$B8,$D3,$B8,$DF,$B8,$E8,$B8,$0F,$B9,$2A,$B9,$32,$B9,$96,$B9,$A1,$B9,$3F,$AB,$3F,$AB,$1D,$BB,$1D,$BB
@@ -4946,8 +4950,8 @@ enemy_misc_rtn_5:
   lda $01
   cmp #$C0
   bcc b_ac1b
-  lda #$00
 b_ac08:
+  lda #$00
   sta eny_y_inc_lo,X
   sta eny_y_inc_hi,X
 b_ac10:
@@ -4982,7 +4986,7 @@ b_ac1b:
 b_ac4b:
   jsr lvl_misc_rtn_1a
   jsr lvl_misc_rtn_2
-  ldx #$0D
+  ldx $0D
   bcs b_ac66
   lda #$00
   sta eny_y_inc_lo,X
@@ -5041,7 +5045,7 @@ eny_pu_misc:        ; @$ acb8
   sta $04
   lda eny_pu_tbl+1,Y
   sta $05
-  lda eny_x_inc_hi,X
+  lda eny_spr_type,X
   asl
   tay
   lda ($04),y
@@ -5527,7 +5531,7 @@ b_b078:
   beq b_b0a8
   lda eny_spr_x_pos_lo,X
   clc
-  adc $01
+  adc $00
   sta bos_x_pos_hi,Y
   lda eny_spr_x_pos_hi,X
   adc $01
@@ -5682,13 +5686,13 @@ b_b18a:
   and #$08
   bne b_b199
   lda #$0F
-  sta stage_boss
+  sta stage_boss2
   lda #$00
   sta unram_11
   rts
 b_b199:
   lda #$00
-  sta stage_boss
+  sta stage_boss2
   lda #$0F
   sta unram_11
   rts
@@ -5708,7 +5712,7 @@ mid_tbl_b_3:        ; @$B226-B25B
   lda #$02
   sta $05
   jsr b_ab28
-  lda #80
+  lda #$80
   sta eny_x_inc_lo,X
   lda #$FE
   sta eny_x_inc_hi,X
@@ -5872,7 +5876,7 @@ b_b3a5:
   sta $0F
   jsr lvl_misc_rtn_1a
   jsr lvl_misc_rtn_2
-  ldx #$0d
+  ldx $0d
   bcs b_b3dd
   lda eny_x_inc_lo,X
   eor #$ff
@@ -5923,7 +5927,7 @@ j_b3fb:
   sta $05
   lda #$00
   sta $09
-  jsr enemy_misc_rtn_13
+  jsr enemy_misc_rtn_3
   lda #$40
   sta  eny_x_inc_lo,X
   lda #$ff
@@ -6018,7 +6022,7 @@ b_b4c7:
   sta eny_spr_x_pos_hi,Y
   lda eny_spr_y_pos_lo,X
   clc
-  adc #$0F
+  adc $0F
   sta eny_spr_y_pos_lo,Y
   lda eny_spr_y_pos_hi,X
   adc #$00
@@ -6074,7 +6078,7 @@ b_b560:
   sta $05
   lda #$00
   sta $09
-  jsr enemy_misc_rtn_13
+  jsr enemy_misc_rtn_3
   rts
   lda #$10
   sta $00
@@ -6231,7 +6235,7 @@ b_b6b8:
   and #$04
   bne b_b714
   lda #$00
-  sta eny_x_inc_lo,X
+  sta eny_y_inc_lo,X
   sta eny_x_inc_lo,X
   sta eny_x_inc_hi,X
   lda #$02
@@ -6250,11 +6254,11 @@ b_b6b8:
   lda eny_spr_y_pos_hi,X
   sbc $01
   bcc b_b713
-  lda eny_spr_y_pos_lo,X
+  lda eny_spr_x_pos_lo,X
   sta $00
   lda eny_spr_x_pos_hi,X
   sta $01
-  lda eny_spr_y_pos_hi,X
+  lda eny_spr_y_pos_lo,X
   sta $0E
   lda eny_spr_y_pos_hi,X
   sta $0F
@@ -6332,7 +6336,7 @@ b_b786:
   sta $05
   lda #$00
   sta $09
-  jsr enemy_misc_rtn_13
+  jsr enemy_misc_rtn_3
   lda #$A0
   sta unram_22
   lda #$00
@@ -6517,7 +6521,7 @@ b_b8c6:
   sta $05
   lda #$0C
   sta $09
-  jsr enemy_misc_rtn_13
+  jsr enemy_misc_rtn_3
   rts
   lda #$60
   sta unram_22
@@ -6692,7 +6696,7 @@ b_b9cf:
   lda #$00
   sta eny_y_inc_lo,X
   lda #$fe
-  sta eny_x_inc_hi,X
+  sta eny_y_inc_hi,X
   rts
   lda eny_spr_substatus,X
   and #$04
@@ -6700,7 +6704,7 @@ b_b9cf:
   lda #$80
   sta eny_y_inc_lo,X
   lda #$fe
-  sta eny_x_inc_hi,X
+  sta eny_y_inc_hi,X
   lda eny_spr_substatus,X
   ora #$04
   sta eny_spr_substatus,X
@@ -6716,7 +6720,7 @@ b_bac0:
   sta $05
   lda #$00
   sta $09
-  jsr enemy_misc_rtn_13
+  jsr enemy_misc_rtn_3
   rts
   lda #$60
   sta unram_22
@@ -6846,7 +6850,7 @@ b_bb51:
 b_bbdf:
   rts
 b_bbe0:
-  lda $00
+  lda #$00
   sta state
   rts
   lda #$01
@@ -7097,7 +7101,7 @@ b_c309:
   lda enemy_addr_tbl_2,Y
   sta $06
   lda enemy_addr_tbl_2+1,y
-  lda $07
+  sta $07
   ldy $0F
   lda eny_spr_type,Y
   asl
@@ -7162,7 +7166,7 @@ b_c3b0:
   lda current_level
   lsr
   tay
-  lda mid_tbl_2,Y
+  lda misc_tbl_1,Y    ; get enemy frozen timer from table
   ldy $0F
   sta eny_frozen_timer,Y
   jmp enemy_stop
@@ -7199,7 +7203,7 @@ enemy_misc_rtn_9:
   sta flight_status
   ldx #$00
   stx unram_6
-  sta unram_8
+  stx unram_8
   lda #$0F
   sta $0C
 j_c406:
@@ -7325,7 +7329,7 @@ b_c4df:
   cmp #$23
   beq j_c494
   cmp #$34
-  beq b_c4a1
+  bcc b_c4a1
   ldy #$40
   cmp #$35
   bcc b_c53c
@@ -7501,7 +7505,7 @@ b_c62b:
   lda #$06
   sta $03
 b_c644:
-  jsr scroll_plr_up
+  jsr scroll_plr_rt
   lda $00
   sec
   sbc bos_x_pos_hi,X
@@ -7515,7 +7519,7 @@ b_c644:
   lda $00
   cmp $02
   bcs b_c69a
-  jsr scroll_plr_rt
+  jsr scroll_plr_up
   lda $00
   sec
   sbc bos_y_pos_hi,X
@@ -7628,7 +7632,9 @@ enemy_addr_tbl_2: ; @$C850
 	.byte $9F,$00,$00,$02,$00,$FF,$00,$30,$00,$00,$9F,$00,$9E,$00,$80,$00,$B7,$00,$B8,$00,$80,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 	.byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$03,$00,$0F,$00,$0F,$00,$0F,$00,$0F,$00,$00,$00,$00,$00,$03,$00,$00
 	.byte $00,$03,$00,$05,$00,$03,$00,$00,$00,$0A,$00,$04,$00,$00,$00,$09,$00,$30,$00,$03,$00,$30,$00,$04,$00,$04,$7F,$00,$00,$00,$00,$00
-	.byte $00,$30,$39,$3A,$00,$3B,$3C,$00,$3D,$00,$3F,$00
+	.byte $00,$30
+misc_tbl_1:
+  .byte $39,$3A,$00,$3B,$3C,$00,$3D,$00,$3F,$00
 chr_rom_bank_tbl: ; @$C912-C92E
   .byte $00,$00,$00,$00,$00,$02,$01,$01,$01,$00,$00,$02,$00,$00,$01,$02,$02,$00,$01,$02,$03,$00,$03,$00,$03,$00,$03,$00,$00
 stage_boss_table:     ; @$C92F-C943
@@ -7636,7 +7642,7 @@ stage_boss_table:     ; @$C92F-C943
 untbl_1:
   .byte $00,$00,$00,$00,$00,$00,$00,$00,$01   ; padding?
 stage_misc_tbl_1:; @$rom495c-496e/memory c94c
-  .byte $01,$01,$03,$01,$01,$01,$01,$01,$01,$01
+  .byte $01,$03,$01,$01,$01,$01,$01,$01,$01,$01
 untbl_2:
   .byte $01,$01,$01,$01,$01,$01,$01,$01,$01
 eny_pos_addr_tbl:
@@ -7931,7 +7937,7 @@ screen_misc_rtn_2:
   ldx #$03
 :
   lda cursor_tbl,X ;@$ce93
-  sta cursor_tbl,x
+  sta sprite1_y_pos,X
   dex
   bpl :-
   rts
@@ -8006,7 +8012,7 @@ write_stage_num:
   sta PPU_VRAM_IO
 :
   rts
-pre_stage_screen:
+pre_stage_screen: ; @cf17
   lda current_level
   and #$01
   bne :-                ; return if we're on a boss
@@ -8219,7 +8225,7 @@ j_d13b:
   bne b_d151          ; load $20 to stage_boss every 256 frames at frame 8
   ldx #$16        ; load $16 to stage_boss every frame, except frame 8
 b_d151:
-  stx stage_boss
+  stx stage_boss2 ; thought this was for the stage_boss ram value, but its something different afterall
   lda timer_hi_byte
   cmp #$01
   bne j_d13b         ; loop back and check if controller pressed start on the second loop of the timer, only?***
@@ -8242,8 +8248,8 @@ show_mag_flash_rod:
   lda  timer_lo_byte
   and #$08
   bne show_rodimus
-b_d17c:
-  lda magnus_pal_tbl,y
+b_d17c: 
+  lda magnus_pal_tbl2,Y     ; load magnus 2 pal tbl
   sta player_palette_ram,Y  ; store magnus palette to ram
   dey
   bpl b_d17c                    ; load 3 bytes of the palette colours
@@ -8313,9 +8319,10 @@ palette_table_2:    ; @$D354-D373
 	.byte $0F,$0F,$0F,$0F
 	.byte $0F,$0F,$0F,$0F
 	.byte $0F,$0F,$0F,$20
-	.byte $0F,$20,$21,$16
-	.byte $0F,$20,$10,$00
 	.byte $0F
+magnus_pal_tbl2:
+  .byte $20,$21,$16,$0F
+	.byte $20,$10,$00,$0F
 magnus_pal_tbl:
   .byte $20,$21,$16
 	.byte $0F,$20,$10,$00
@@ -8757,7 +8764,7 @@ set_sq1_vol_a:
   and #$10
   asl
   ora audio_ram_6,X
-  sta APU_PULSE1CTRL        ; send to sq1 vol @$4000
+  sta APU_PULSE1CTRL,Y        ; send to sq1 vol @$4000
   rts
 :
   lda audio_ram_6,X
@@ -8775,7 +8782,7 @@ set_sq1_vol_a:
   asl
   pha
   lda audio_ram_C,X
-  sta apu_status_ram_8
+  sta apu_status_ram_7
   lda #$00
   sta apu_status_ram_8
   ldy #$04
@@ -8832,11 +8839,11 @@ set_sq1_vol_a:
   and #$C0
   ora #$30
   ora apu_status_ram_8
-  sta APU_PULSE1CTRL        ; send to sq1 vol
+  sta APU_PULSE1CTRL,Y        ; send to sq1 vol
   rts
 audio_status_rtn:
   ldy apu_status_ram_4
-  lda apu_status_ram_0
+  lda apu_status_ram_0,Y
   cmp #$01
   beq :+
   pla
@@ -8943,14 +8950,14 @@ play_sound_a:
   jsr load_audio_ram
   lda #$01
   ldx #$07
-  jsr load_audio_ram
+  jmp load_audio_ram
 :
   lda #$0D 
   ldx #$06
   jsr load_audio_ram
   lda #$0E
   ldx #$07
-  jsr load_audio_ram
+  jmp load_audio_ram
 :
   sec
   sbc #$14
@@ -8981,7 +8988,7 @@ play_sound_g:
 not_played_sound_c:
   lda #$17
   ldx #$06
-  jsr load_audio_ram
+  jmp load_audio_ram
 play_game_over_sound:
   lda #$11
   ldx #$00
