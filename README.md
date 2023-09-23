@@ -4,6 +4,7 @@
     I annotated what I could as I was learning
     Its finally able to be compiled into a working game
     Over time, I will update the annotations and look for improvements, but not this month
+    Decompiled with the help of FCEUX by Dr Venutech Archeville
 
 #   Installation and Environment
     I followed the NES development environment setup tutorial from NESHacker on Youtube https://www.youtube.com/watch?v=RtY5FV5TrIU&pp=ygUKdnNjb2RlIG5lcw%3D%3D
