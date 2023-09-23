@@ -44,3 +44,61 @@ Wiiポイント：５００
 上手にできるとは限りません！
 トラウマを重ねないよう細心の気構えを
 もってプレイしてごください。
+
+
+
+
+=================================================================================================
+
+Another resource for info on this game
+https://web.archive.org/web/20170727035804/http://www.pleasesavemerobots.com/scrambledcity/moc/main.html
+
+Anyone who's ever played the Japanese Famicom game "Convoy No Nazo' aka 'Mystery of Comvoy' aka 'The Many Toturous Deaths of Ultra Magnus' knows how tough this game is. There are numerous reviews of the game online in both Japanese and English where the reviewers didn't get past stage nine. (Hell, most people don't get past stage three.) What sucks is that there are a few screenshots on Japanese websites showing the end bosses of the game, but NOBODY TELLS YOU HOW TO GET THAT FAR. It's like there's some sort of 'stage nine beaters club' that people join once they beat the game and they never help anyone out. Well I beat stage nine, and I'm going to show you how! I'm even gonna give you NESticle users the STA files to beat not only stage nine, but the whole friggin game!
+
+THE MYSTERY OF THIS SITE'S LAYOUT
+I wrote this mini-guide with frustrated Mystery of Convoy gamers in mind, so if you are one, go ahead and skip to the page that interests you. I have three site sections-the stage nine walkthrough page, a spoilers page with revelations about the end of the game, and a links page for those who want to find places to download the game or read online reviews of it.
+
+CONTROLS, TIPS, and a CONTINUE CODE!
+Have you ever been playing M.o.C. and wondered just what the hell was going on? There are all sorts of letters appearing in the sky when Starscream dies, red colored seeker jets flying around, and it may seem that bumping MAGNUS' head on the ceiling gives him the power to fly! These things aren't glitches, and this section will explain the basics of M.o.C's controls and gameplay.
+
+CONTROLS
+
+In robot mode:
+UP: Does nothing
+DOWN: Transform to vehicle mode
+RIGHT: Move right
+LEFT: Move left
+A: Jump
+B: Shoot
+
+In vehicle mode:
+UP: Transform to robot mode
+DOWN: Does nothing
+RIGHT: Move right
+LEFT: Move left
+A: Shoot forward
+B: Shoot upward
+
+Special Items
+Hidden Blue Triangles
+In every stage there are blue triangles that can only be revealed by shooting at specific places. Each blue triangle is worth 1,000 points. They are desireable because extra lives are awarded every 20,000 points, except for the first one which is awarded at 10,000 points.
+
+The TAKARA logo
+In stage nine, one enemy turns into a Takara logo worth 5,000 points. Why? When it comes to weirdness in this game I try not to ask.
+
+Items left from defeating Starscream:
+P: Power up rifle-Magnus' bullets shoot in multiple directions.
+B: Barrier-Magnus can absorb 3 enemy attacks. Special music plays.
+F: Flight-Press and hold A and Magnus can fly. Doesn't appear until 4th stage.
+D: De-energizes Magnus-It negates previous power ups. A BAD THING
+1: 1-Up
+The value of each item above is 1,000 points except for the D. It's worthless.
+
+Letters in RED ENERGON CUBES
+One special horizontally flying Starscream in stages 1,2,4,5,7, and 9 leaves a letter in a red box. Collect all the letters to spell RODIMUS. (In stage 8 there are no Starscreams, but there is a secret room you must find to get the letter U.) If you beat the level ten boss after acquiring all seven letters to spell RODIMUS, you get a special surprise. See the SPOILERS section.
+
+Goldbug's Warp Zones
+In stage two and again in stage seven, a red, white, and orange seeker jet will appear. Shoot it once and it will transform into robot mode and reverse its direction. Shoot it again when it's a robot and you will activate a warp! Both times you will be transported to a black screen where Goldbug appears and escorts Magnus to the beginning of a new stage! The stage two warp goes to stage four, and the stage seven warp goes to stage nine.
+
+Continue Code
+Owners of the Famicom console rejoice! If you die and lose all your lives, at the 'GAME OVER' screen press and hold A, B, then START and then release. Once the music ends, you will continue at the beginning of the stage you died in! For NESticle users the code is [LEFT ALT], [LEFT CTRL], [ENTER].

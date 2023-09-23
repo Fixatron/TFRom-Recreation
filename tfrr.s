@@ -66,7 +66,7 @@ plr_x_pos_hi_old        = $51
 plr_y_pos_hi_diff       = $52
 power_up                = $53
 hits_taken              = $54
-unram_23                = $55
+code_press                = $55
 bk_yScrlLo              = $56
 bk_yScrlHi              = $57
 bk_plrYPosLo            = $58
@@ -545,8 +545,8 @@ b_827d:
   beq b_829e                    ;branch if all letters are collected but rodimus not activated, yet
   lda #$00
   sta  rodimus_ram
-b_829e:                          ; loop here until player pushes select
-  sty current_level        ; storing y in current level isn't actually necessary because we've loaded y from the current level ******
+b_829e:                         ; loop here until player pushes select
+  sty current_level             ; storing y in current level isn't actually necessary because we've loaded y from the current level ******
 b_820a:                        
   jsr get_player_input
   lda #$04
@@ -560,17 +560,17 @@ b_82ac:
   lda rtn_trk_b
   bpl :+
   rts
-:                          ; decrement lives
+:                         ; decrement lives
   dec lives
   lda lives
-  bpl :++
-  jsr title_sub_finish    ; @$D374
-  lda unram_23
-  beq :+
-  lda #$02
-  sta lives
+  bpl :++                 ; jump if there are lives left
+  jsr game_over_screen    ; @$D374
+  lda code_press          ; check code_press
+  beq :+                  ; branch if the code is not pressed
+  lda #$02             
+  sta lives               ; load 2 lives
   lda #$00
-  sta unram_23
+  sta code_press          ; reset codepress
   jsr clear_player_scores
   jmp :++
 :
@@ -8327,43 +8327,43 @@ magnus_pal_tbl2:
 magnus_pal_tbl:
   .byte $20,$21,$16
 	.byte $0F,$20,$10,$00
-title_sub_finish:
+game_over_screen:
   jsr clear_screen
   jsr clear_oam_ram
   lda $8003
   sta $8003               ; load CHR bank 3
   lda #$00
-  sta timer_lo_byte
+  sta timer_lo_byte       ; reset timer
   sta timer_hi_byte
   sta state
-  sta unram_23
+  sta code_press          ; reset code_press to 00
   lda #$08
   sta rtn_trk_a
   lda #$0A
   sta player_sprite
-  lda #$54
+  lda #$54                    ; low byte for palette_table_2 address @$D354-D373
   sta $00
-  lda #$D3
+  lda #$D3                    ; high byte for palette_table_2 address @$D354-D373
   sta $01
   jsr send_palette_to_ram
-  lda #$C9
+  lda #$C9                    ; low byte for game_over_tbl address @$D3C9 - D3D3
   sta $00
-  lda #$D3
+  lda #$D3                    ; high byte for game_over_tbl address @$D3C9 - D3D3
   sta $01
-  jsr write_text
+  jsr write_text              ; write "GAME OVER" to screen
   jsr ppu_scroll
-  jsr play_game_over_sound
+  jsr play_game_over_sound    ; Play game over sound
   jsr set_PPU_CTRL_a
   jsr set_PPU_MASK_a
-:
-  lda controller_p1_last
-  eor #$0B                    ; is start or B pressed?
-  bne :+                      ; branch if it is
-  lda #$FF
-  sta unram_23
-:
-  lda timer_hi_byte
-  beq :--                     ; loop back if timer_hi_byte is 00
+check_code_press:             ; Check for A+B+Start code press at Game Over screen
+  lda controller_p1_last      ; check controller inputs
+  eor #$0B                    ; A+B+Start pressed together?
+  bne no_code_pressed         ; branch if they arn't pressed
+  lda #$FF                    ; update code_press in RAM to FF when code is pressed
+  sta code_press              ; store to RAM
+no_code_pressed:
+  lda timer_hi_byte           ; check timer high byte
+  beq check_code_press        ; loop back if as long as timer_hi_byte is 00, continue when it hits 01
   jsr set_PPU_MASK_b
   jsr set_PPU_CTRL_b
   rts

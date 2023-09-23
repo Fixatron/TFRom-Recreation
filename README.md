@@ -1,5 +1,5 @@
-#   Information
-    This is a recreation of Convoy No Nazo
+##  Information
+    This is a decompilation of Transformers:Mystery of Convoy (spelled Comvoy) or Fight! Super Robot Lifeform Transformers: Convoy No Nazo
     Mostly a rom-study to learn NES 6502 assembly
     I annotated what I could as I was learning
     Its finally able to be compiled into a working game
@@ -32,3 +32,15 @@
 
 #   FCEUX stuff
     - Fn+] to pause/unpause rom
+
+#   Related Videos
+    Protoman and Jawz.D Play the original Famicom game https://www.youtube.com/watch?v=sqZUskwHB5s&list=PLlUGmicQ2Ka3C_ZJ2D_zOUOTXlvyk_f8X
+    Protoman plays the Q Transformers Mystery of Convoy game for Android https://www.youtube.com/watch?v=bQmbdAcxiOk&ab_channel=ProtomanGamingTrailers
+    AVGN on Transformers Games https://www.youtube.com/watch?v=km9vYa2GIUI&list=PL6oq6vDAk2wlYfrYHMYGCO4Q9qta_sLy5&ab_channel=Cinemassacre
+    Commercial from 1986 https://www.youtube.com/watch?v=Zr9narWQvTE&ab_channel=BillyPan
+    Takara Promo Video from 1986 https://www.youtube.com/watch?v=1jVBzq4ud2U&ab_channel=TFRaw%21%21TransformersMultimediaArchive
+    
+
+#   Related Links
+    Wikipedia Article on Transformers Mystery of Convoy https://en.m.wikipedia.org/wiki/Transformers:_Mystery_of_Convoy
+    TFWiki Article on Transformers Mystery of Convoy https://tfwiki.net/wiki/Transformers:_Mystery_of_Convoy
