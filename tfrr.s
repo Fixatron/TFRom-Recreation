@@ -281,7 +281,8 @@ JOY2_FRAME      = $4017         ; Joypad #2/SOFTCLK (RW)
   .byte 2               ; 2x 16KB PRG code
   .byte 4               ; 4x  8KB CHR data
   .byte $31             ; mapper 1, vertical mirroring
-  .byte $44, $69, $73, $6B, $44, $75, $64, $65, $21 ; $56, $65, $6E, $75, $74, $65, $63, $68, $21 This says "VENUTECH!"
+  .byte $00             ; 7th byte is 0 so it stays legacy iNES header, I would like to update it to iNES 2.0, but not sure, I guess I could try but its got my tag
+  .byte $56, $65, $6E, $75, $74, $65, $63, $68 ; $21 couldnt include exclamation mark ;This says "VENUTECH!"
  
 .segment "VECTORS"
   ;; When an NMI happens (once per frame if enabled) the label nmi:
@@ -378,8 +379,8 @@ init_level:
   jsr title_timer_rtn       ; @$CD47
   jsr reset_player_ram           ; @$834C
   lda #$00                      ; load 0 lives and first level for demo
-  sta current_level                     ; first level for demo
-  sta lives
+  sta current_level             ; first level for demo
+  sta lives                     ; store 0 lives for demo
   lda #$80                      ; ready $80 for subtitle and 96 frame counter
   sta frame_counter_96
   jsr set_demo_pl1              ; Set player 1 for demo
