@@ -35,7 +35,7 @@ plr_x_pos_hi            = $32
 player_sprite           = $33 
 unram_26                = $34
 player_landed           = $35
-flight_status           = $36 ; 00000000 = truck,transforming,jumping,flying,0,0,0,0
+flight_status           = $36 ; 00000000 = truck,transforming,jumping,flying,0,0,0,0 (i guess that means the binary flags...)
 unram_13                = $37
 wpn_timer               = $38
 wpn2_timer              = $39
@@ -66,7 +66,7 @@ plr_x_pos_hi_old        = $51
 plr_y_pos_hi_diff       = $52
 power_up                = $53
 hits_taken              = $54
-code_press                = $55
+code_press              = $55
 bk_yScrlLo              = $56
 bk_yScrlHi              = $57
 bk_plrYPosLo            = $58
@@ -951,13 +951,13 @@ load_palette_ram_to_ppu:
   lda #$00
   sta PPU_ADDR
 :
-  lda $0099,Y         ;load 32 bytes to PPU Data
+  lda palette_data_start_word,Y         ;starting @$0099 load 32 bytes to PPU Data
   sta PPU_VRAM_IO
   iny
   cpy #$20
-  bcc :-
+  bcc :-                                ; continue after loading 32 bytes of palette data
   lda #$3f
-  sta PPU_ADDR
+  sta PPU_ADDR                          ; load nametable address 3f00
   lda #$00
   sta PPU_ADDR
   sta PPU_ADDR
@@ -8072,7 +8072,7 @@ pre_stage_screen: ; @cf17
   jsr set_PPU_MASK_a
 :
   lda timer_hi_byte
-  beq :-                    ; loop until sound is finished playing?
+  beq :-                    ; loop until sound is finished playing? Until timer hi byte is 1
   lda #$00
   sta rtn_trk_a
   jsr set_PPU_MASK_b
