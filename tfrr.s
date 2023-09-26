@@ -84,7 +84,7 @@ unram_1                 = $66
 unram_2                 = $67
 unram_3                 = $68
 lives                   = $69
-current_level           = $6A     ; odd levels are bosses, level $18 is rodimus U, 
+current_level           = $6A     ; $00=lv1,$02=lv2,$04=lv3,$06=lv4,$08=lv5,$0A=lv6,$0C=lv7,$0E=lv8,$10=lv9,$12=lv10 odd levels are bosses, level $18 is rodimus U, 
 bk_crnt_lvl             = $6B
 plr_x_prog_fr           = $6C
 plr_x_prog_lo           = $6D
@@ -427,20 +427,20 @@ pre_stage_prep_a:
   lda stage_orientation_table,Y   ; load stage orientation table @$CC77
   sta stage_orientation         ; store in ram
   and #$40                      ; check for upwards levels, 3 or 10
-  beq b_81c3                        ; branch if not
+  beq reset_vert_prog           ; branch if not to setup horizontal level
   lda #$00
-  sta plr_y_prog_fr        ; store 00 enemy sprite x offset
+  sta plr_y_prog_fr             ; store 00 enemy sprite x offset
   lda #$C0
-  sta plr_y_prog_lo        ; store C0 enemey sprite y offset
+  sta plr_y_prog_lo             ; store C0 enemey sprite y offset
   lda #$03
-  sta plr_y_prog_hi         ; store 03 enemy orientation
-  jmp j_81cb                       ; skip the part where we clear the enemy sprite offsets if level isnt 3 or 10
-b_81c3:
+  sta plr_y_prog_hi             ; store 03 enemy orientation
+  jmp get_plr_start_position    ; skip the part where we clear the player progression in RAM if level isnt 3 or 10
+reset_vert_prog:
   lda #$00                      ; clear enemy offsets on all levels except 3 and 10
   sta plr_y_prog_fr        
   sta plr_y_prog_lo        
   sta plr_y_prog_hi         
-j_81cb:
+get_plr_start_position:
   tya
   asl
   tay       ; multiply level index offset by 2
@@ -451,7 +451,7 @@ j_81cb:
 pre_stage_prep_b:
   lda #$00
   sta controller_p1_current ; clear player 1 controller input
-  sta flight_status
+  sta flight_status         ; reset flight status
   sta subtitle_timer        ; reset subtitle timer
   sta unram_7
   sta rtn_trk_0
@@ -7658,7 +7658,9 @@ eny_pos_addr_tbl:
 player_y_pos_tbl:     ; @$C9D3, y and x values alternate, 2 bytes per level
   .byte $50
 player_x_pos_tbl:     ; @$C9D4-C9FA
-	.byte $10,$50,$10,$50,$10,$50,$10,$90,$28,$50,$10,$50,$10,$50,$10,$50,$10,$50,$10
+	.byte $10,$50,$10,$50,$10,$50,$10
+  .byte $90,$28       ; Stage 3 Y and X start positions
+  .byte $50,$10,$50,$10,$50,$10,$50,$10,$50,$10
 	.byte $50,$28,$50,$10,$50,$10,$50,$10,$30,$34,$50,$10,$60,$10,$50,$10,$90,$60,$50,$10
 stage_tbl_1:          ; @$C9FB-CA0C
 	.byte $A0,$10,$C0,$08,$80,$10,$50,$10,$A0,$10,$50,$10,$80,$50,$50,$10,$C0,$10
@@ -7687,8 +7689,28 @@ stage_tbl_4:          ; @$CBC3-CC76
 	.byte $0A,$F7,$56,$F7,$A2,$F7,$EE,$F7,$3A,$F8,$86,$F8,$36,$F0,$82,$F0,$CE,$F0,$1A,$F1,$66,$F1,$B2,$F1,$FE,$F1,$4A,$F2,$E2,$F2,$96,$F2,$1E,$F9,$6A,$F9,$B6,$F9,$02,$FA,$2E,$F3,$7A,$F3,$02,$E7
 	.byte $4E,$FA,$9A,$FA,$E6,$FA
 stage_orientation_table:  ; @$CC77
-	.byte $00,$00,$00,$00,$40,$00,$00,$01,$00,$01,$80,$00,$00,$01,$80,$00,$00,$01,$40,$01
-	.byte $00,$00,$00,$00,$00,$00,$00,$00,$00
+  ; Stage orientation table
+  ; First byte is the orientation
+  ; $00 = Horizontal
+  ; $40 = Vertical Up
+  ; $80 = Vertical Down
+  ; Second byte?
+  ; Levels after 10?
+	.byte $00,$00           ; Level 1 
+  .byte $00,$00           ; Level 2
+  .byte $40,$00           ; Level 3
+  .byte $00,$01           ; Level 4
+  .byte $00,$01           ; Level 5
+  .byte $80,$00           ; Level 6
+  .byte $00,$01           ; Level 7
+  .byte $80,$00           ; Level 8
+  .byte $00,$01           ; Level 9
+  .byte $40,$01           ; Level 10
+	.byte $00,$00           ; Level ?
+  .byte $00,$00           ; Level ?
+  .byte $00,$00           ; Level ?
+  .byte $00,$00           ; Level ?
+  .byte $00               ; Extra Byte?
 lvl_misc_jmp_tbl:   ; @$CC94
   .byte $9E,$CC,$A6,$CC,$AE,$CC,$B6,$CC,$BE,$CC
   ; level 1,2,4,6(vert_down),7,8(vert_down),9
