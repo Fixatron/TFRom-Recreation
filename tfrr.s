@@ -15,7 +15,7 @@ rtn_trk_b               = $1E
 flash_counter           = $1F
 unram_27                = $20
 sel_status              = $21    ; selection status for title screen, 0= 1 player, FF=2 players
-state                   = $22 
+state                   = $22    ; level state, 01 = level complete
 p1ScoreLo               = $23
 p1ScoreMid              = $24
 p1ScoreHi               = $25
@@ -58,7 +58,7 @@ unram_22                = $49
 unram_10                = $4A   ; related to the boss float and/or wpn timer
 level_backup            = $4B
 unram_7                 = $4C
-unram_19                = $4D
+num_bosses              = $4D   ; only stage 2 has 2 bosses
 jump_hold               = $4E
 unram_25                = $4F
 player_un_pos           = $50
@@ -80,12 +80,12 @@ bk_plrYProgFr           = $5f
 bk_plrYProgLo           = $60
 bk_plrYProgHi           = $61
 
-unram_1                 = $66
-unram_2                 = $67
+room_timer_lo           = $66
+room_timer_hi           = $67
 unram_3                 = $68
 lives                   = $69
-current_level           = $6A     ; $00=lv1,$02=lv2,$04=lv3,$06=lv4,$08=lv5,$0A=lv6,$0C=lv7,$0E=lv8,$10=lv9,$12=lv10 odd levels are bosses, level $18 is rodimus U, 
-bk_crnt_lvl             = $6B
+current_level           = $6A     ; $00=lv1,$02=lv2,$04=lv3,$06=lv4,$08=lv5,$0A=lv6,$0C=lv7,$0E=lv8,$10=lv9,$12=lv10 odd levels are bosses, $16 is mining guy, level $18 is rodimus U, 
+bk_crnt_lvl             = $6B     ; used to backup current level when going to a secret area or side room
 plr_x_prog_fr           = $6C
 plr_x_prog_lo           = $6D
 plr_x_prog_hi           = $6E
@@ -402,8 +402,8 @@ set_demo_pl1:
 pre_stage_prep:
   jsr pre_stage_screen          ; Setup the pre stage screen
   lda #$00                      ; clear unknown ram locations
-  sta unram_1
-  sta unram_2
+  sta room_timer_lo
+  sta room_timer_hi
   sta unram_3
 pre_stage_prep_a:
   lda #$00
@@ -479,8 +479,8 @@ pre_stage_prep_b:
   lda current_level                 ; load level
   lsr                       ; divide by 2
   tay                       ; store in Y index
-  lda stage_misc_tbl_1,Y    ; @$C94C
-  sta unram_19              ; store @$4D
+  lda stage_misc_tbl_1,Y    ; @$C94C How many bosses are there in the boss battle. Only Stage 2 has 2 bosses
+  sta num_bosses            ; store number of bosses @$4D
   ldy current_level                 ; load level to Y
   lda stage_boss_table,Y
   sta stage_boss            ; store if stage or boss in ram
@@ -611,9 +611,9 @@ main_jmp_1:
   sta current_level       ; load warp zone with bumblebee, level 1C 
   jmp pre_stage_prep_a    ; @$8186
 :
-  lda bk_crnt_lvl
-  clc
-  adc #$04
+  lda bk_crnt_lvl         ; load backup of current level
+  clc                 
+  adc #$04                ; add 2 levels; warp from stage 2 to 4 and 7 to 9
   sta current_level
   lda #$00
   sta unram_3
@@ -734,7 +734,7 @@ nmi:                        ; beginning of frame
   lsr
   bcs :+
   lda sub_state
-  bmi :+++++++
+  bmi side_room_rtn
   jsr game_jmp_1        ; @$8511
 pull_stack_and_rti:
   lda rtn_trk_a
@@ -784,11 +784,11 @@ stack_handler_1:
   sta state
 :
   jmp pull_stack_and_rti
-:
-  jsr ram_misc_23
+side_room_rtn:
+  jsr side_room_timer
   lda sub_state
   and #$20
-  bne :--
+  bne :-
   jsr player_pose_1
   jsr wpn_misc_1
   jsr wpn_hit_rtn
@@ -1169,29 +1169,29 @@ clear_screen:
   sta $01
   lda #$20
   jsr write_blank_screen_a
-  lda #$24
+  lda #$24              ; run the same stuff to the @2400 block of PPU data
 write_blank_screen_a:
   sta PPU_ADDR
   lda #$00
   sta PPU_ADDR
-  tay
+  tay                 ; reset Y to $00
   lda #$03
   sta $00             ; store $03 @$00
   lda $01             
 :
-  sta PPU_VRAM_IO
-  dey
+  sta PPU_VRAM_IO     ; store #$20 to PPU Data starting at @2000/@2400 FF times
+  dey                 ; decrement Y, starting from 00
   bne :-
-  dec $00
+  dec $00             ; repeat for each page(4 pages), send #$20 for all bytes
   bne :-
 :
-  sta PPU_VRAM_IO
+  sta PPU_VRAM_IO     ; repeat sending #$20 to PPU data another C0 times
   iny
   cpy #$C0
   bcc :-
   lda #$00
 :
-  sta PPU_VRAM_IO
+  sta PPU_VRAM_IO     ; load #$00 for the rest of the bytes between C0 and FF
   iny
   bne :-
   rts
@@ -1364,19 +1364,19 @@ clear_player_scores:  ; @$8868
   sta incScoreLo    ; $2C
   sta incScoreHi    ; $2D
   rts
-not_called_subroutine_2:
-  lda PPU_STATUS
+not_called_subroutine_2:  ; ***************************************?
+  lda PPU_STATUS          ; read PPU status to reset the high/low latch to high
   lda $00
-  sta PPU_ADDR
+  sta PPU_ADDR            ; write the high byte of $0001 address
   lda $01
-  sta PPU_ADDR
-  ldy #$00
+  sta PPU_ADDR            ; write the low byte of $0001 address
+  ldy #$00                ; reset y to 0 so we can loop the following 4 times and send 4 bytes of palette data
 :
-  lda ($02),Y             ; load something from a table, somewhere
-  sta PPU_VRAM_IO
-  iny
-  cpy $04                 ; whatever is stored here determines the length, i guess
-  bcc :-
+  lda ($02),Y             ; load something from a table, somewhere, indirect addressing to an address stored in RAM @$02
+  sta PPU_VRAM_IO         ; Send the byte to PPU Data, but its at $0001 of the PPU, which is weird, no? Wonder what the point of this is.
+  iny                     ; increment Y
+  cpy $04                 ; compare Y with $04
+  bcc :-                  ; Loop back until 4 bytes are loaded to PPU 
   rts
 roll_ram_4_5:
   ldy #$07
@@ -2694,13 +2694,13 @@ plr_x_move_rtn:
   lda state
   lsr
   bcs b_92db
-  lda plr_x_prog_hi
-  cmp #$0B
-  beq b_92e4
-  lda current_level
-  lsr
-  bcs b_92db
-  lda sub_state
+  lda plr_x_prog_hi     ; check level progression
+  cmp #$0B              ; have we reached 0b? which is the end of the level
+  beq b_92e4            ; branch if we have past 0b x progression to the stage exit routine
+  lda current_level     
+  lsr                   ; divide level by 2 to get current stage
+  bcs b_92db            ; branch if we're on a boss
+  lda sub_state         ; 
   bmi b_92db
   lda unram_3
   bmi b_92db
@@ -2751,7 +2751,7 @@ b_92e4:
   cmp #$90
   bcc b_92ad
   lda #$01
-  sta state
+  sta state         ; set state to exit level
   rts
 new_y_pos:
   lda plr_y_pos_lo
@@ -2880,9 +2880,9 @@ b_93b0:
   lda y_scroll_hi
   adc $04
   cmp #$F0
-  bcc b_93d4
+  bcc vert_scroll_helper
   sbc #$10
-b_93d4:
+vert_scroll_helper:
   sta y_scroll_hi
   lda #$00
   sta plr_y_pos_lo
@@ -3312,27 +3312,27 @@ b_96b1:
   lda bk_crnt_lvl
   sta current_level   ; return to current level
   rts
-ram_misc_23:
-  lda unram_1
+side_room_timer:
+  lda room_timer_lo     ; load side room timer low byte
   clc
-  adc #$01
-  sta unram_1
-  lda unram_2
+  adc #$01        ; increment timer
+  sta room_timer_lo
+  lda room_timer_hi
   adc #$00
-  sta unram_2
+  sta room_timer_hi     ; increment high byter with carry
   lda sub_state
-  and #$20      
-  bne b_96f2    ; branch if substate is 20
-  lda unram_2
-  cmp #$05
-  bcc b_96fc
-  lda #$A0
-  sta sub_state ; load $A0 to substate
+  and #$20      ; 
+  bne b_96f2    ; branch if substate is 20? or has 5bit set, atleast
+  lda room_timer_hi
+  cmp #$05      ; once room timer has reached #$06
+  bcc b_96fc    ; branch out of this routine until room_timer_hi reaches 06
+  lda #$A0      
+  sta sub_state ; load $A0 to substate once room_timer_lo reaches 06
   rts
 b_96f2:
-  lda unram_2
+  lda room_timer_hi
   cmp #$06
-  bcc b_96fc
+  bcc b_96fc    ; even if substate has 1bit set, loop back until room_timer_hi is 06
   lda #$10
   sta state
 b_96fc:
@@ -4437,10 +4437,10 @@ eny_spr_clear_data:
   cmp #$15
   bne b_a7a0
 b_a792:
-  lsr unram_19
+  lsr num_bosses
   bne b_a7a0
   lda #$01
-  sta state
+  sta state             ; store 01 to state, indicating level is completed
   lda #$00
   sta flash_counter
   sta unram_27
@@ -5975,7 +5975,7 @@ b_b487:
   sta eny_y_inc_lo,Y
   lda #$C0
   sta unram_22
-  lda unram_19
+  lda num_bosses
   and #$02
   beq b_b4a2
   lda #$f0
@@ -7999,11 +7999,11 @@ write_player:
   jsr draw_player       ; draw player here
   lda #$EC              ; draw 's' to end of '2 players'
   sta PPU_VRAM_IO
-  lda PPU_STATUS
+  lda PPU_STATUS        ; reset PPU write flag
   lda #$22
-  sta PPU_ADDR
+  sta PPU_ADDR          ; set high byte of PPU address @22AC
   lda #$AC
-  sta PPU_ADDR
+  sta PPU_ADDR          ; set low byte of PPU address @22AC
   lda #$D1              ; draw '1' at start of '1 player'
   sta PPU_VRAM_IO
 draw_player:            ; draw the 'player' part for '1 player' and '2 players'
@@ -8022,16 +8022,16 @@ write_player_tbl:
 write_stage_num:
   lda #$20              ; draw a space
   sta PPU_VRAM_IO
-  lda current_level
-  lsr
-  cmp #$09
-  bcc :+
+  lda current_level     ; check level
+  lsr                   ; divide level by 2 to get the stage number, because bosses are the odd numbers
+  cmp #$09              ; compare with $09
+  bcc :+                ; branch if stage is 9 or below, because $09 is level 10 (level 1 is $00)
   lda #$D1              ; draw a '1' for level 10
   sta PPU_VRAM_IO
-  lda #$FF
+  lda #$FF              ; load FF to A, this is to make the second digit a 0, if needed
 :
   clc
-  adc #$D1              ; draw the level number by adding the number to where the '1' tile is located 
+  adc #$D1              ; add the number to the level to select the level number, interesting way to make levels up to 10
   sta PPU_VRAM_IO
 :
   rts
