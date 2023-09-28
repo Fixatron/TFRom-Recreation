@@ -105,7 +105,18 @@ unram_21                = $7B
 
 
 other_pl_stored_data    = $81
-
+; $81 = other player lives
+; $82 = other player level
+; $83 = other player bkup level
+; $84 = plr x prog fraction
+; $85 = plr x prog low
+; $86 = plr x prog high
+; $87 = plr y prog fraction
+; $88 = plr y prog low
+; $89 = plr y prog high
+; $8A = 
+; 
+; $8C = rodimus_ram
 palette_data_start      = $99
 palette_data_start_word = $0099
 
@@ -395,7 +406,7 @@ title_loop_jmp:
   lda sel_status                ; 0= 1 player ff= 2 players selected on title screen
   bne set_demo_pl1              ; branch if 2 players is selected @$22=$FF
   lda #$FF
-  sta other_pl_stored_data      ; put FF at other player lives storage data if 2 players is selected
+  sta other_pl_stored_data      ; put FF at other player lives storage data if 1 player is selected
 set_demo_pl1:
   lda #$00
   sta which_player              ; set current player to player 1 
@@ -709,7 +720,7 @@ nmi:                        ; beginning of frame
   bne :+                            ; branch if vertical level and dont scroll horizontal
   jsr write_new_tile_column         
 :
-  jsr ppu_scroll_check
+  jsr set_nametable
   jsr player_bullet_enemy_routine
   jsr clear_audio_channels
   jsr write_pl1_score
@@ -871,7 +882,7 @@ sound_rtn_jmp_point_2:
 title_scroll_rtn:
   jsr get_player_input
   jsr scroll_logo
-  jsr ppu_scroll_check
+  jsr set_nametable
   jsr clear_audio_channels
   jmp pull_stack_and_rti
 game_jmp_1:
@@ -891,7 +902,7 @@ game_jmp_1:
   lda stage_orientation
   and #$C0
   bne :+
-  jsr enemy_misc_rtn_13
+  jsr save_plr_x_prog
 :
   rts
 get_player_input:             ; @$853E
@@ -970,12 +981,12 @@ ppu_scroll:
   lda y_scroll_hi
   sta PPU_SCROLL
   rts
-ppu_scroll_check:                 ; @$85CA
+set_nametable:           ; @$85CA
   lda plr_x_prog_hi
-  and #$01
-  sta $07
+  and #$01                  ; check if player progression high byte is an odd number, nametable check
+  sta $07                   ; store 0 for nametable 0 or 1 for nametable 1
   lda ram_PPU_CTRL
-  and #$FE
+  and #$FE                  ; clear nametable address in ram_PPU_CTRL
   ora $07
   sta ram_PPU_CTRL
   sta PPU_CTRL
@@ -1439,26 +1450,26 @@ draw_score:
   jsr ram_misc_1
   ldx #$00
   ldy #$00
-  lda $0F
-  sta oam_ram_data_start,x
+  lda $0F                          ; load y postion from RAM
+  sta oam_ram_data_start,x         ; write score y position byte
   inx
   lda #$00
-  sta oam_ram_data_start,X
+  sta oam_ram_data_start,X         ; write score amount byte, first digit is always a 0
   inx
-  jsr write_score
+  jsr write_score 
   inx
 :
-  lda $0F
+  lda $0F                          ; load y postion from RAM
   sta oam_ram_data_start,X         ; write score y position
   inx
   lda $0006,Y
   and #$0F
-  sta oam_ram_data_start,X
+  sta oam_ram_data_start,X         ; write second digit from high score saved in ram, default 00
   inx
   jsr write_score
   inx
   lda $0F
-  sta oam_ram_data_start,X
+  sta oam_ram_data_start,X         ; write score y position
   inx
   lda $0006,Y
   and #$F0
@@ -1466,23 +1477,23 @@ draw_score:
   lsr
   lsr
   lsr
-  sta oam_ram_data_start,X
+  sta oam_ram_data_start,X         ; divide by 10 and write second digit from high score saved in ram, default 01 when y=1 for second loop
   inx
   jsr write_score
   iny
   inx
   cpx #$18
-  bcc :-
+  bcc :-                    ; loop back total of 3 times for a total of 9 digits.
   rts
 write_score:
   lda #$00
-  sta oam_ram_data_start,X   ; write score amount sprite
+  sta oam_ram_data_start,X   ; write score attribute sprite
   inx
   lda $0E
   sta oam_ram_data_start,X   ; write x position
   sec
   sbc #$08      ; choose next digit
-  sta $0E
+  sta $0E       ; store next digit x location to $0E
   rts
 flip_bits_1:
   lda $01
@@ -1512,7 +1523,7 @@ flip_bits_0:
   eor #$ff
   sta $00
   rts
-enemy_misc_rtn_13:
+save_plr_x_prog:
   lda plr_x_prog_lo
   clc
   adc #$80
@@ -1520,7 +1531,7 @@ enemy_misc_rtn_13:
   lda plr_x_prog_hi
   adc #$01
   sta $01
-enemy_misc_rtn_14:
+load_scrolling_bg_tiles:
   jsr get_lvl_nmtbl_addr
   lda current_level                 ; check if we're on a boss
   and #$01
@@ -1529,7 +1540,7 @@ enemy_misc_rtn_14:
   lda stage_tbl_2,y                 ; @$CA0D,y
   sta $0E
   lda stage_tbl_2+1,Y
-  sta $0F                           ; get address from jump table
+  sta $0F                           ; get address from jump table ->$FB32 or $FDF2 if we're on a boss
   lda $00
   and #$30                          ; and @$00 with %00110000
   lsr
@@ -1573,8 +1584,8 @@ enemy_misc_rtn_14:
   beq :+
   iny
 :
-  lda ($04),y
-  sta newTileColumnStart,X
+  lda ($04),y               ; get next bg tile
+  sta newTileColumnStart,X  ; save new bg tiles to ram
   iny
   iny
   inx
@@ -1714,7 +1725,7 @@ ready_level:
   lda #$3f
   sta $06
 :
-  jsr enemy_misc_rtn_14
+  jsr load_scrolling_bg_tiles
   jsr write_new_tile_column
   lda #$08
   clc
@@ -1789,25 +1800,25 @@ not_called_subroutine_1:
   jmp not_called_subroutine_2
 reset_scroll_00:
   lda ram_PPU_CTRL
-  and #$FE
+  and #$FE          ; force nametable 0 when sending byte to PPU_CTRL
   sta ram_PPU_CTRL
   sta PPU_CTRL
-  lda #$00
+  lda #$00          ; start with no scroll
   sta PPU_SCROLL
   sta PPU_SCROLL
   rts
 write_text:
   ldy #$00
   lda ($00),y
-  sta PPU_ADDR      ; load takara x location
+  sta PPU_ADDR      ; load text x location
   iny
   lda ($00),y
-  sta PPU_ADDR      ; load takara y location
+  sta PPU_ADDR      ; load text y location
   iny
-  lda ($00),y
+  lda ($00),y       ; load text length location to x
   tax
   iny
-:                   ; loop writing Takara letters
+:                   ; loop writing Takara or other text letters
   lda ($00),y
   sta PPU_VRAM_IO
   iny
@@ -7725,8 +7736,8 @@ lvl_misc_jmp_tbl:   ; @$CC94
 draw_title:          ; @$CCC6
   jsr clear_screen
   jsr clear_oam_ram
-  lda $8003           ; ready chr ram 3
-  sta $8003           ; set chr ram 3
+  lda $8003           ; ready chr rom bank 3
+  sta $8003           ; set chr rom bank 3
   jsr draw_tf_title
   jsr draw_title_attributes
   lda #$00              ; load y position 0
@@ -7745,9 +7756,9 @@ draw_title_attributes:
   lda title_tbl,X
   sta PPU_VRAM_IO
   inx
-  cpx #$40          ; $40 bytes of title screen attribute data
+  cpx #$40          ; 64 bytes of title screen attribute data
   bcc :-
-  lda #$1C
+  lda #$1C          ; load indirect address for title screen palette data @d01c
   sta $00
   lda #$D0
   sta $01
@@ -7800,18 +7811,18 @@ title_timer_rtn:
   bne :-                      ; loop back if it is
   jsr disable_audio_channels
   lda #$20
-  sta rtn_trk_a
+  sta rtn_trk_a         ; set routine tracker a to #$20
   lda #$00
-  sta timer_lo_byte
-  sta timer_hi_byte
-  sta plr_x_prog_hi
-  sta state
-  sta which_player
-  sta subtitle_timer
-  sta frame_counter_96
-  sta y_scroll_hi
+  sta timer_lo_byte     ; reset timer low byte
+  sta timer_hi_byte     ; reset timer high byte
+  sta plr_x_prog_hi     ; set player x progression high byte to 0
+  sta state             ; reset state
+  sta which_player      ; reset to player 1
+  sta subtitle_timer    ; reset subtitle timer
+  sta frame_counter_96  ; reset frame counter "96"
+  sta y_scroll_hi       ; reset y scroll
   lda #$FE
-  sta x_scroll
+  sta x_scroll          ; set x scroll to far right for later use
   jsr set_PPU_MASK_a
 :
   lda state
@@ -7833,7 +7844,7 @@ title_timer_rtn:
   bcs :++
   bit state
   bmi :+
-  jmp :-
+  jmp :-                    ; loop back until vblank, this happens at the title screen
 :
   jsr disable_audio_channels
   lda sel_status
@@ -7854,29 +7865,29 @@ title_timer_rtn:
   sta rtn_trk_b
   rts
 scroll_logo:
-  lda x_scroll
-  beq :+
+  lda x_scroll      ; starting from FE, roll the x-scroll down for the title to roll in from the left
+  beq :+            ; branch down when x reaches 00
+  dec x_scroll      ; decrement x-scroll twice for a speedy slide in
   dec x_scroll
-  dec x_scroll
-  rts
+  rts               ; we're done here until the transformers logo has finished sliding in
 :
-  inc subtitle_timer
+  inc subtitle_timer  ; start subtitle timer after finishing the title scroll-in
   lda subtitle_timer
-  cmp #$0C
-  bcs :+
+  cmp #$0C            ; count the subtitle timer up to 0C before writing the next subtitle character/tile
+  bcs :+              ; write next subtitle tile
   rts
 :
   lda #$00                ; ready timer for next subtitle
-  sta subtitle_timer
-  lda frame_counter_96
-  cmp #$18
+  sta subtitle_timer      ; reset subtitle timer
+  lda frame_counter_96  ; also acts as the subtitle tile locator
+  cmp #$18              ; count up to 18 tiles of the subtitle then load the rest of the title screen text
   bcs :++
   tay
   lda #$3C
-  sta $00
+  sta $00               ; indirect addressing to @$D03C
   lda #$D0
   sta $01
-  ldx #$01
+  ldx #$01              ; load x with 01 to draw left and then right side of subtitle tiles
 :
   tya
   lsr
@@ -7886,25 +7897,25 @@ scroll_logo:
   lda #$22
   adc #$00
   sta $03
-  jsr :++
+  jsr draw_subtitle
   dex
-  bpl :-
+  bpl :-                ; loop back for right side of each subtitle
   tya
-  sta frame_counter_96
+  sta frame_counter_96     ; store y into frame_counter_96 for next frame
   jsr play_subtitle_sound  ; @$D960
   rts
 :
-  lda #$54
+  lda #$54      ; low byte of address for Hi-Score text table
   sta $00
-  lda #$D0
+  lda #$D0      ; high byte of address for Hi-Score text table @$D054
   sta $01
-  jsr write_text
+  jsr write_text  ; write "Hi-Score"
   jsr write_player
-  lda #$67
+  lda #$67      ; low byte of address for Takara text table @$D067
   sta $00
-  lda #$D0
+  lda #$D0      ; high byte of address for Takara text table @$D067
   sta $01
-  jsr write_text
+  jsr write_text  ; Write "©Takara 1986" 
   jsr ppu_scroll
   lda hiScoreLo
   sta $00
@@ -7920,26 +7931,26 @@ scroll_logo:
   lda #$80
   sta state
   rts
-:
+draw_subtitle:
   lda $03
-  sta PPU_ADDR
+  sta PPU_ADDR        ; start at x position
   lda $02
-  sta PPU_ADDR
-  lda ($00),Y
-  sta PPU_VRAM_IO
+  sta PPU_ADDR        ; start at y position
+  lda ($00),Y         ; indirect addressing to the subtitle data within the title table @$D03C
+  sta PPU_VRAM_IO     ; send tile to screen
   iny
   lda $02
   clc
   adc #$20
-  sta $02
+  sta $02             ; load the line below in y position
   lda $03
-  adc #$00
-  sta $03
-  sta PPU_ADDR
+  adc #$00            ; this seems unnecessary********
+  sta $03             
+  sta PPU_ADDR        ; same x location as the tile above
   lda $02
-  sta PPU_ADDR
+  sta PPU_ADDR        ; load y location below the previous tile
   lda ($00),y
-  sta PPU_VRAM_IO
+  sta PPU_VRAM_IO     ; load next tile to PPU data
   iny 
   rts
 screen_misc_rtn_2:
@@ -7988,7 +7999,7 @@ screen_misc_rtn_1:
   sta state
   rts
 write_player:
-  lda #$10              ; first write '2 players' then '1 player'
+  lda #$10              ; background pattern table $1000, sprite pattern table $0000, base nametable address $2400
   sta PPU_CTRL
   lda #$22              ; draw player at x pos 22
   sta PPU_ADDR
@@ -8012,8 +8023,8 @@ draw_player:            ; draw the 'player' part for '1 player' and '2 players'
   ldx #$00
 :
   lda write_player_tbl,x
-  sta PPU_VRAM_IO
-  inx
+  sta PPU_VRAM_IO       ; store letter in PPU Data
+  inx                   ; increment x to get next letter
   cpx #$06              ; write 6 letters of 'player'
   bcc :-
   rts
@@ -8132,11 +8143,11 @@ draw_lives:
   rts
 title_tbl: ;CFDC-D075
  	.byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$05,$05,$05,$05,$05,$05,$05,$01,$A0,$A0,$A0,$A0,$A0,$A0,$A0,$A0,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF   ; Title Attribute table
-	.byte $0F,$30,$10,$02,$0F,$30,$10,$16,$0F,$30,$10,$16,$0F,$36,$16,$20,$0F,$20,$21,$16,$0F,$30,$21,$30,$0F,$30,$26,$30,$0F,$36,$07,$1C   ; palette info
-	.byte $04,$06,$05,$07,$08,$0A,$09,$0B,$0C,$0E,$0D,$0F,$10,$12,$11,$13,$14,$16,$15,$17,$18,$1A,$19,$1B       ; subtitle tiles
-  .byte $22,$68,$07,$E1,$E2,$F5,$EC,$DC,$E8,$EB,$DE     ; 'HI-SCORE'
-  .byte $20,$EB,$04,$EC,$ED,$DA,$E0,$DE     ; x position, y position, length, "Stage"
-  .byte $23,$4A,$0B,$F4,$ED,$DA,$E4,$DA,$EB,$DA,$20,$D1,$D9,$D8,$D6   ;"©TAKARA 1986"  
+	.byte $0F,$30,$10,$02,$0F,$30,$10,$16,$0F,$30,$10,$16,$0F,$36,$16,$20,$0F,$20,$21,$16,$0F,$30,$21,$30,$0F,$30,$26,$30,$0F,$36,$07,$1C   ; palette info @D01C
+	.byte $04,$06,$05,$07,$08,$0A,$09,$0B,$0C,$0E,$0D,$0F,$10,$12,$11,$13,$14,$16,$15,$17,$18,$1A,$19,$1B       ; subtitle tiles d03c
+  .byte $22,$68,$07,$E1,$E2,$F5,$EC,$DC,$E8,$EB,$DE     ; 'HI-SCORE' @D054
+  .byte $20,$EB,$04,$EC,$ED,$DA,$E0,$DE     ; x position, y position, length, "Stage" @D05F
+  .byte $23,$4A,$0B,$F4,$ED,$DA,$E4,$DA,$EB,$DA,$20,$D1,$D9,$D8,$D6   ;"©TAKARA 1986"  @D067
 rodimus_check:              ; this is where the end screen stuff starts, maybe
   jsr clear_screen
   jsr clear_oam_ram
@@ -8427,7 +8438,7 @@ start_pushed_at_title:
   jsr clear_oam_ram
   jsr clear_sprite_ram
   lda #$1C
-  sta $00
+  sta $00     ; load indirect address to title screen palette data @d01c
   lda #$D0
   sta $01
   jsr send_palette_to_ram
