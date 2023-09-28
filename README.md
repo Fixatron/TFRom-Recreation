@@ -35,6 +35,7 @@
     - better music
     - pause menu
     - health bar
+    - Expand PRG Rom
 
 #   Tools
     -YYCHR  https://w.atwiki.jp/yychr

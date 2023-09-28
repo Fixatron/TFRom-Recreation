@@ -368,14 +368,14 @@ vblankwait2:
   lda #$00
   sta hiScoreHi
   jsr clear_player_scores
-init_level:
+init_title:
   jsr set_PPU_MASK_b  
   jsr set_PPU_CTRL_b 
   lda #$FF
   sta rtn_trk_b       ; store $FF to $1E
   lda #$10
   sta rtn_trk_a       ; store $10 to $1D
-  jsr clear_ram              ; @$CCC6
+  jsr draw_title              ; @$CCC6
   jsr title_timer_rtn       ; @$CD47
   jsr reset_player_ram           ; @$834C
   lda #$00                      ; load 0 lives and first level for demo
@@ -384,7 +384,7 @@ init_level:
   lda #$80                      ; ready $80 for subtitle and 96 frame counter
   sta frame_counter_96
   jsr set_demo_pl1              ; Set player 1 for demo
-  jmp init_level                 ; jump back up to repeat initializing level
+  jmp init_title                 ; jump back up to repeat initializing level
 title_loop_jmp:
   jsr start_pushed_at_title     ; this subroutine seems to be only used just when start is pushed at title before Ultra Magnus shows on flashing screen
   jsr disable_audio_channels    ; disable audio channels and set audio ram statuses to $FF
@@ -497,7 +497,7 @@ b_822f:
   sec
   sbc $00
   sta player_speed
-  lda chr_rom_bank_tbl,Y
+  lda chr_rom_bank_tbl,Y    ; Load CHR Rom Bank, Y is the Stage Number
   tax
   lda $8000,X               ; Select CHR Rom bank
   sta $8000,X
@@ -593,7 +593,7 @@ b_82ac:
 :
   lda #$FF
   sta rtn_trk_b
-  jmp init_level
+  jmp init_title
 main_jmp_1:
   jsr set_PPU_MASK_b
   jsr set_PPU_CTRL_b
@@ -672,7 +672,7 @@ nmi:                        ; beginning of frame
   lda rtn_trk_a             ; check routine status, do stuff if 0bit is set or if it isnt
   lsr
   bcc :+                    ; branch if stack is cleared
-  jmp stack_handler_1       ; @$840B ** did I do this yet?
+  jmp stack_handler_1       ; @$840B 
 :
   lda rtn_trk_a
   ora #$01                  ; set 0bit in routine status to 1
@@ -691,7 +691,7 @@ nmi:                        ; beginning of frame
   bmi :+++
   and #$0C
   bne :+
-  jmp get_player_input_before_rti   ; I need to find out more about rtn_trk_a to better describe this subroutine
+  jmp title_scroll_rtn   ; This seems to be the routine that runs as the logo scrolls on the title screen
 :
   and #$08
   bne :+
@@ -868,7 +868,7 @@ sound_rtn_jmp_point_2:
   lda #$FF
   sta state
   jmp pull_stack_and_rti
-get_player_input_before_rti:
+title_scroll_rtn:
   jsr get_player_input
   jsr scroll_logo
   jsr ppu_scroll_check
@@ -910,7 +910,7 @@ get_player_input:             ; @$853E
   bit controller_current    ; set player direction, 1 if right is pressed or 0 if left is pressed
   beq :++                   ; skip this part if neither left or right is pressed
   lda #$00
-  bvs :+                    ; continue if right is pressed or branc   if left was pressed
+  bvs :+                    ; continue if right is pressed or branch if left was pressed
   lda #$01
 :
   sta player_direction
@@ -957,10 +957,10 @@ load_palette_ram_to_ppu:
   cpy #$20
   bcc :-                                ; continue after loading 32 bytes of palette data
   lda #$3f
-  sta PPU_ADDR                          ; load nametable address 3f00
+  sta PPU_ADDR                          ; load palette RAM address 3f00
   lda #$00
   sta PPU_ADDR
-  sta PPU_ADDR
+  sta PPU_ADDR                          ; to avoid palette corruption, https://www.nesdev.org/wiki/PPU_registers
   sta PPU_ADDR
   rts
 ppu_scroll:
@@ -1125,7 +1125,7 @@ controller_input_check_b:
   sta ram_PPU_Mask
   ldx #$FF
   txs
-  jmp init_level    ;#$8700~
+  jmp init_title    ;#$8700~
 :
   bit rtn_trk_0
   bvs :+
@@ -1191,7 +1191,7 @@ write_blank_screen_a:
   bcc :-
   lda #$00
 :
-  sta PPU_VRAM_IO     ; load #$00 for the rest of the bytes between C0 and FF
+  sta PPU_VRAM_IO     ; load #$00 for the rest of the pallette data bytes between C0 and FF
   iny
   bne :-
   rts
@@ -7722,22 +7722,22 @@ lvl_misc_jmp_tbl:   ; @$CC94
     ; level 3(vert_up)
 	.byte $00,$00,$00,$00,$FF,$FF,$FF,$FF
   .byte $FF,$FF,$FF,$FF,$00,$00,$00,$00
-clear_ram:          ; @$CCC6
+draw_title:          ; @$CCC6
   jsr clear_screen
   jsr clear_oam_ram
   lda $8003           ; ready chr ram 3
   sta $8003           ; set chr ram 3
-  jsr ppu_misc_1
-  jsr clear_ram_b
+  jsr draw_tf_title
+  jsr draw_title_attributes
   lda #$00              ; load y position 0
   sta y_scroll_lo
   sta y_scroll_hi
   lda #$FE              ; load title to scroll from the right
   sta x_scroll
   jmp ppu_scroll
-clear_ram_b:
+draw_title_attributes:
   lda #$23
-  sta PPU_ADDR
+  sta PPU_ADDR      ; Set PPU Address to top of attribute table @$23C0
   lda #$C0
   sta PPU_ADDR
   ldx #$00
@@ -7745,48 +7745,48 @@ clear_ram_b:
   lda title_tbl,X
   sta PPU_VRAM_IO
   inx
-  cpx #$40          ; $40 bytes of seemingly nothing to the screen, maybe top of title screen, but why? ***
+  cpx #$40          ; $40 bytes of title screen attribute data
   bcc :-
   lda #$1C
   sta $00
   lda #$D0
   sta $01
   jmp send_palette_to_ram
-ppu_misc_1:
+draw_tf_title:
   lda #$24
-  sta $03
-  lda #$05
-  sta $02
-  lda #$21
-  sta $01
+  sta $03     ; load #$24 into Ram $03, this is the start of the Transformers Logo in CHR rom bank 03
+  lda #$05    ; set number of rows of transformers logo
+  sta $02     ; load #$05 into Ram $02, lines of TF title logo
+  lda #$21    
+  sta $01     ; load #$21 into Ram $01, VRAN High byte
   lda #$02
-  sta $00
-ppu_clear_loop:
-  lda PPU_STATUS
+  sta $00     ; load #$02 into Ram $00, VRAM Low byte $2102
+tf_title_loop:
+  lda PPU_STATUS  ; Clear PPU flags
   lda $01
-  sta PPU_ADDR
+  sta PPU_ADDR    ; Set high byte of VRAM address
   lda $00
-  sta PPU_ADDR
-  ldy #$00
+  sta PPU_ADDR    ; Set low byte of VRAM address
+  ldy #$00        ; Reset Y to 0
 :
   lda $03
-  sta PPU_VRAM_IO
-  inc $03
+  sta PPU_VRAM_IO ; Write Transformers Logo to screen, starting with $24 from background table
+  inc $03         ; Increment $03 to the next tile of the logo
   iny
-  cpy #$1C
+  cpy #$1C        ; each row has 1C tiles
   bcc :-
-  dec $02
-  bpl :+
+  dec $02         ; Decrement number of lines left
+  bpl :+          ; branch until no lines left for title TF logo
   rts
 :
   lda $00
   clc
   adc #$20
-  sta $00
+  sta $00         ; add #$20 to VRAM low byte
   lda $01
   adc #$00
-  sta $01
-  jmp ppu_clear_loop
+  sta $01         ; add carry to VRAM high byte
+  jmp tf_title_loop
 title_timer_rtn:
   lda #$10
   sta rtn_trk_a
@@ -7816,7 +7816,7 @@ title_timer_rtn:
 :
   lda state
   bmi :+
-  jmp :-
+  jmp :-      ; loop here until nmi hits/vblank ends (whatever) is hit
 :
   jsr disable_audio_channels
   jsr play_title_theme          ; @$D944
@@ -8131,7 +8131,7 @@ draw_lives:
   sta PPU_VRAM_IO
   rts
 title_tbl: ;CFDC-D075
- 	.byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$05,$05,$05,$05,$05,$05,$05,$01,$A0,$A0,$A0,$A0,$A0,$A0,$A0,$A0,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+ 	.byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$05,$05,$05,$05,$05,$05,$05,$01,$A0,$A0,$A0,$A0,$A0,$A0,$A0,$A0,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF   ; Title Attribute table
 	.byte $0F,$30,$10,$02,$0F,$30,$10,$16,$0F,$30,$10,$16,$0F,$36,$16,$20,$0F,$20,$21,$16,$0F,$30,$21,$30,$0F,$30,$26,$30,$0F,$36,$07,$1C   ; palette info
 	.byte $04,$06,$05,$07,$08,$0A,$09,$0B,$0C,$0E,$0D,$0F,$10,$12,$11,$13,$14,$16,$15,$17,$18,$1A,$19,$1B       ; subtitle tiles
   .byte $22,$68,$07,$E1,$E2,$F5,$EC,$DC,$E8,$EB,$DE     ; 'HI-SCORE'
