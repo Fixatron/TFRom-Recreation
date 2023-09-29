@@ -307,18 +307,18 @@ JOY2_FRAME      = $4017         ; Joypad #2/SOFTCLK (RW)
 .segment "STARTUP"
 ; important stuff for safe chr bank switching
 .byte $00, $01, $02, $03
-; some sound info a @$8004
+; TF insignia flip sound info a @$8004
 .byte $05, $01, $0F, $00, $34, $04, $36, $02, $37, $04, $30, $02, $30, $10, $FF
-; some sound info b @$8013
+; TF insignia flip sound info b @$8013
 .byte $15, $01, $0F, $00, $2B, $04, $31, $02, $32, $04, $27, $02, $27, $04, $60, $10, $FF
-; some sound info c @$8024
+; TF insignia flip sound info c @$8024
 .byte $25, $7F, $00, $00, $24, $04, $26, $02, $27, $04, $20, $02, $20, $04, $24, $01
 .byte $25, $01, $26, $01, $27, $01, $28, $01, $29, $01, $2A, $01, $2B, $01, $30, $04, $FF
-; some sound info d @$8045
+; TF insignia flip sound info d @$8045
 .byte $35, $00, $00, $00, $03, $04, $03, $02, $03, $04, $03, $02, $03, $04, $FF
 ; game over a @$8054
 .byte $05, $01, $0F, $00, $39, $04
-;game over e
+;game over e?
 .byte $39, $02, $37, $02, $1F, $02
 .byte $37, $02, $39, $04, $40, $02
 .byte $3B, $02, $37, $02, $32, $02
@@ -332,13 +332,13 @@ JOY2_FRAME      = $4017         ; Joypad #2/SOFTCLK (RW)
 ;tftheme/game over d @$80a1
 .byte $35, $00, $00, $00, $03, $04, $03, $02, $03, $04, $03, $02, $03, $04, $03, $02, $B5, $FF
 .byte $1F, $04, $03, $02, $FF
-; rodimus endscreen @$80B8
+; rodimus endscreen/bumblebee screen @$80B8
 .byte $12, $02, $1F, $00, $EF, $02, $40, $01, $45, $01, $47, $01
 .byte $50, $01, $B6, $FC, $DF, $02, $40, $01, $45, $01, $47, $01, $50, $01, $B7, $FC
 .byte $BF, $F4
-; Subtitle sound b @$80D6
+; Subtitle sound a @$80D6
 .byte $30, $00, $00, $00, $07, $10, $FF
-; Subtitle sound a @$80DD
+; Subtitle sound b @$80DD
 .byte $10, $01, $01, $00, $69, $10, $FF
 ; Subtitle sound c @$80E4
 .byte $10, $01, $1F, $00, $EF, $01, $29, $01, $24, $01, $22, $01, $19, $01, $B8, $FC
@@ -364,13 +364,13 @@ vblankwait1:
 ;; could have done other things first, like clear ram, but thats okay
 vblankwait2:
   lda PPU_STATUS      ; @$2002
-  bpl vblankwait2
+  bpl vblankwait2     ; wait until sprite 0 is hit?
   ldx #$FF            ; enable X index
   txs                 ; enable stack
   lda #$00
   sta sel_status      ; reset sel_status
   sta APU_MODCTRL     ; disable DMC IRQs @$4010
-  lda #$40            ; write 40 to frame counter
+  lda #$40            ; load #$40 (00000100)
   sta JOY2_FRAME	    ; disable APU frame IRQ @$4017
   lda #$E8            ; load initial high score
   sta hiScoreLo       ; reset hi-score to 10,000
@@ -380,7 +380,7 @@ vblankwait2:
   sta hiScoreHi
   jsr clear_player_scores
 init_title:
-  jsr set_PPU_MASK_b  
+  jsr set_PPU_MASK_b  ; remove sprites and background from screen
   jsr set_PPU_CTRL_b 
   lda #$FF
   sta rtn_trk_b       ; store $FF to $1E
@@ -610,24 +610,24 @@ main_jmp_1:
   jsr set_PPU_CTRL_b
   jsr disable_audio_channels
   lda state
-  and #$10        ; ************@0x313
-  bne :++
-  lda unram_3
+  and #$10        ; @$0313
+  bne :++         ; jump if state has the 4th bit flagged
+  lda unram_3             ; if unram_3 is +ve we've entered the warp zone
   bpl :+
   lda #$80
-  sta unram_3
+  sta unram_3     ; set unram_3 to negative to indicate that we've entered the warp area
   lda current_level
   sta bk_crnt_lvl
   lda #$1C
   sta current_level       ; load warp zone with bumblebee, level 1C 
-  jmp pre_stage_prep_a    ; @$8186
-:
+  jmp pre_stage_prep_a    ; @$8186 load sideroom
+:                         ; exiting the warp area
   lda bk_crnt_lvl         ; load backup of current level
   clc                 
   adc #$04                ; add 2 levels; warp from stage 2 to 4 and 7 to 9
   sta current_level
   lda #$00
-  sta unram_3
+  sta unram_3             ; reset unram_3
   jmp pre_stage_prep
 :
   lda sub_state
@@ -958,7 +958,7 @@ load_palette_ram_to_ppu:
   tay
   lda PPU_STATUS
   lda #$3f
-  sta PPU_ADDR
+  sta PPU_ADDR                          ; write to palette data $3f00
   lda #$00
   sta PPU_ADDR
 :
@@ -1157,18 +1157,18 @@ controller_input_check_b:
 :
   rts
 set_PPU_MASK_a:
-  lda #$1A
+  lda #$1A            ; 00011010 show sprites, show backgrounds, show backgrounds in leftmost 8 pixels of the screen
   .byte $AE           ;this is in order to change the next line to ldx $00A9
 set_PPU_MASK_b:
-  lda #$00
+  lda #$00            ; 00000000: no sprites or backgrounds, normal colour
   sta PPU_MASK
   sta ram_PPU_Mask    ; store the PPU_MASK value to RAM
   rts
 set_PPU_CTRL_a:
-  lda #$90            ; @0x721
+  lda #$90            ; @0x721  10010000, Generate NMI at the start of the vertical blanking interval,Background pattern table address (0: $0000; 1: $1000), 
   .byte $AE           ;this is in order to change the next line to ldx $10A9 **********
 set_PPU_CTRL_b:
-  lda #$10
+  lda #$10            ; 00010000 background pattern table address (0:$0000, 1:$1000)
   sta PPU_CTRL
   sta ram_PPU_CTRL    ; store the PPU_CTRL value to RAM
   rts
@@ -1436,9 +1436,9 @@ write_pl1_score_b:
   jmp draw_score
 write_pl2_score:
   lda #$18
-  sta $0f
+  sta $0F         ; set y position of score
   lda #$E0
-  sta $0E
+  sta $0E         ; set x position of score
 write_pl2_score_b:
   lda p2ScoreLo
   sta $00
@@ -4841,12 +4841,97 @@ b_aa69:
 eny_misc_jmp_tbl:   ; @$AA6E-AA71
   .byte $72,$AA,$F2,$AA
 enemy_lookup_tbl:   ; @$aa72-ab27
-	.byte $5C,$B2,$79,$B2,$CE,$B2,$23,$B3,$45,$B3,$55,$B3,$6B,$B3,$77,$B3,$F0,$B3,$5C,$B6,$B9,$B6,$22,$B4,$6A,$B6,$78,$B6,$2A,$B7,$64,$B7
-	.byte $87,$B7,$AC,$B7,$7B,$BB,$1C,$B8,$D3,$B8,$DF,$B8,$E8,$B8,$0F,$B9,$2A,$B9,$32,$B9,$96,$B9,$A1,$B9,$3F,$AB,$3F,$AB,$1D,$BB,$1D,$BB
-	.byte $3F,$AB,$3D,$BA,$3F,$AB,$82,$BA,$A6,$BA,$0F,$BC,$49,$BA,$5D,$BA,$8E,$BB,$3F,$AB,$DA,$BA,$69,$BA,$9B,$BA,$E6,$BA,$0C,$BB,$32,$B9
-	.byte $41,$BB,$41,$BB,$41,$BB,$41,$BB,$72,$BB,$72,$BB,$72,$BB,$72,$BB,$72,$BB,$72,$BB,$72,$BB,$72,$BB,$72,$BB,$72,$BB,$72,$BB,$72,$BB
-	.byte $3C,$B4,$F0,$B3,$04,$B4,$0E,$B4,$18,$B4,$2D,$B5,$70,$B5,$AB,$B4,$C2,$B5,$77,$B8,$C7,$B8,$3E,$B9,$49,$B9,$5B,$B9,$6E,$B9,$79,$B9
-	.byte $D0,$B9,$78,$B6,$E1,$B9,$78,$B6,$FA,$B9,$13,$BA,$2C,$BA,$E5,$BB,$97,$BB,$FC,$BB,$1B,$BC
+	.byte $5C,$B2
+  .byte $79,$B2
+  .byte $CE,$B2
+  .byte $23,$B3
+  .byte $45,$B3
+  .byte $55,$B3
+  .byte $6B,$B3
+  .byte $77,$B3
+  .byte $F0,$B3
+  .byte $5C,$B6
+  .byte $B9,$B6
+  .byte $22,$B4
+  .byte $6A,$B6
+  .byte $78,$B6
+  .byte $2A,$B7
+  .byte $64,$B7
+	.byte $87,$B7
+  .byte $AC,$B7
+  .byte $7B,$BB
+  .byte $1C,$B8
+  .byte $D3,$B8
+  .byte $DF,$B8
+  .byte $E8,$B8
+  .byte $0F,$B9
+  .byte $2A,$B9
+  .byte $32,$B9
+  .byte $96,$B9
+  .byte $A1,$B9
+  .byte $3F,$AB
+  .byte $3F,$AB
+  .byte $1D,$BB
+  .byte $1D,$BB
+	.byte $3F,$AB
+  .byte $3D,$BA
+  .byte $3F,$AB
+  .byte $82,$BA
+  .byte $A6,$BA
+  .byte $0F,$BC
+  .byte $49,$BA
+  .byte $5D,$BA
+  .byte $8E,$BB
+  .byte $3F,$AB
+  .byte $DA,$BA
+  .byte $69,$BA
+  .byte $9B,$BA
+  .byte $E6,$BA
+  .byte $0C,$BB
+  .byte $32,$B9
+	.byte $41,$BB
+  .byte $41,$BB
+  .byte $41,$BB
+  .byte $41,$BB
+  .byte $72,$BB
+  .byte $72,$BB
+  .byte $72,$BB
+  .byte $72,$BB
+  .byte $72,$BB
+  .byte $72,$BB
+  .byte $72,$BB
+  .byte $72,$BB
+  .byte $72,$BB
+  .byte $72,$BB
+  .byte $72,$BB
+  .byte $72,$BB
+	.byte $3C,$B4
+  .byte $F0,$B3
+  .byte $04,$B4
+  .byte $0E,$B4
+  .byte $18,$B4
+  .byte $2D,$B5
+  .byte $70,$B5
+  .byte $AB,$B4
+  .byte $C2,$B5
+  .byte $77,$B8
+  .byte $C7,$B8
+  .byte $3E,$B9
+  .byte $49,$B9
+  .byte $5B,$B9
+  .byte $6E,$B9
+  .byte $79,$B9
+	.byte $D0,$B9
+  .byte $78,$B6
+  .byte $E1,$B9
+  .byte $78,$B6
+  .byte $FA,$B9
+  .byte $13,$BA
+  .byte $2C,$BA
+  .byte $E5,$BB
+  .byte $97,$BB
+  .byte $FC,$BB
+  .byte $1B,$BC
 b_ab28:
   lda eny_y_inc_lo,X    ; @$ab28
   sta $06
@@ -5771,6 +5856,7 @@ b_b2b1:
   sta $0F
   jsr b_ac4b
   rts
+; @b2ce
   lda #$00
   sta eny_x_inc_lo,X
   lda #$ff
@@ -7358,10 +7444,10 @@ b_c4df:
   sta $00
   sec 
   lda #$00
-b_c514:
+:
   ror
   dec $00
-  bpl b_c514
+  bpl :-
   ora rodimus_ram
   sta rodimus_ram
 b_c51d:
@@ -7620,31 +7706,39 @@ ram_misc_36:
 
 ;======================================================================================================================================
 mid_tbl_start:    ; @$C6E6-C911
-	.byte $EA,$C6,$62,$C7,$0A,$00,$1E,$00,$1E,$00,$32,$00,$64,$00,$1E,$00,$32,$00,$28,$00,$00,$00,$00,$00,$28,$00,$32,$00,$00,$00,$1E,$00
-	.byte $00,$00,$64,$00,$1E,$00,$32,$00,$64,$00,$2C,$01,$1E,$00,$64,$00,$28,$00,$32,$00,$32,$00,$14,$00,$1E,$00,$F4,$01,$00,$00,$00,$00
-	.byte $F4,$01,$00,$00,$00,$00,$1E,$00,$00,$00,$88,$13,$32,$00,$88,$13,$64,$00,$64,$00,$10,$27,$64,$00,$64,$00,$88,$13,$88,$13,$88,$13
-	.byte $0A,$00,$0A,$00,$0A,$00,$0A,$00,$0A,$00,$0A,$00,$64,$00,$64,$00,$00,$00,$64,$00,$64,$00,$64,$00,$64,$00,$64,$00,$64,$00,$00,$00
-	.byte $00,$00,$00,$00,$00,$00,$0A,$00,$0A,$00,$2C,$01,$14,$00,$90,$01,$32,$00,$E8,$03,$14,$00,$64,$00,$B8,$0B,$14,$00,$10,$27,$00,$F0
-	.byte $F4,$01,$00,$F0,$D0,$07,$88,$13
+	.byte $EA,$C6,$62,$C7
+  ; @c6ea
+  .byte $0A,$00,$1E,$00,$1E,$00,$32,$00,$64,$00,$1E,$00,$32,$00,$28,$00,$00,$00,$00,$00,$28,$00,$32,$00,$00,$00,$1E,$00,$00,$00
+  .byte $64,$00,$1E,$00,$32,$00,$64,$00,$2C,$01,$1E,$00,$64,$00,$28,$00,$32,$00,$32,$00,$14,$00,$1E,$00,$F4,$01,$00,$00,$00,$00
+  .byte $F4,$01,$00,$00,$00,$00,$1E,$00,$00,$00,$88,$13,$32,$00,$88,$13,$64,$00,$64,$00,$10,$27,$64,$00,$64,$00,$88,$13,$88,$13
+  .byte $88,$13,$0A,$00,$0A,$00,$0A,$00,$0A,$00,$0A,$00,$0A,$00,$64,$00,$64,$00,$00,$00,$64,$00,$64,$00,$64,$00,$64,$00,$64,$00
+  ; @c762
+  .byte $64,$00,$00,$00,$00,$00,$00,$00,$00,$00,$0A,$00,$0A,$00,$2C,$01,$14,$00,$90,$01,$32,$00
+  .byte $E8,$03,$14,$00,$64,$00,$B8,$0B,$14,$00,$10,$27,$00,$F0,$F4,$01,$00,$F0,$D0,$07,$88,$13
 mid_tbl_2:
   .byte $00,$00,$00,$00,$00,$00,$00,$F0,$00,$F0
-eny_pu_tbl:
-  .byte $9C,$C7,$1C,$C8   ; cant just get the data directly...
-  .byte $0A,$03,$0A,$03,$06,$0A,$0A,$03,$04,$08
-	.byte $04,$08,$08,$04,$08,$08,$0C,$04,$0C,$04,$04,$04,$04,$04,$0C,$04,$08,$04,$0A,$04,$04,$08,$08,$04,$04,$0C,$0C,$04,$08,$10,$0C,$04
-	.byte $08,$04,$08,$05,$08,$04,$08,$08,$04,$04,$0A,$03,$08,$08,$00,$00,$00,$00,$08,$08,$04,$04,$00,$00,$08,$08,$10,$04,$00,$00,$04,$04
-	.byte $0C,$04,$04,$08,$04,$08,$00,$00,$04,$04,$08,$08,$00,$00,$08,$08,$08,$08,$04,$08,$04,$04,$0A,$04,$0A,$04,$0A,$04,$0A,$04,$04,$04
-	.byte $04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$06,$06,$0C,$04,$0C,$04,$0C,$04,$0C,$04
-	.byte $04,$05,$04,$05,$04,$06,$04,$04,$04,$06,$06,$06,$04,$06,$04,$04,$08,$08,$04,$06,$04,$04,$04,$08,$08,$08,$04,$06,$04,$04,$04,$06
-	.byte $04,$06,$0C,$04,$06,$06,$06,$06,$08,$02
+eny_pu_tbl: ; @c798
+  .byte $9C,$C7,$1C,$C8   ; jump table
+  ; @c79c
+  .byte $0A,$03,$0A,$03,$06,$0A,$0A,$03,$04,$08,$04,$08,$08,$04,$08,$08,$0C,$04,$0C,$04,$04,$04,$04,$04,$0C,$04,$08,$04,$0A,$04,$04,$08
+  .byte $08,$04,$04,$0C,$0C,$04,$08,$10,$0C,$04,$08,$04,$08,$05,$08,$04,$08,$08,$04,$04,$0A,$03,$08,$08,$00,$00,$00,$00,$08,$08,$04,$04
+  .byte $00,$00,$08,$08,$10,$04,$00,$00,$04,$04,$0C,$04,$04,$08,$04,$08,$00,$00,$04,$04,$08,$08,$00,$00,$08,$08,$08,$08,$04,$08,$04,$04
+  .byte $0A,$04,$0A,$04,$0A,$04,$0A,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04,$04
+  ; @c81c
+  .byte $06,$06,$0C,$04,$0C,$04,$0C,$04,$0C,$04,$04,$05,$04,$05,$04,$06,$04,$04,$04,$06,$06,$06,$04,$06,$04,$04,$08,$08,$04,$06,$04,$04
+  .byte $04,$08,$08,$08,$04,$06,$04,$04,$04,$06,$04,$06,$0C,$04,$06,$06,$06,$06,$08,$02
 enemy_addr_tbl_2: ; @$C850
-  .byte $54,$C8,$D4,$C8,$82,$00,$82,$00,$00,$00,$00,$00,$7F,$FF,$00,$00,$00,$00,$00,$02,$00,$0F
-	.byte $00,$0F,$00,$00,$00,$00,$00,$0F,$00,$00,$00,$03,$00,$0A,$00,$00,$00,$02,$00,$05,$00,$0A,$95,$00,$00,$0A,$00,$00,$00,$00,$00,$02
-	.byte $00,$02,$9B,$00,$00,$00,$00,$00,$00,$00,$00,$80,$00,$00,$00,$00,$00,$02,$7F,$FF,$00,$FF,$00,$00,$7F,$FF,$00,$02,$00,$02,$00,$FF
-	.byte $9F,$00,$00,$02,$00,$FF,$00,$30,$00,$00,$9F,$00,$9E,$00,$80,$00,$B7,$00,$B8,$00,$80,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-	.byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$03,$00,$0F,$00,$0F,$00,$0F,$00,$0F,$00,$00,$00,$00,$00,$03,$00,$00
-	.byte $00,$03,$00,$05,$00,$03,$00,$00,$00,$0A,$00,$04,$00,$00,$00,$09,$00,$30,$00,$03,$00,$30,$00,$04,$00,$04,$7F,$00,$00,$00,$00,$00
-	.byte $00,$30
+  .byte $54,$C8,$D4,$C8
+  ; @c854
+  .byte $82,$00,$82,$00,$00,$00,$00,$00,$7F,$FF,$00,$00,$00,$00,$00,$02,$00,$0F,$00,$0F,$00,$00,$00,$00,$00,$0F,$00,$00,$00,$03,$00,$0A
+  .byte $00,$00,$00,$02,$00,$05,$00,$0A,$95,$00,$00,$0A,$00,$00,$00,$00,$00,$02,$00,$02,$9B,$00,$00,$00,$00,$00,$00,$00,$00,$80,$00,$00
+  .byte $00,$00,$00,$02,$7F,$FF,$00,$FF,$00,$00,$7F,$FF,$00,$02,$00,$02,$00,$FF,$9F,$00,$00,$02,$00,$FF,$00,$30,$00,$00,$9F,$00,$9E,$00
+  .byte $80,$00,$B7,$00,$B8,$00,$80,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  ; @8cd4
+  .byte $00,$03,$00,$0F,$00,$0F,$00,$0F,$00,$0F,$00,$00,$00,$00
+  .byte $00,$03,$00,$00,$00,$03,$00,$05,$00,$03,$00,$00,$00,$0A
+  .byte $00,$04,$00,$00,$00,$09,$00,$30,$00,$03,$00,$30,$00,$04
+  .byte $00,$04,$7F,$00,$00,$00,$00,$00,$00,$30
 misc_tbl_1:
   .byte $39,$3A,$00,$3B,$3C,$00,$3D,$00,$3F,$00
 chr_rom_bank_tbl: ; @$C912-C92E
@@ -7658,14 +7752,19 @@ stage_misc_tbl_1:; @$rom495c-496e/memory c94c
 untbl_2:
   .byte $01,$01,$01,$01,$01,$01,$01,$01,$01
 eny_pos_addr_tbl:
-	.byte $73,$C9,$83,$C9,$93,$C9,$A3,$C9,$B3,$C9,$93,$C9,$B3,$C9,$93,$C9
-	.byte $B3,$C9,$C3,$C9,$80,$40,$90,$60,$A0,$50,$80,$60,$90,$50,$A0,$40
-	.byte $90,$30,$90,$70,$80,$40,$A0,$60,$C0,$60,$C0,$80,$A0,$40,$80,$60
-	.byte $E0,$60,$D0,$70,$C0,$60,$E0,$50,$D0,$80,$B0,$70,$B0,$50,$E0,$80
-	.byte $D0,$50,$B0,$90,$A0,$30,$C0,$50,$E0,$40,$A0,$80,$E0,$80,$A0,$70
-	.byte $D0,$50,$90,$50,$D0,$A0,$B0,$80,$A0,$60,$D0,$50,$D0,$70,$A8,$30
-	.byte $D0,$38,$C0,$20,$C0,$50,$B0,$80,$E0,$70,$D0,$30,$A0,$30,$C0,$20
-	.byte $A0,$60,$B0,$50
+	.byte $73,$C9,$83,$C9,$93,$C9,$A3,$C9,$B3,$C9,$93,$C9,$B3,$C9,$93,$C9,$B3,$C9,$C3,$C9   ; addresses
+  ; @c973
+  .byte $80,$40,$90,$60,$A0,$50,$80,$60,$90,$50,$A0,$40,$90,$30,$90,$70
+  ; @c983
+  .byte $80,$40,$A0,$60,$C0,$60,$C0,$80,$A0,$40,$80,$60,$E0,$60,$D0,$70
+  ; @c993
+  .byte $C0,$60,$E0,$50,$D0,$80,$B0,$70,$B0,$50,$E0,$80,$D0,$50,$B0,$90
+  ; @c9a3
+  .byte $A0,$30,$C0,$50,$E0,$40,$A0,$80,$E0,$80,$A0,$70,$D0,$50,$90,$50
+  ; @c9b3
+  .byte $D0,$A0,$B0,$80,$A0,$60,$D0,$50,$D0,$70,$A8,$30,$D0,$38,$C0,$20
+  ; @c9c3
+  .byte $C0,$50,$B0,$80,$E0,$70,$D0,$30,$A0,$30,$C0,$20,$A0,$60,$B0,$50
 player_y_pos_tbl:     ; @$C9D3, y and x values alternate, 2 bytes per level
   .byte $50
 player_x_pos_tbl:     ; @$C9D4-C9FA
@@ -7682,17 +7781,54 @@ player_speed_tbl:     ; @$CA11-CA1A
 stage_tbl_0:          ; @$CA1B-CA2CCC76
 	.byte $20,$20,$0C,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20
 stage_tbl_3:          ; @$CA2D-CBC2
+  ; jump table
   .byte $69,$CA,$9A,$CA,$9E,$CA,$CF,$CA,$D3,$CA,$D7,$CA,$DB,$CA,$0C,$CB,$10,$CB,$41,$CB,$D3,$CA,$D7,$CA,$45,$CB,$76
 	.byte $CB,$7A,$CB,$D7,$CA,$7E,$CB,$AF,$CB,$7A,$CB,$B3,$CB,$B7,$CB,$BF,$CB,$B7,$CB,$BF,$CB,$BB,$CB,$BF,$CB,$BB,$CB,$BF,$CB,$BF,$CB
-  .byte $00,$00,$01,$02,$03,$06,$07,$01,$02,$03,$04,$05,$00,$05,$00
-	.byte $01,$02,$03,$1A,$06,$07,$05,$00,$01,$02,$03,$04,$05,$06,$07,$05,$06,$07,$01,$02,$03,$1A,$1A,$06,$07,$01,$02,$03,$04,$05,$04,$05,$1A,$1A,$1A,$50,$51,$52,$16,$0A,$0A,$0B,$0D,$0E,$0B,$0D
-	.byte $0E,$11,$0F,$10,$11,$0B,$0D,$0E,$08,$08,$0A,$0A,$0B,$0D,$0E,$0A,$0B,$0F,$10,$0B,$0C,$0C,$0C,$12,$0C,$12,$13,$13,$12,$0C,$08,$0F,$10,$10,$11,$0C,$0C,$0C,$08,$0A,$0A,$0A,$50,$51,$52,$53
-	.byte $14,$15,$1C,$1D,$4E,$4E,$1E,$1F,$17,$18,$19,$1B,$17,$18,$19,$1B,$19,$18,$17,$19,$17,$18,$19,$1B,$24,$25,$20,$21,$22,$23,$22,$23,$24,$25,$26,$27,$20,$21,$22,$23,$24,$25,$26,$27,$24,$25
-	.byte $26,$27,$17,$18,$19,$1B,$26,$27,$20,$21,$21,$4E,$4E,$44,$45,$37,$36,$38,$37,$38,$38,$2D,$2E,$38,$36,$38,$2F,$30,$31,$32,$33,$34,$36,$38,$37,$2B,$2C,$38,$38,$37,$38,$36,$38,$38,$2D,$2E
-	.byte $36,$38,$2F,$30,$31,$32,$33,$34,$36,$38,$2D,$2E,$38,$36,$37,$2B,$2C,$2C,$4E,$4E,$2A,$3F,$00,$01,$02,$03,$04,$05,$06,$07,$05,$00,$01,$02,$03,$04,$05,$06,$07,$05,$1A,$04,$05,$1A,$04,$05
-	.byte $04,$05,$1A,$04,$05,$00,$01,$02,$03,$1A,$04,$05,$00,$05,$04,$05,$00,$01,$02,$03,$1A,$09,$1A,$1A,$1A,$4E,$4E,$42,$43,$3B,$3C,$3D,$3E,$47,$48,$49,$4F,$54,$55,$4F,$54,$55,$4F,$54,$55,$4F
-	.byte $4B,$4C,$4D,$4F,$46,$47,$48,$49,$4A,$48,$49,$49,$48,$4F,$54,$55,$55,$55,$55,$4F,$49,$48,$49,$4A,$48,$4F,$54,$55,$4F,$54,$55,$4F,$54,$55,$55,$55,$4E,$4E,$40,$41,$4E,$4E,$28,$29,$39,$56
-	.byte $56,$3A,$57,$58,$58,$59,$1A,$1A,$1A,$1A
+  .byte $00,$00
+  ; @ca69
+  .byte $01,$02,$03,$06,$07,$01,$02,$03,$04,$05,$00,$05,$00
+	.byte $01,$02,$03,$1A,$06,$07,$05,$00,$01,$02,$03,$04,$05,$06,$07,$05,$06,$07,$01,$02,$03,$1A,$1A,$06,$07,$01,$02,$03,$04,$05,$04,$05,$1A,$1A,$1A
+  ; @ca9a
+  .byte $50,$51,$52,$16
+  ; @ca9e 
+  .byte $0A,$0A,$0B,$0D,$0E,$0B,$0D
+	.byte $0E,$11,$0F,$10,$11,$0B,$0D,$0E,$08,$08,$0A,$0A,$0B,$0D,$0E,$0A,$0B,$0F,$10,$0B,$0C,$0C,$0C,$12,$0C,$12,$13,$13,$12,$0C,$08,$0F,$10,$10,$11,$0C,$0C,$0C,$08,$0A,$0A,$0A
+  ; @cacf 
+  .byte $50,$51,$52,$53
+  ; @cad3
+	.byte $14,$15,$1C,$1D
+  ; @cad7
+  .byte $4E,$4E,$1E,$1F
+  ; @cadb
+  .byte $17,$18,$19,$1B,$17,$18,$19,$1B,$19,$18,$17,$19,$17,$18,$19,$1B,$24,$25,$20,$21,$22,$23,$22,$23,$24,$25,$26,$27,$20,$21,$22,$23,$24,$25,$26,$27,$24,$25
+	.byte $26,$27,$17,$18,$19,$1B,$26,$27,$20,$21,$21
+  ; @cb0c
+  .byte $4E,$4E,$44,$45
+  ; @bc10
+  .byte $37,$36,$38,$37,$38,$38,$2D,$2E,$38,$36,$38,$2F,$30,$31,$32,$33,$34,$36,$38,$37,$2B,$2C,$38,$38,$37,$38,$36,$38,$38,$2D,$2E
+	.byte $36,$38,$2F,$30,$31,$32,$33,$34,$36,$38,$2D,$2E,$38,$36,$37,$2B,$2C,$2C
+  ; @cb41
+  .byte $4E,$4E,$2A,$3F
+  ; @cb45
+  .byte $00,$01,$02,$03,$04,$05,$06,$07,$05,$00,$01,$02,$03,$04,$05,$06,$07,$05,$1A,$04,$05,$1A,$04,$05
+	.byte $04,$05,$1A,$04,$05,$00,$01,$02,$03,$1A,$04,$05,$00,$05,$04,$05,$00,$01,$02,$03,$1A,$09,$1A,$1A,$1A
+  ; @cb76
+  .byte $4E,$4E,$42,$43
+  ; @cb7a
+  .byte $3B,$3C,$3D,$3E
+  ; @cb7e
+  .byte $47,$48,$49,$4F,$54,$55,$4F,$54,$55,$4F,$54,$55,$4F
+	.byte $4B,$4C,$4D,$4F,$46,$47,$48,$49,$4A,$48,$49,$49,$48,$4F,$54,$55,$55,$55,$55,$4F,$49,$48,$49,$4A,$48,$4F,$54,$55,$4F,$54,$55,$4F,$54,$55,$55,$55
+  ; @cbaf
+  .byte $4E,$4E,$40,$41
+  ; @cbb3
+  .byte $4E,$4E,$28,$29
+  ; @cbb7
+  .byte $39,$56,$56,$3A
+  ; @cbbb
+  .byte $57,$58,$58,$59
+  ; @cbbf
+  .byte $1A,$1A,$1A,$1A
 stage_tbl_4:          ; @$CBC3-CC76
   .byte $C6,$E0,$12,$E1,$5E,$E1,$AA,$E1,$F6,$E1,$42,$E2,$8E,$E2,$DA,$E2,$26,$E3,$C6,$F3,$72,$E3,$BE,$E3,$0A,$E4,$56,$E4,$A2,$E4,$EE,$E4,$3A,$E5,$86,$E5
 	.byte $D2,$E5,$1E,$E6,$12,$F4,$5E,$F4,$D2,$F8,$4E,$E7,$9A,$E7,$E6,$E7,$7E,$E8,$32,$E8,$AA,$F4,$F6,$F4,$42,$F5,$8E,$F5,$CA,$E8,$16,$E9,$62,$E9,$AE,$E9,$FA,$E9,$46,$EA,$92,$EA,$DE,$EA,$DA,$F5
@@ -7725,13 +7861,18 @@ stage_orientation_table:  ; @$CC77
 lvl_misc_jmp_tbl:   ; @$CC94
   .byte $9E,$CC,$A6,$CC,$AE,$CC,$B6,$CC,$BE,$CC
   ; level 1,2,4,6(vert_down),7,8(vert_down),9
+    ; @cc9e
 	.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
     ; level 5
+    ; @cca6
   .byte $F0,$F0,$F0,$F0,$F0,$F0,$F0,$F0
     ; level 10
+    ; @ccae
   .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
     ; level 3(vert_up)
+    ; @ccb6
 	.byte $00,$00,$00,$00,$FF,$FF,$FF,$FF
+    ; @ccbe
   .byte $FF,$FF,$FF,$FF,$00,$00,$00,$00
 draw_title:          ; @$CCC6
   jsr clear_screen
@@ -7758,9 +7899,9 @@ draw_title_attributes:
   inx
   cpx #$40          ; 64 bytes of title screen attribute data
   bcc :-
-  lda #$1C          ; load indirect address for title screen palette data @d01c
+  lda #<title_palette_tbl     ; load indirect address for title screen palette data @d01c
   sta $00
-  lda #$D0
+  lda #>title_palette_tbl
   sta $01
   jmp send_palette_to_ram
 draw_tf_title:
@@ -7883,9 +8024,9 @@ scroll_logo:
   cmp #$18              ; count up to 18 tiles of the subtitle then load the rest of the title screen text
   bcs :++
   tay
-  lda #$3C
+  lda #<subtitle_tbl
   sta $00               ; indirect addressing to @$D03C
-  lda #$D0
+  lda #>subtitle_tbl
   sta $01
   ldx #$01              ; load x with 01 to draw left and then right side of subtitle tiles
 :
@@ -7905,15 +8046,15 @@ scroll_logo:
   jsr play_subtitle_sound  ; @$D960
   rts
 :
-  lda #$54      ; low byte of address for Hi-Score text table
+  lda #<hiscore_tbl      ; low byte of address for Hi-Score text table
   sta $00
-  lda #$D0      ; high byte of address for Hi-Score text table @$D054
+  lda #>hiscore_tbl      ; high byte of address for Hi-Score text table @$D054
   sta $01
   jsr write_text  ; write "Hi-Score"
   jsr write_player
-  lda #$67      ; low byte of address for Takara text table @$D067
+  lda #<takara_tbl      ; low byte of address for Takara text table @$D067
   sta $00
-  lda #$D0      ; high byte of address for Takara text table @$D067
+  lda #>takara_tbl      ; high byte of address for Takara text table @$D067
   sta $01
   jsr write_text  ; Write "©Takara 1986" 
   jsr ppu_scroll
@@ -8054,27 +8195,27 @@ pre_stage_screen: ; @cf17
   jsr clear_oam_ram
   lda $8003             ; load palette 3
   sta $8003
-  lda #$54              ; ready the palette address lo byte
+  lda #<palette_table_2 ; ready the palette address lo byte
   sta $00
-  lda #$D3              ; ready the palette address hi byte
+  lda #>palette_table_2 ; ready the palette address hi byte @d354
   sta $01
   jsr send_palette_to_ram
-  lda #$5F
+  lda #<stage_text_tbl  ; low byte of stage text table address
   sta $00
-  lda #$D0
+  lda #>stage_text_tbl  ; high byte of stage text table address
   sta $01
   jsr write_text
   jsr write_stage_num
   lda #$21              ; write which player is up
-  sta PPU_ADDR
+  sta PPU_ADDR          ; load x location
   lda #$CB
-  sta PPU_ADDR
+  sta PPU_ADDR          ; load y location
   ldx #$D1              ; ready to write '1'
   lda which_player
   beq :+                ; branch if player 1
   inx                   ; increment x if player 2 to write 2
 :
-  stx PPU_VRAM_IO
+  stx PPU_VRAM_IO       ; write 1 or 2 depending on players^^
   jsr draw_player
   jsr draw_lives
   jsr ppu_scroll
@@ -8127,26 +8268,31 @@ draw_lives:
   lda #$20              ; draw a space
   sta PPU_VRAM_IO
   lda $06
-  and #$F0
+  and #$F0              ; get the first digit and write it to ppu data
   lsr
   lsr
   lsr
   lsr
   clc
-  adc #$D0
+  adc #$D0              ; add the 0 tile to the number of lives then write it to PPU data
   sta PPU_VRAM_IO
   lda $06
   and #$0F
   clc
-  adc #$D0
+  adc #$D0              ; get the second digit and add it to 0 then write it to PPU data
   sta PPU_VRAM_IO
   rts
 title_tbl: ;CFDC-D075
  	.byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$05,$05,$05,$05,$05,$05,$05,$01,$A0,$A0,$A0,$A0,$A0,$A0,$A0,$A0,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF   ; Title Attribute table
+title_palette_tbl:  ; @d01c
 	.byte $0F,$30,$10,$02,$0F,$30,$10,$16,$0F,$30,$10,$16,$0F,$36,$16,$20,$0F,$20,$21,$16,$0F,$30,$21,$30,$0F,$30,$26,$30,$0F,$36,$07,$1C   ; palette info @D01C
+subtitle_tbl:
 	.byte $04,$06,$05,$07,$08,$0A,$09,$0B,$0C,$0E,$0D,$0F,$10,$12,$11,$13,$14,$16,$15,$17,$18,$1A,$19,$1B       ; subtitle tiles d03c
+hiscore_tbl:
   .byte $22,$68,$07,$E1,$E2,$F5,$EC,$DC,$E8,$EB,$DE     ; 'HI-SCORE' @D054
+stage_text_tbl:
   .byte $20,$EB,$04,$EC,$ED,$DA,$E0,$DE     ; x position, y position, length, "Stage" @D05F
+takara_tbl:
   .byte $23,$4A,$0B,$F4,$ED,$DA,$E4,$DA,$EB,$DA,$20,$D1,$D9,$D8,$D6   ;"©TAKARA 1986"  @D067
 rodimus_check:              ; this is where the end screen stuff starts, maybe
   jsr clear_screen
@@ -8163,12 +8309,12 @@ rodimus_check:              ; this is where the end screen stuff starts, maybe
   lsr               ; shift right, if rodimus is activated there will be a carry
   bcs b_d0bc        ; branch if rodimus is already enabled (if rodimus_ram = 01)
   lda #$FF
-  sta rodimus_ram
+  sta rodimus_ram   ; if no carry, load FF to rodimus ram for activating rodimus next game runthrough
   lda #$06          ; write "YUKE RODIMUS !"
   sta $02           ; load y offset for fetching text 
-  lda #$D0
+  lda #<end_text_tbl
   sta $03           ; load low byte for address of end screen text
-  lda #$D1
+  lda #>end_text_tbl          ; @d1d0
   sta $04           ; load high byte for address of end screen text
   lda #$23
   sta $05           ; x address of line break
@@ -8187,29 +8333,29 @@ b_d0bc:
   sta rodimus_ram
   lda #$01          ; write score
   sta $02
-  lda #$6C
+  lda #<rodimus_end_text  ; low byte of rodimus ending text table
   sta $03
-  lda #$D2
+  lda #>rodimus_end_text  ; high byte of rodimus ending text table @d26c
   sta $04
   lda #$23
-  sta $05
+  sta $05                 ; set text x location
   lda #$D0
-  sta $06
+  sta $06                 ; set text y location
   jsr fetch_text
   lda #$A8
-  sta $0F
+  sta $0F               ; set y position for score
   lda #$C8
-  sta $0E
+  sta $0E               ; set x position for score
   lda which_player
-  bne b_d0e9                 ; write player 2 score instead of 1
+  bne plr_2_wins                 ; write player 2 score instead of 1
   jsr write_pl1_score_b ; @$88CF write pl1 score
-  jmp j_d0ec            ; skip writing player 2 score
-b_d0e9:
+  jmp plr_1_wins            ; skip writing player 2 score
+plr_2_wins:
   jsr write_pl2_score_b
-j_d0ec:
+plr_1_wins:
   lda #$80              ; load sprite x position of 80
   sta plr_x_pos_hi      ; speed acts as the x position on the text screens
-  lda #$90
+  lda #$90              ; y position of player sprite
   sta plr_y_pos_hi
   lda #$0B              ; load Magnus stage/end screen sprite
   sta player_sprite
@@ -8217,14 +8363,14 @@ j_d0ec:
 no_rodimus:
   lda #$07              ; write "destron wo.."
   sta $02
-  lda #$8C
+  lda #<normal_ending_text_tbl    ; normal ending table start, @d28c
   sta $03
-  lda #$D2
+  lda #>normal_ending_text_tbl    ; normal ending table start high byte
   sta $04
   lda #$23
-  sta $05
+  sta $05               ; set x location of line break
   lda #$C8
-  sta $06
+  sta $06               ; set y location of line break
   jsr fetch_text
   lda #$80              ; set sprite x position
   sta plr_x_pos_hi
@@ -8310,9 +8456,9 @@ fetch_text:
   jsr write_text
   dec $02
   bpl fetch_text
-  lda #$54
+  lda #<palette_table_2 ; @d354
   sta $00
-  lda #$D3
+  lda #>palette_table_2
   sta $01
   jsr send_palette_to_ram
   lda $05
@@ -8336,9 +8482,13 @@ end_text_tbl: ; @$D1D0-D353
 	.byte $22,$07,$0C,$EC,$DE,$E6,$DA,$ED,$ED,$DE,$20,$E2,$EB,$EE,$20,$F9                                             ; 'SEMATTE IRU !'
 	.byte $22,$67,$0D,$F2,$EE,$E4,$DE,$20,$EB,$E8,$DD,$E2,$E6,$EE,$EC,$20,$F9                                         ; 'YUKE RODIMUS !'          Go, Rodimus!
 	.byte $22,$C6,$15,$DA,$ED,$ED,$DA,$DC,$E4,$F9,$20,$EB,$E8,$DD,$E2,$E6,$EE,$EC,$DC,$E8,$E6,$EF,$E8,$F2,$F9         ; 'ATTACK! RODIMUSCOMVOY!'  Attack! Rodimus Convoy!
-	.byte $70,$D2,$82,$D2                                                                                             ; text lookup table for the following text
-	.byte $21,$49,$0E,$DC,$E8,$E7,$E0,$EB,$DA,$ED,$EE,$E5,$DA,$ED,$E2,$E8,$E7,$F9                                     ; 'CONGRATULATION!'
-	.byte $22,$A9,$06,$EC,$DC,$E8,$EB,$DE,$20,$F5                                                                     ; 'SCORE -'
+rodimus_end_text: ; @d26c
+	.byte $70,$D2,$82,$D2                                                                               ; text lookup table for the following text
+  ; @d270                                                                                             
+	.byte $21,$49,$0E,$DC,$E8,$E7,$E0,$EB,$DA,$ED,$EE,$E5,$DA,$ED,$E2,$E8,$E7,$F9                       ; 'CONGRATULATION!'
+  ; @ d282                                     
+	.byte $22,$A9,$06,$EC,$DC,$E8,$EB,$DE,$20,$F5                                                       ; 'SCORE -'
+normal_ending_text_tbl:  ; @d28c
 	.byte $9C,$D2,$AC,$D2,$C2,$D2,$D4,$D2,$EE,$D2,$07,$D3,$20,$D3,$3B,$D3                                             ; text lookup table for the following text, normal ending
 	.byte $20,$E9,$0C,$E4,$E2,$E7,$E4,$F2,$EE,$20,$EC,$E1,$E2,$EB,$DE,$E2                                             ; 'KINKYU SHIREI'           Emergency order
 	.byte $21,$46,$12,$DD,$DE,$EC,$ED,$E8,$EB,$E8,$E7,$20,$E0,$DA,$20,$DA,$EB,$DA,$ED,$DA,$E7,$DA                     ; 'DESTORON GA ARATANA'     Destron has revived and become even more powerful, using a new power
@@ -8374,14 +8524,14 @@ game_over_screen:
   sta rtn_trk_a
   lda #$0A
   sta player_sprite
-  lda #$54                    ; low byte for palette_table_2 address @$D354-D373
+  lda #<palette_table_2     ; low byte for palette_table_2 address @$D354-D373
   sta $00
-  lda #$D3                    ; high byte for palette_table_2 address @$D354-D373
+  lda #>palette_table_2     ; high byte for palette_table_2 address @$D354-D373
   sta $01
   jsr send_palette_to_ram
-  lda #$C9                    ; low byte for game_over_tbl address @$D3C9 - D3D3
+  lda #<game_over_tbl              ; low byte for game_over_tbl address @$D3C9 - D3D3
   sta $00
-  lda #$D3                    ; high byte for game_over_tbl address @$D3C9 - D3D3
+  lda #>game_over_tbl              ; high byte for game_over_tbl address @$D3C9 - D3D3
   sta $01
   jsr write_text              ; write "GAME OVER" to screen
   jsr ppu_scroll
@@ -8437,9 +8587,9 @@ start_pushed_at_title:
   jsr clear_screen
   jsr clear_oam_ram
   jsr clear_sprite_ram
-  lda #$1C
+  lda #<title_palette_tbl   ; @d01c
   sta $00     ; load indirect address to title screen palette data @d01c
-  lda #$D0
+  lda #>title_palette_tbl
   sta $01
   jsr send_palette_to_ram
   lda #$00
@@ -9002,9 +9152,13 @@ play_sound_a:
   sta $01
   jmp ($0000)
 audio_jump_tbl_1:
-  .byte $BC
+  .byte <not_played_sound_a
 audio_jump_tbl_1a:
-  .byte $D8,$BC,$D8,$CA,$D8,$CA,$D8,$D8,$D8
+  .byte >not_played_sound_a
+  .byte <not_played_sound_a,>not_played_sound_a
+  .byte <play_sound_g,>play_sound_g
+  .byte <play_sound_g,>play_sound_g
+  .byte <not_played_sound_c,>not_played_sound_c
 not_played_sound_a:
   lda #$0f
   ldx #$06
@@ -9173,83 +9327,152 @@ play_sound_f:
   ldx #$07
   jsr load_audio_ram
   jmp load_ind_17_18
-end_tbl_a:
-  .byte $CC,$DB,$00
-  .byte $04,$DC,$02
-	.byte $A8,$DA,$01
-	.byte $AF,$DA,$03
-	.byte $C8,$DA,$01
-	.byte $D7,$DA,$03
-	.byte $E0,$DA,$01
-	.byte $28,$DC,$00
-	.byte $D7,$DC,$01
-	.byte $3C,$DD,$02
-	.byte $99,$DD,$03
-	.byte $03,$DB,$03
+end_tbl_a:  ; @DA1E
+  .byte $CC,$DB,$00     ; stage music.
+  .byte $04,$DC,$02     ; stage music.2
+	.byte $A8,$DA,$01     ; magnus jump sound.
+	.byte $AF,$DA,$03     ; magnus jump sound.2
+	.byte $C8,$DA,$01     ; magnus bullet sound.      / boss explosion sound.
+	.byte $D7,$DA,$03     ; boss main explosion sound (gets repeated on trypticon defeat)
+	.byte $E0,$DA,$01     ; magnus transform sound
+	.byte $28,$DC,$00     ; end of subtitle.  TF 2010 theme
+	.byte $D7,$DC,$01     ; end of subtitle.2
+	.byte $3C,$DD,$02     ; end of subtitle.3
+	.byte $99,$DD,$03     ; end of subtitle.4
+	.byte $03,$DB,$03     ; magnus explostion sound.2 / boss explosion sound.2
 	.byte $12,$DB,$01
-	.byte $90,$DB,$00
-	.byte $B6,$DB,$02
-	.byte $E6,$DD,$00
-	.byte $2C,$DE,$02
+	.byte $90,$DB,$00     ; boss music.
+	.byte $B6,$DB,$02     ; boss music.2
+	.byte $E6,$DD,$00     ; sideroom music.
+	.byte $2C,$DE,$02     ; sideroom music.2
 	.byte $54,$80,$00     ; game over a @$8054
 	.byte $73,$80,$01     ; game over b @$8073
 	.byte $8A,$80,$02     ; game over c @$808A
 	.byte $A1,$80,$03     ; tftheme/game over d @$80A1
 	.byte $54,$DE,$00
 	.byte $76,$DE,$02
-	.byte $B8,$80,$01     ; rodimus endscreen @$80B8
-	.byte $D6,$80,$03     ; Subtitle sound b @$80D6
-	.byte $DD,$80,$01     ; Subtitle sound a @$80DD
-	.byte $E4,$80,$01     ; Subtitle sound c @$80E4
-	.byte $AC,$DE,$00
-	.byte $02,$DF,$01
-	.byte $58,$DF,$02
-	.byte $A0,$DF,$03
-	.byte $04,$80,$00     ; some sound info a @$8004
-	.byte $13,$80,$01     ; some sound info b @$8013
-	.byte $24,$80,$02     ; some sound info c @$8024
-	.byte $45,$80,$03     ; some sound info d @$8045
-	.byte $19,$DB,$00
+	.byte $B8,$80,$01     ; rodimus endscreen @$80B8 / bumblebee screen
+	.byte $D6,$80,$03     ; Subtitle sound a @$80D6
+	.byte $DD,$80,$01     ; Subtitle sound b @$80DD
+	.byte $E4,$80,$01     ; Subtitle sound c @$80E4 / Enemy explosion sound
+	.byte $AC,$DE,$00     ; endscreen music.
+	.byte $02,$DF,$01     ; endscreen music.2
+	.byte $58,$DF,$02     ; endscreen music.3
+	.byte $A0,$DF,$03     ; endscreen music.4
+	.byte $04,$80,$00     ; TF insignia flip sound info a @$8004
+	.byte $13,$80,$01     ; TF insignia flip sound info b @$8013
+	.byte $24,$80,$02     ; TF insignia flip sound info c @$8024
+	.byte $45,$80,$03     ; TF insignia flip sound info d @$8045
+	.byte $19,$DB,$00     ; brainwave sounds
 	.byte $20,$DB,$01
 	.byte $52,$DB,$01
 	.byte $61,$DB,$03
-	.byte $70,$DB,$01
-	.byte $77,$DB,$03
-	.byte $27,$DB,$01
-	.byte $36,$DB,$01
-	.byte $45,$DB,$01
-	.byte $BA,$DF,$00
-	.byte $02,$E0,$02
-.byte $10,$01,$0F,$8B,$59,$08,$FF,$30,$00,$1F,$00,$EF,$01,$09,$01,$08,$01,$07,$01,$06,$01,$05,$01,$04,$01,$03,$01,$02,$01,$01,$01,$FF,$10,$00,$1F,$00,$EF,$01,$50,$01,$55,$01,$5A,$01,$B5,$FD,$FF,$31,$00
-.byte $1F,$00,$EF,$02,$0F,$20,$FF,$10,$01,$1F,$00,$EF,$03,$60,$01,$5A,$01,$58,$01,$56,$01,$54,$01,$52,$01,$50,$01,$4A,$01,$48,$01,$46,$01,$44,$04,$42,$04,$40,$01,$B5,$F3,$FF,$31,$00,$1F,$00
-.byte $0C,$01,$0D,$01,$0E,$01,$EF,$02,$0F,$20,$FF,$10,$02,$0F,$82,$29,$10,$FF,$15,$01,$0F,$00,$60,$10,$FF,$10,$02,$09,$8C,$09,$3C,$FF,$01,$00,$1F,$00,$10,$01,$0B,$01,$0A,$01,$EF,$02,$0F,$20
-.byte $FF,$15,$01,$02,$01,$55,$01,$53,$01,$51,$01,$4B,$01,$49,$01,$FF,$13,$02,$1F,$00,$EF,$01,$39,$01,$1F,$01,$B7,$FE,$FF,$10,$01,$1F,$00,$EF,$02,$0B,$01,$0A,$01,$09,$01,$BE,$BD,$FF,$30,$00
-.byte $1F,$00,$EF,$02,$0D,$01,$0E,$01,$0F,$01,$BF,$FD,$FF,$10,$02,$0F,$83,$29,$3C,$FF,$30,$00,$19,$00,$0F,$01,$0E,$01,$0D,$01,$0C,$01,$0B,$01,$0A,$01,$09,$01,$08,$01,$07,$01,$06,$01,$FF,$04
-.byte $01,$03,$00,$24,$02,$24,$02,$22,$02,$24,$02,$1F,$02,$24,$02,$22,$02,$24,$02,$1F,$02,$24,$02,$22,$02,$24,$02,$27,$02,$26,$02,$22,$02,$24,$02,$BF,$F0,$24,$18,$00,$00,$24,$02,$B7,$FF,$22
-.byte $02,$B7,$FF,$20,$02,$B7,$FF,$1B,$02,$B7,$FF,$BF,$F8,$04,$01,$0F,$00,$27,$04,$30,$04,$35,$02,$34,$02,$32,$02,$30,$02,$32,$10,$27,$04,$30,$04,$35,$02,$34,$02,$32,$02,$30,$02,$32,$04,$34
-.byte $02,$30,$0A,$28,$04,$30,$04,$37,$02,$35,$02,$33,$02,$32,$02,$32,$0C,$2A,$04,$30,$20,$BF,$E7,$24,$20,$00,$00,$30,$02,$B7,$FF,$2B,$02,$B7,$FF,$2A,$02,$B7,$FF,$29,$02,$B7,$FF,$28,$02,$B7
-.byte $FF,$2A,$02,$B7,$FF,$30,$02,$30,$02,$B7,$FE,$BF,$F1,$05,$01,$01,$00,$39,$01,$1F,$01,$39,$01,$1F,$01,$39,$01,$1F,$01,$34,$01,$37,$01,$39,$01,$37,$01,$34,$01,$39,$01,$1F,$01,$37,$01,$1F
+	.byte $70,$DB,$01     ; sideroom sound.   / boss weapon sound.
+	.byte $77,$DB,$03     ; sideroom sound.2  / boss weapon sound.2
+	.byte $27,$DB,$01     ; magnus explosion sound.
+	.byte $36,$DB,$01     ; powerup sound
+	.byte $45,$DB,$01     ; pause sound
+	.byte $BA,$DF,$00     ; barrier powerup music.
+	.byte $02,$E0,$02     ; barrier powerup music.2
+; this last chunk is probably the level data
+level_stuff_tbl:  ; @DAA8
+; magnus jump sound. @daa8
+.byte $10,$01,$0F,$8B,$59,$08,$FF
+; magnus jump sound.2 @daaf
+.byte $30,$00,$1F,$00,$EF,$01,$09,$01,$08,$01,$07,$01,$06,$01,$05,$01,$04,$01,$03,$01,$02,$01,$01,$01,$FF
+; magnus bullet sound.@dac8
+.byte $10,$00,$1F,$00,$EF,$01,$50,$01,$55,$01,$5A,$01,$B5,$FD,$FF
+; boss main explosion sound@dad7
+.byte $31,$00,$1F,$00,$EF,$02,$0F,$20,$FF
+; magnus transform sound @ dae0
+.byte $10,$01,$1F,$00,$EF,$03,$60,$01,$5A,$01,$58,$01,$56,$01,$54,$01,$52,$01,$50,$01,$4A,$01,$48,$01,$46,$01,$44,$04,$42,$04,$40,$01,$B5,$F3,$FF
+.byte $31,$00,$1F,$00,$0C,$01,$0D,$01,$0E,$01,$EF,$02,$0F,$20,$FF
+; unknown music @db12
+.byte $10,$02,$0F,$82,$29,$10,$FF
+; brainwave sound @db19
+.byte $15,$01,$0F,$00,$60,$10,$FF
+; unknown sound @db20
+.byte $10,$02,$09,$8C,$09,$3C,$FF
+; magnus explosion sound. @db27
+.byte $01,$00,$1F,$00,$10,$01,$0B,$01,$0A,$01,$EF,$02,$0F,$20,$FF
+; powerup sound @db36
+.byte $15,$01,$02,$01,$55,$01,$53,$01,$51,$01,$4B,$01,$49,$01,$FF
+; pause sound @db45
+.byte $13,$02,$1F,$00,$EF,$01,$39,$01,$1F,$01,$B7,$FE,$FF
+; unknown sound @db52
+.byte $10,$01,$1F,$00,$EF,$02,$0B,$01,$0A,$01,$09,$01,$BE,$BD,$FF
+; unknown sound @db61
+.byte $30,$00,$1F,$00,$EF,$02,$0D,$01,$0E,$01,$0F,$01,$BF,$FD,$FF
+; boss weapon sound. @db70
+.byte $10,$02,$0F,$83,$29,$3C,$FF
+; boss weapon sound.2 @db77
+.byte $30,$00,$19,$00,$0F,$01,$0E,$01,$0D,$01,$0C,$01,$0B,$01,$0A,$01,$09,$01,$08,$01,$07,$01,$06,$01,$FF
+; boss music. @db90
+.byte $04,$01,$03,$00,$24,$02,$24,$02,$22,$02,$24,$02,$1F,$02,$24,$02,$22,$02,$24,$02,$1F,$02,$24,$02,$22,$02,$24,$02,$27,$02,$26,$02,$22,$02,$24,$02,$BF,$F0
+; boss music.2 @dbb6
+.byte $24,$18,$00,$00,$24,$02,$B7,$FF
+.byte $22,$02,$B7,$FF
+.byte $20,$02,$B7,$FF
+.byte $1B,$02,$B7,$FF
+.byte $BF,$F8
+; stage music. @dbcc
+.byte $04,$01,$0F,$00,$27,$04,$30,$04,$35,$02,$34,$02,$32,$02,$30,$02,$32,$10,$27,$04,$30,$04,$35,$02,$34,$02,$32,$02,$30,$02,$32,$04,$34
+.byte $02,$30,$0A,$28,$04,$30,$04,$37,$02,$35,$02,$33,$02,$32,$02,$32,$0C,$2A,$04,$30,$20,$BF
+; stage music.2 @dc02
+.byte $E7,$24,$20,$00,$00,$30,$02,$B7,$FF
+.byte $2B,$02,$B7,$FF
+.byte $2A,$02,$B7,$FF
+.byte $29,$02,$B7,$FF
+.byte $28,$02,$B7,$FF
+.byte $2A,$02,$B7,$FF
+.byte $30,$02,$30,$02,$B7,$FE,$BF,$F1
+; end of subtitle. tf 2010 theme @dc28
+.byte $05,$01,$01,$00,$39,$01,$1F,$01,$39,$01,$1F,$01,$39,$01,$1F,$01,$34,$01,$37,$01,$39,$01,$37,$01,$34,$01,$39,$01,$1F,$01,$37,$01,$1F
 .byte $01,$34,$01,$B2,$F0,$39,$01,$1F,$01,$39,$01,$1F,$01,$39,$01,$1F,$01,$34,$01,$37,$01,$39,$01,$37,$01,$34,$01,$40,$01,$1F,$01,$3B,$01,$1F,$01,$37,$01,$39,$01,$1F,$01,$39,$01,$1F,$01,$39
 .byte $01,$1F,$01,$34,$01,$37,$01,$39,$01,$37,$01,$34,$01,$39,$01,$1F,$01,$37,$01,$1F,$01,$34,$01,$B2,$F0,$39,$01,$1F,$01,$39,$01,$1F,$01,$39,$01,$1F,$01,$34,$01,$37,$01,$39,$01,$37,$01,$34
 .byte $01,$40,$01,$1F,$01,$3B,$01,$1F,$01,$37,$01,$29,$01,$B7,$FF,$1F,$01,$40,$01,$1F,$01,$42,$01,$1F,$01,$42,$01,$40,$02,$29,$01,$B7,$FF,$1F,$01,$35,$01,$1F,$01,$37,$01,$1F,$01,$37,$01,$37
-.byte $02,$39,$02,$FF,$15,$01,$01,$00,$24,$01,$1F,$01,$24,$01,$1F,$01,$24,$01,$1F,$0B,$B2,$FA,$24,$01,$1F,$01,$24,$01,$1F,$01,$24,$01,$1F,$03,$A1,$82,$29,$01,$27,$01,$24,$01,$22,$01,$20,$01
+.byte $02,$39,$02,$FF
+; end of subtitle.2 @dcd7
+.byte $15,$01,$01,$00,$24,$01,$1F,$01,$24,$01,$1F,$01,$24,$01,$1F,$0B,$B2,$FA,$24,$01,$1F,$01,$24,$01,$1F,$01,$24,$01,$1F,$03,$A1,$82,$29,$01,$27,$01,$24,$01,$22,$01,$20,$01
 .byte $19,$01,$17,$02,$A1,$00,$24,$01,$1F,$01,$24,$01,$1F,$01,$24,$01,$1F,$0B,$B3,$FA,$24,$01,$B7,$FF,$1F,$01,$37,$01,$1F,$01,$39,$01,$1F,$01,$39,$01,$37,$02,$24,$01,$B7,$FF,$1F,$01,$20,$01
-.byte $1F,$01,$22,$01,$1F,$01,$22,$01,$22,$02,$24,$02,$FF,$25,$18,$00,$00,$19,$01,$1F,$01,$19,$01,$1F,$01,$19,$01,$1F,$0B,$B3,$FA,$19,$02,$29,$02,$20,$02,$30,$02,$22,$02,$32,$02,$20,$02,$30
+.byte $1F,$01,$22,$01,$1F,$01,$22,$01,$22,$02,$24,$02,$FF
+; end of subtitle.3 @dd3c
+.byte $25,$18,$00,$00,$19,$01,$1F,$01,$19,$01,$1F,$01,$19,$01,$1F,$0B,$B3,$FA,$19,$02,$29,$02,$20,$02,$30,$02,$22,$02,$32,$02,$20,$02,$30
 .byte $02,$15,$02,$25,$02,$14,$02,$24,$02,$15,$02,$25,$02,$17,$02,$27,$02,$B1,$F0,$A2,$10,$19,$01,$B7,$FF,$1F,$01,$20,$01,$1F,$01,$22,$01,$1F,$01,$22,$41,$20,$02,$19,$01,$B7,$FF,$1F,$01,$15
-.byte $01,$1F,$01,$17,$01,$1F,$01,$17,$01,$17,$02,$19,$02,$FF,$35,$00,$00,$00,$03,$02,$03,$02,$03,$04,$07,$04,$07,$04,$B2,$FB,$03,$02,$03,$02,$03,$04,$03,$01,$04,$01,$05,$01,$06,$01,$07,$01
+.byte $01,$1F,$01,$17,$01,$1F,$01,$17,$01,$17,$02,$19,$02,$FF
+; end of subtitle.4 @dd99
+.byte $35,$00,$00,$00,$03,$02,$03,$02,$03,$04,$07,$04,$07,$04,$B2,$FB,$03,$02,$03,$02,$03,$04,$03,$01,$04,$01,$05,$01,$06,$01,$07,$01
 .byte $08,$01,$09,$02,$09,$02,$03,$02,$06,$02,$03,$02,$B7,$FC,$03,$01,$B7,$FF,$1F,$01,$03,$02,$03,$02,$03,$01,$03,$02,$03,$01,$B7,$FF,$1F,$01,$03,$02,$03,$02,$03,$01,$03,$02,$03,$03,$FF,$07
 .byte $02,$0A,$00,$2B,$02,$32,$01,$32,$03,$32,$03,$34,$02,$32,$01,$2B,$03,$27,$03,$2B,$02,$32,$01,$32,$03,$32,$03,$34,$02,$37,$01,$37,$03,$1F,$03,$2B,$02,$32,$01,$32,$03,$32,$03,$34,$02,$32
-.byte $01,$2B,$03,$27,$03,$29,$02,$1F,$01,$2B,$02,$29,$01,$27,$02,$24,$01,$27,$06,$1F,$03,$BF,$E0,$27,$19,$00,$00,$17,$02,$22,$01,$22,$03,$22,$03,$20,$02,$27,$01,$27,$03,$27,$03,$B2,$F8,$22
-.byte $02,$29,$01,$29,$03,$29,$03,$17,$02,$22,$01,$22,$03,$22,$03,$BF,$EF,$09,$01,$0F,$00,$20,$0A,$23,$01,$22,$01,$1A,$0A,$1A,$01,$20,$01,$17,$18,$B1,$F9,$20,$0A,$23,$01,$22,$01,$1A,$09,$17
-.byte $03,$20,$18,$BF,$F2,$29,$1A,$00,$00,$20,$03,$20,$01,$20,$01,$20,$01,$20,$03,$20,$01,$20,$01,$20,$01,$B7,$F8,$18,$03,$18,$01,$18,$01,$18,$01,$B1,$FC,$1A,$03,$1A,$01,$1A,$01,$1A,$01,$B1
-.byte $FC,$20,$03,$20,$01,$20,$01,$20,$01,$B3,$FC,$BF,$E8,$06,$01,$0F,$00,$36,$12,$29,$01,$32,$01,$36,$01,$37,$01,$36,$01,$34,$01,$B2,$F9,$39,$12,$37,$01,$36,$01,$34,$01,$32,$02,$34,$01,$36
+.byte $01,$2B,$03,$27,$03,$29,$02,$1F,$01,$2B,$02,$29,$01,$27,$02,$24,$01,$27,$06,$1F,$03,$BF,$E0
+; sideroom music.2 @de2c
+.byte $27,$19,$00,$00,$17,$02,$22,$01,$22,$03,$22,$03,$20,$02,$27,$01,$27,$03,$27,$03,$B2,$F8,$22
+.byte $02,$29,$01,$29,$03,$29,$03,$17,$02,$22,$01,$22,$03,$22,$03,$BF,$EF
+; unknown sound @de54
+.byte $09,$01,$0F,$00,$20,$0A,$23,$01,$22,$01,$1A,$0A,$1A,$01,$20,$01,$17,$18,$B1,$F9,$20,$0A,$23,$01,$22,$01,$1A,$09,$17
+.byte $03,$20,$18,$BF,$F2
+; unknown sound @de76
+.byte $29,$1A,$00,$00,$20,$03,$20,$01,$20,$01,$20,$01,$20,$03,$20,$01,$20,$01,$20,$01,$B7,$F8,$18,$03,$18,$01,$18,$01,$18,$01,$B1,$FC,$1A,$03,$1A,$01,$1A,$01,$1A,$01,$B1
+.byte $FC,$20,$03,$20,$01,$20,$01,$20,$01,$B3,$FC,$BF,$E8
+; endscreen music. @deac
+.byte $06,$01,$0F,$00,$36,$12,$29,$01,$32,$01,$36,$01,$37,$01,$36,$01,$34,$01,$B2,$F9,$39,$12,$37,$01,$36,$01,$34,$01,$32,$02,$34,$01,$36
 .byte $12,$29,$01,$32,$01,$36,$01,$37,$01,$36,$01,$34,$01,$B2,$F9,$39,$12,$37,$01,$36,$01,$34,$01,$32,$02,$34,$01,$26,$06,$29,$06,$32,$06,$34,$06,$37,$06,$36,$01,$34,$01,$32,$03,$34,$01,$36
-.byte $06,$34,$06,$B1,$F5,$BF,$D8,$16,$01,$0F,$00,$32,$12,$26,$01,$29,$01,$32,$01,$34,$01,$32,$01,$31,$01,$B2,$F9,$34,$12,$34,$01,$32,$01,$31,$01,$2B,$02,$31,$01,$32,$12,$26,$01,$29,$01,$32
+.byte $06,$34,$06,$B1,$F5,$BF,$D8
+; endscreen music.2 @df02
+.byte $16,$01,$0F,$00,$32,$12,$26,$01,$29,$01,$32,$01,$34,$01,$32,$01,$31,$01,$B2,$F9,$34,$12,$34,$01,$32,$01,$31,$01,$2B,$02,$31,$01,$32,$12,$26,$01,$29,$01,$32
 .byte $01,$34,$01,$32,$01,$31,$01,$B2,$F9,$34,$12,$34,$01,$32,$01,$31,$01,$2B,$02,$31,$01,$22,$06,$24,$06,$29,$06,$31,$06,$32,$06,$32,$01,$31,$01,$2B,$03,$31,$01,$32,$06,$31,$06,$B1,$F5,$BF
-.byte $D8,$26,$20,$00,$00,$22,$03,$B7,$FF,$20,$03,$B7,$FF,$17,$03,$B7,$FF,$19,$03,$B7,$FF,$22,$03,$B7,$FF,$20,$03,$B7,$FF,$17,$03,$B7,$FF,$19,$03,$B7,$FF,$22,$03,$22,$03,$21,$03,$21,$03,$1B
-.byte $03,$1B,$03,$19,$03,$19,$03,$17,$03,$17,$03,$17,$03,$17,$03,$19,$03,$19,$03,$19,$03,$19,$03,$B1,$F0,$BF,$DF,$36,$00,$00,$00,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03
-.byte $01,$03,$01,$03,$01,$BF,$F6,$05,$01,$01,$00,$39,$01,$1F,$01,$39,$01,$1F,$01,$39,$01,$1F,$01,$34,$01,$37,$01,$39,$01,$37,$01,$34,$01,$39,$01,$1F,$01,$37,$01,$1F,$01,$34,$01,$B2,$F0,$39
-.byte $01,$1F,$01,$39,$01,$1F,$01,$39,$01,$1F,$01,$34,$01,$37,$01,$39,$01,$37,$01,$34,$01,$40,$01,$1F,$01,$3B,$01,$1F,$01,$37,$01,$BF,$DF,$25,$18,$00,$00,$19,$02,$29,$02,$20,$02,$30,$02,$22
+.byte $D8
+; endscreen music.3 @df58
+.byte $26,$20,$00,$00,$22,$03,$B7,$FF,$20,$03,$B7,$FF,$17,$03,$B7,$FF,$19,$03,$B7,$FF,$22,$03,$B7,$FF,$20,$03,$B7,$FF,$17,$03,$B7,$FF,$19,$03,$B7,$FF,$22,$03,$22,$03,$21,$03,$21,$03,$1B
+.byte $03,$1B,$03,$19,$03,$19,$03,$17,$03,$17,$03,$17,$03,$17,$03,$19,$03,$19,$03,$19,$03,$19,$03,$B1,$F0,$BF,$DF
+; endscreen music.4 @dfa0
+.byte $36,$00,$00,$00,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03
+.byte $01,$03,$01,$03,$01,$BF,$F6
+; barrier powerup music @dfba similar to tf2010 music, but not the same
+.byte $05,$01,$01,$00,$39,$01,$1F,$01,$39,$01,$1F,$01,$39,$01,$1F,$01,$34,$01,$37,$01,$39,$01,$37,$01,$34,$01,$39,$01,$1F,$01,$37,$01,$1F,$01,$34,$01,$B2,$F0,$39
+.byte $01,$1F,$01,$39,$01,$1F,$01,$39,$01,$1F,$01,$34,$01,$37,$01,$39,$01,$37,$01,$34,$01,$40,$01,$1F,$01,$3B,$01,$1F,$01,$37,$01,$BF,$DF
+; barrier powerup music.2 @e002
+.byte $25,$18,$00,$00,$19,$02,$29,$02,$20,$02,$30,$02,$22
 .byte $02,$32,$02,$20,$02,$30,$02,$15,$02,$25,$02,$14,$02,$24,$02,$15,$02,$25,$02,$17,$02,$27,$02,$BF,$F0,$BF,$F0,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
 .byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
 .byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
@@ -9428,7 +9651,7 @@ end_tbl_a:
 .byte $D2,$D4,$D5,$D6,$D7,$AC,$AD,$AE,$AF,$B0,$B1,$B1,$B0,$92,$93,$94,$95,$9B,$9C,$9D,$9E,$A0,$A1,$A2,$A3,$A5,$A6,$A7,$A8,$74,$75,$76,$77,$7C,$7D,$7E,$7F,$7E,$7F,$80,$81,$84,$85,$86,$87,$89
 .byte $8A,$8B,$8C,$2E,$2F,$35,$36,$30,$31,$37,$38,$3F,$40,$46,$47,$4D,$4E,$53,$54,$59,$5A,$63,$64,$6C,$6D,$75,$76,$7E,$7F,$83,$84,$1D,$09,$1E,$0B,$1F,$1F,$29,$29,$22,$1F,$24,$23,$1F,$22,$23
 .byte $24,$09,$0A,$0B,$0C,$00,$00,$00,$00,$20,$20,$20,$20,$FF,$FF,$FF,$FF,$20,$20,$01,$02,$E8,$E9,$20,$20,$00,$00,$00,$00
-; extra characters that are automatically put in, i guess.
+; VECTOR DATA NMI, RESET, IRQ
 ; $6C,$83,$00,$81,$0A,$84
 ; Character memory
 .segment "CHARS"
