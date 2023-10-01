@@ -15,7 +15,7 @@ rtn_trk_b               = $1E
 flash_counter           = $1F
 unram_27                = $20
 sel_status              = $21    ; selection status for title screen, 0= 1 player, FF=2 players
-state                   = $22    ; level state, 01 = level complete
+state                   = $22    ; level state, 01 = level complete, 80 at title screen means start was pushed
 p1ScoreLo               = $23
 p1ScoreMid              = $24
 p1ScoreHi               = $25
@@ -33,21 +33,21 @@ plr_y_pos_hi            = $30
 plr_x_pos_lo            = $31
 plr_x_pos_hi            = $32
 player_sprite           = $33 
-unram_26                = $34
-player_landed           = $35
-flight_status           = $36 ; 00000000 = truck,transforming,jumping,flying,0,0,0,0 (i guess that means the binary flags...)
-unram_13                = $37
+player_sprite_holder    = $34       ; normally: bot=04 truck=00
+transform_input_timer   = $35
+plr_sprite_status       = $36 ; 00000000 = truck,transforming,jumping,flying,0,0,0,0 (40= bot to truck, C0= truck to bot)
+plr_spr_aftr_trnsfrm    = $37
 wpn_timer               = $38
 wpn2_timer              = $39
-plr_y_inc_fraction      = $3A
-plr_y_inc               = $3B
-plr_x_inc_lo            = $3C
-plr_x_inc_hi            = $3D
-unram_14                = $3E
-unram_18                = $3F
-unram_15                = $40
-unram_16                = $41
-player_speed            = $42
+plr_y_speed_lo            = $3A
+plr_y_speed_hi            = $3B
+plr_x_speed_lo            = $3C
+plr_x_speed_hi            = $3D
+plr_max_y_speed_lo      = $3E
+plr_max_y_speed_hi      = $3F
+plr_max_x_speed_lo      = $40
+plr_max_x_speed_hi      = $41
+player_acceleration     = $42
 unram_6                 = $43
 unram_8                 = $44
 frame_counter_96        = $45   ; Resets every $60 frames, Counts to $18 by increments of 4, to indicate that the subtitle is done writing
@@ -59,10 +59,10 @@ unram_10                = $4A   ; related to the boss float and/or wpn timer
 level_backup            = $4B
 unram_7                 = $4C
 num_bosses              = $4D   ; only stage 2 has 2 bosses
-jump_hold               = $4E
-unram_25                = $4F
-player_un_pos           = $50
-plr_x_pos_hi_old        = $51
+jump_hold               = $4E   ; how long was jump button held for, 0c is max, 02 is about the lowest
+transforming_frame_counter                = $4F
+player_un_pos           = $50   ; 0= standing 2= falling 4=alt mode 6=jumping/flying 
+plr_x_pos_hi_diff       = $51
 plr_y_pos_hi_diff       = $52
 power_up                = $53
 hits_taken              = $54
@@ -126,10 +126,10 @@ unram_11                = $A7
 player_palette_ram      = $AA
 stage_boss2             = $A8
 unram_12                = $B8
-new_tile_x_PPU_ADDRESS  = $B9
-new_tile_y_PPU_ADDRESS  = $BA
-palette_x_address       = $BB
-palette_y_address       = $BC
+nametable_addr_hi       = $B9
+nametable_addr_lo       = $BA
+palette_addr_hi         = $BB       ; palette address starts at 23C0 or 27C0 for horizontal scrolling
+palette_addr_lo         = $BC
 newTileColumnStart      = $BD
 
 nextSpriteDataLoadStart = $00DB
@@ -139,7 +139,7 @@ controller_last         = $F1
 controller_p1_current   = $F2
 controller_p2_current   = $F3
 controller_p1_last      = $F4
-player_direction        = $F5
+player_direction        = $F5         ; 01 for right, 00 for left
 ram_PPU_CTRL            = $F6
 ram_PPU_Mask            = $F7
 
@@ -306,44 +306,33 @@ JOY2_FRAME      = $4017         ; Joypad #2/SOFTCLK (RW)
 ; "nes" linker config requires a STARTUP section, even if it's empty
 .segment "STARTUP"
 ; important stuff for safe chr bank switching
-.byte $00, $01, $02, $03
+.byte $00,$01,$02,$03
 ; TF insignia flip sound info a @$8004
-.byte $05, $01, $0F, $00, $34, $04, $36, $02, $37, $04, $30, $02, $30, $10, $FF
+.byte $05,$01,$0F,$00,$34,$04,$36,$02,$37,$04,$30,$02,$30,$10,$FF
 ; TF insignia flip sound info b @$8013
-.byte $15, $01, $0F, $00, $2B, $04, $31, $02, $32, $04, $27, $02, $27, $04, $60, $10, $FF
+.byte $15,$01,$0F,$00,$2B,$04,$31,$02,$32,$04,$27,$02,$27,$04,$60,$10,$FF
 ; TF insignia flip sound info c @$8024
-.byte $25, $7F, $00, $00, $24, $04, $26, $02, $27, $04, $20, $02, $20, $04, $24, $01
-.byte $25, $01, $26, $01, $27, $01, $28, $01, $29, $01, $2A, $01, $2B, $01, $30, $04, $FF
+.byte $25,$7F,$00,$00,$24,$04,$26,$02,$27,$04,$20,$02,$20,$04,$24,$01,$25,$01,$26,$01,$27,$01,$28,$01,$29,$01,$2A,$01,$2B,$01,$30,$04,$FF
 ; TF insignia flip sound info d @$8045
-.byte $35, $00, $00, $00, $03, $04, $03, $02, $03, $04, $03, $02, $03, $04, $FF
+.byte $35,$00,$00,$00,$03,$04,$03,$02,$03,$04,$03,$02,$03,$04,$FF
 ; game over a @$8054
-.byte $05, $01, $0F, $00, $39, $04
-;game over e?
-.byte $39, $02, $37, $02, $1F, $02
-.byte $37, $02, $39, $04, $40, $02
-.byte $3B, $02, $37, $02, $32, $02
-.byte $34, $02, $37, $06, $39, $02, $FF
+.byte $05,$01,$0F,$00,$39,$04,$39,$02,$37,$02,$1F,$02,$37,$02,$39,$04,$40,$02,$3B,$02,$37,$02,$32,$02,$34,$02,$37,$06,$39,$02,$FF
 ; game over b @$8073
-.byte $15, $01, $0F, $00, $24, $04
-.byte $24, $02, $22, $02, $1F, $02, $22, $02, $24, $04, $20, $0A, $22, $06, $24, $02, $FF
+.byte $15,$01,$0F,$00,$24,$04,$24,$02,$22,$02,$1F,$02,$22,$02,$24,$04,$20,$0A,$22,$06,$24,$02,$FF
 ; game over c @$808A
-.byte $25, $7F, $00, $00, $29, $04
-.byte $29, $02, $27, $02, $1F, $02, $27, $02, $29, $04, $25, $0A, $27, $06, $29, $02, $FF
+.byte $25,$7F,$00,$00,$29,$04,$29,$02,$27,$02,$1F,$02,$27,$02,$29,$04,$25,$0A,$27,$06,$29,$02,$FF
 ;tftheme/game over d @$80a1
-.byte $35, $00, $00, $00, $03, $04, $03, $02, $03, $04, $03, $02, $03, $04, $03, $02, $B5, $FF
-.byte $1F, $04, $03, $02, $FF
+.byte $35,$00,$00,$00,$03,$04,$03,$02,$03,$04,$03,$02,$03,$04,$03,$02,$B5,$FF,$1F,$04,$03,$02,$FF
 ; rodimus endscreen/bumblebee screen @$80B8
-.byte $12, $02, $1F, $00, $EF, $02, $40, $01, $45, $01, $47, $01
-.byte $50, $01, $B6, $FC, $DF, $02, $40, $01, $45, $01, $47, $01, $50, $01, $B7, $FC
-.byte $BF, $F4
+.byte $12,$02,$1F,$00,$EF,$02,$40,$01,$45,$01,$47,$01,$50,$01,$B6,$FC,$DF,$02,$40,$01,$45,$01,$47,$01,$50,$01,$B7,$FC,$BF,$F4
 ; Subtitle sound a @$80D6
-.byte $30, $00, $00, $00, $07, $10, $FF
+.byte $30,$00,$00,$00,$07,$10,$FF
 ; Subtitle sound b @$80DD
-.byte $10, $01, $01, $00, $69, $10, $FF
+.byte $10,$01,$01,$00,$69,$10,$FF
 ; Subtitle sound c @$80E4
-.byte $10, $01, $1F, $00, $EF, $01, $29, $01, $24, $01, $22, $01, $19, $01, $B8, $FC
+.byte $10,$01,$1F,$00,$EF,$01,$29,$01,$24,$01,$22,$01,$19,$01,$B8,$FC
 ;buffer area
-.byte $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
+.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
 ; Main code segment for the program
 .segment "CODE"
 
@@ -358,7 +347,7 @@ vblankwait1:
   lda PPU_STATUS      ; @$2002
   bpl vblankwait1
   lda #$00
-  sta PPU_CTRL        ; @$2000
+  sta PPU_CTRL        ; @$2000  turn off screen
   nop
 ;; second wait for vblank, PPU is ready after this
 ;; could have done other things first, like clear ram, but thats okay
@@ -462,27 +451,27 @@ get_plr_start_position:
 pre_stage_prep_b:
   lda #$00
   sta controller_p1_current ; clear player 1 controller input
-  sta flight_status         ; reset flight status
+  sta plr_sprite_status         ; reset flight status
   sta subtitle_timer        ; reset subtitle timer
   sta unram_7
   sta rtn_trk_0
   sta state
   sta rtn_trk_a
   sta jump_hold
-  sta player_landed
-  sta plr_x_inc_lo
-  sta plr_x_inc_hi
-  sta plr_y_inc_fraction
-  sta plr_y_inc
-  sta unram_13
+  sta transform_input_timer
+  sta plr_x_speed_lo
+  sta plr_x_speed_hi
+  sta plr_y_speed_lo
+  sta plr_y_speed_hi
+  sta plr_spr_aftr_trnsfrm
   sta wpn_timer
-  sta unram_14
-  sta unram_15
+  sta plr_max_y_speed_lo
+  sta plr_max_x_speed_lo
   lda #$02
-  sta unram_16
+  sta plr_max_x_speed_hi
   sta unram_17
   lda #$03
-  sta unram_18
+  sta plr_max_y_speed_hi       ; set max y speed of 03
   lda #$00
   sta player_sprite
   lda #$01
@@ -504,10 +493,10 @@ pre_stage_prep_b:
   lda #$0F
   sta $00
 b_822f:
-  lda player_speed_tbl,Y    ; load player speed, although its always 20
+  lda player_acceleration_tbl,Y    ; load player speed, although its always 20
   sec
   sbc $00
-  sta player_speed
+  sta player_acceleration
   lda chr_rom_bank_tbl,Y    ; Load CHR Rom Bank, Y is the Stage Number
   tax
   lda $8000,X               ; Select CHR Rom bank
@@ -834,7 +823,7 @@ enemy_misc_rtn_1:
   jmp pull_stack_and_rti
 get_player_input_jump_point:
   jsr get_player_input
-  jsr screen_misc_rtn_1
+  jsr titlescreen_input_check
   jsr screen_misc_rtn_2
   jsr clear_audio_channels
   jmp pull_stack_and_rti
@@ -928,7 +917,7 @@ get_player_input:             ; @$853E
 :
   rts
 controller_check:
-  lda controller_current      ; load current press to previous press
+  lda controller_current      ; load current press and save to previous press because current is now the past
   sta controller_last
   lda controller_p1_current
   sta controller_p1_last
@@ -989,7 +978,7 @@ set_nametable:           ; @$85CA
   and #$FE                  ; clear nametable address in ram_PPU_CTRL
   ora $07
   sta ram_PPU_CTRL
-  sta PPU_CTRL
+  sta PPU_CTRL              ; turn on screen
   jmp ppu_scroll
 ram_misc_30:
   lda #$00
@@ -1164,10 +1153,10 @@ set_PPU_MASK_b:
   sta PPU_MASK
   sta ram_PPU_Mask    ; store the PPU_MASK value to RAM
   rts
-set_PPU_CTRL_a:
+set_PPU_CTRL_a:       ; turn on screen
   lda #$90            ; @0x721  10010000, Generate NMI at the start of the vertical blanking interval,Background pattern table address (0: $0000; 1: $1000), 
   .byte $AE           ;this is in order to change the next line to ldx $10A9 **********
-set_PPU_CTRL_b:
+set_PPU_CTRL_b:       ; turn off screen
   lda #$10            ; 00010000 background pattern table address (0:$0000, 1:$1000)
   sta PPU_CTRL
   sta ram_PPU_CTRL    ; store the PPU_CTRL value to RAM
@@ -1445,7 +1434,7 @@ write_pl2_score_b:
   lda p2ScoreMid
   sta $01
   lda p2ScoreHi
-  sta $02        ; ******@88f2 to 8607
+  sta $02        ; 
 draw_score:
   jsr ram_misc_1
   ldx #$00
@@ -1627,18 +1616,18 @@ load_scrolling_bg_tiles:
   ldy #$27
   ldx #$24
 :
-  sty palette_x_address
-  stx new_tile_x_PPU_ADDRESS
+  sty palette_addr_hi
+  stx nametable_addr_hi
   lda $00
   lsr
   lsr
   lsr
-  sta new_tile_y_PPU_ADDRESS
+  sta nametable_addr_lo
   lsr
   lsr
   clc
   adc #$C0
-  sta palette_y_address
+  sta palette_addr_lo
   rts
 inc_lvl_pal_addr:
   clc
@@ -1682,9 +1671,9 @@ write_new_tile_column:
   lda ram_PPU_CTRL
   ora #$04
   sta PPU_CTRL
-  lda new_tile_x_PPU_ADDRESS
+  lda nametable_addr_hi    ; load nametable address high byte
   sta PPU_ADDR
-  lda new_tile_y_PPU_ADDRESS
+  lda nametable_addr_lo    ; load nametable address low byte
   sta PPU_ADDR
   ldx #$00
 :
@@ -1693,9 +1682,9 @@ write_new_tile_column:
   inx
   cpx #$1E
   bcc :-
-  lda palette_x_address
+  lda palette_addr_hi
   sta $08
-  lda palette_y_address
+  lda palette_addr_lo
   sta $07
   ldx #$00              ; Store Palette Info for new tile column
 :
@@ -1714,16 +1703,16 @@ write_new_tile_column:
   bcc :-
   jmp reset_scroll_00
 ready_level:
-  jsr set_PPU_CTRL_b
+  jsr set_PPU_CTRL_b    ; dont think we need these two lines***********
   jsr set_PPU_MASK_b
-  jsr clear_screen
+  jsr clear_screen      ; these previous subroutines are repeated at the start of clear_screen
   jsr clear_oam_ram
   lda plr_x_prog_fr
   sta $00
   lda plr_x_prog_lo
   sta $01
   lda #$3f
-  sta $06
+  sta $06               ; set $06 as loop counter
 :
   jsr load_scrolling_bg_tiles
   jsr write_new_tile_column
@@ -1735,7 +1724,7 @@ ready_level:
   adc #$00
   sta $01
   dec $06
-  bpl :-
+  bpl :-              ; loop 64 times 3f to ff in $06 as the counter
   lda current_level
   asl
   tax
@@ -1852,7 +1841,7 @@ flash_background:   ; flash bg every 4 frames
   bcc :-            ; loop back until done
   rts
 rodimus_palette:      ; @$8BB2-8DEF
-	.byte $20, $16, $27				; rodumus palette
+	.byte $20,$16,$27				; rodumus palette
 palette_jmp_table:    ; @$8BB5
 	.word pal_0       ; lvl 1
   .word pal_13      ; lvl 1 boss
@@ -2030,17 +2019,17 @@ pal_15:
 player_pose_1:
   jsr reset_pal_ram
   jsr ram_misc_3
-  lda flight_status
+  lda plr_sprite_status
   and #$40
   bne :++
-  lda flight_status
+  lda plr_sprite_status
   and #$10
   bne :++++
   jsr scroll_misc_1
-  lda flight_status
+  lda plr_sprite_status
   and #$08
   bne :+++++
-  lda plr_y_inc
+  lda plr_y_speed_hi
   bmi :+
   jsr ram_misc_4     
   bcs :+++
@@ -2048,22 +2037,22 @@ player_pose_1:
   jsr ram_misc_5
 ram_misc_12:
   jsr ram_misc_6
-  jsr ram_misc_7
+  jsr plr_pos_rtn_0
   bcc ram_misc_14
-  lda plr_y_inc_fraction
+  lda plr_y_speed_lo
   sta $00
-  lda plr_y_inc
+  lda plr_y_speed_hi
   sta $01
   jsr flip_bits_1
   lda $00
-  sta plr_y_inc_fraction
+  sta plr_y_speed_lo
   lda $01
-  sta plr_y_inc
+  sta plr_y_speed_hi
   lda #$00
   sta jump_hold
 ram_misc_14:
   jsr plr_x_move_rtn
-  jsr new_y_pos
+  jsr plr_y_move_rtn
   jsr ram_misc_9
   rts
 :
@@ -2074,12 +2063,12 @@ ram_misc_14:
 no_ram_misc_10:
   lda #$00
 
-  sta plr_y_inc_fraction
-  sta plr_y_inc
+  sta plr_y_speed_lo
+  sta plr_y_speed_hi
 ram_misc_15:
   lda #$00
   sta jump_hold
-  jsr ram_misc_11
+  jsr transform_input_check
   jmp ram_misc_12
 :
   jsr ram_misc_13
@@ -2088,9 +2077,9 @@ ram_misc_15:
   jsr ram_misc_10
   jmp ram_misc_15
 ram_misc_10:
-  lda flight_status
+  lda plr_sprite_status
   and #$DF
-  sta flight_status
+  sta plr_sprite_status
   lda player_sprite
   and #$F5
   sta player_sprite
@@ -2099,48 +2088,48 @@ ram_misc_13:
   jsr ram_misc_16
   jsr ram_misc_17
   jsr scroll_misc_1
-  lda plr_y_inc
+  lda plr_y_speed_hi
   bmi :+
-  ora plr_y_inc_fraction
+  ora plr_y_speed_lo
   bne :++
-  jmp jmp_chk_A_press   ;*************@8e92
+  jmp chk_A_release   ;*************@8e92
 :
-  jsr ram_misc_7
-  bcs player_pose_2
-  jmp jmp_chk_A_press
+  jsr plr_pos_rtn_0
+  bcs reset_plr_y_inc
+  jmp chk_A_release
 :
   jsr ram_misc_4
-  bcs player_pose_2
-jmp_chk_A_press:
+  bcs reset_plr_y_inc
+chk_A_release:
   lda controller_last
   lsr
-  bcs :+
+  bcs :+                  ; branch if A was pressed last frame
   lda controller_current
   lsr
-  bcc :+
+  bcc :+                  ; branch if A is being held
   lda #$00
-  sta flight_status
+  sta plr_sprite_status
 :
   rts
-player_pose_2:
+reset_plr_y_inc:
   lda #$00
-  sta plr_y_inc_fraction
-  sta plr_y_inc
-  jmp jmp_chk_A_press
+  sta plr_y_speed_lo
+  sta plr_y_speed_hi
+  jmp chk_A_release
 ram_misc_9:
-  bit flight_status
-  bvs b_8f23
-  bmi b_8f0b
-  lda flight_status
+  bit plr_sprite_status
+  bvs b_8f23            ; branch during transformation
+  bmi b_8f0b            ; branch for truck mode
+  lda plr_sprite_status
   and #$10
   bne b_8f1e
   lda jump_hold
   bmi b_8f14
-  lda flight_status
+  lda plr_sprite_status
   and #$08
   bne b_8ec6
-  lda plr_y_inc_fraction
-  ora plr_y_inc
+  lda plr_y_speed_lo
+  ora plr_y_speed_hi
   bne b_8ef2
 b_8ec6:
   lda controller_current
@@ -2149,7 +2138,7 @@ b_8ec6:
   ldx #$02
   jmp b_8ef4
 b_8ed1:
-  lda plr_x_inc_hi
+  lda plr_x_speed_hi
   and #$80
   rol
   rol
@@ -2157,7 +2146,7 @@ b_8ed1:
   bne b_8ee0
   ldx #$03
   jmp b_8ef4
-b_8ee0:
+b_8ee0:               ; left or right is pressed
   lda timer_lo_byte
   and #$07
   bne b_8ef2
@@ -2175,8 +2164,8 @@ b_8ef4:
   lda player_direction
   beq b_8f05
   jmp j_8eff
-j_8efb:
-  lda player_landed
+trnsfrm_inpt_t_chk:
+  lda transform_input_timer
   bpl b_8f05
 j_8eff:
   txa
@@ -2185,17 +2174,17 @@ j_8eff:
   rts
 b_8f05:
   txa
-  ora #$80
+  ora #$80            ; clear all bits of player sprite except 7th bit
   sta player_sprite
   rts
 b_8f0b:
   lda controller_current
-  and #$C0
-  beq b_8ef2
-  jmp b_8ee0
+  and #$C0                ; check if left or right is pressed
+  beq b_8ef2              ; branch if neither left or right is pressed
+  jmp b_8ee0              ; jump if left or right is pressed
 b_8f14:
   ldx #$09
-  lda plr_y_inc
+  lda plr_y_speed_hi
   bmi b_8ef4
   dex
   jmp b_8ef4
@@ -2203,146 +2192,146 @@ b_8f1e:
   ldx #$01
   jmp b_8ef4
 b_8f23:
-  lda unram_25
+  lda transforming_frame_counter
   and #$02
   bne b_8f2e
   ldx #$0A
-  jmp j_8efb
+  jmp trnsfrm_inpt_t_chk
 b_8f2e:
-  lda unram_25
+  lda transforming_frame_counter
   cmp #$10
   bcs b_8f4a
   cmp #$08
   bcs b_8f3d
-  ldx unram_26
-  jmp j_8efb
+  ldx player_sprite_holder  ; load player sprite holder to x
+  jmp trnsfrm_inpt_t_chk
 b_8f3d:
-  lda flight_status
+  lda plr_sprite_status
   asl
   php
   lda #$06
   plp
   adc #$00
   tax
-  jmp j_8efb
+  jmp trnsfrm_inpt_t_chk
 b_8f4a:
-  lda flight_status
+  lda plr_sprite_status
   asl
   bcs b_8f54
   ldx #$07
-  jmp j_8efb
+  jmp trnsfrm_inpt_t_chk
 b_8f54:
   ldx #$06
-  jmp j_8efb
-ram_misc_11:
-  lda flight_status
-  and #$40
-  bne b_9fb3
+  jmp trnsfrm_inpt_t_chk
+transform_input_check:
+  lda plr_sprite_status       ; check current player sprite
+  and #$40                    ; check if player sprite is transforming, either 40 or c0
+  bne toransufoom             ; branch if transforming sprite status of 40 or c0, TRANSFORM! if player sprite status has the 6th bit set
   lda controller_last
-  and #$30
+  and #$30                    ; was up or down being held
   sta $00
   lda controller_current
-  and #$30
-  beq b_8fe0
-  cmp $00
-  bne b_8fe0
-  lda flight_status
+  and #$30  
+  beq reset_transform_input_timer ; if up or down isnt currently being held
+  cmp $00                         ; check current frame up/down input with previous frame up/down input
+  bne reset_transform_input_timer ; cannot press up and down at the same time, any other button is okay, but you cant trick it by pressing down and finishing by holding up
+  lda plr_sprite_status
   and #$08
-  bne b_8fe0
-  lda flight_status
-  bmi b_8f82
-  lda controller_current
-  and #$10
-  bne b_8fe0
+  bne reset_transform_input_timer ; what? when does this bit get set for player sprite status???
+  lda plr_sprite_status
+  bmi transform_up_input_check    ; truck to bot
+  lda controller_current          ; bot to truck
+  and #$10                        ; transform up input check
+  bne reset_transform_input_timer ; reset, because we should be holding down to transform to a truck
   jmp j_8f8d
-b_8f82:
+transform_up_input_check:
   lda controller_current
-  and #$20
-  bne b_8fe0
-  jsr ram_misc_7
-  bcs b_8fe0
+  and #$20                        ; 20 is down, we should be holding 10 = up to transform up to a bot
+  bne reset_transform_input_timer
+  jsr plr_pos_rtn_0
+  bcs reset_transform_input_timer
 j_8f8d:
-  inc player_landed
-  lda player_landed
+  inc transform_input_timer
+  lda transform_input_timer       ; increment and check transform controller input timer, up or down to transform
   and #$18
-  cmp #$18
-  bcc b_8fe4
-  lda player_direction
+  cmp #$18                        ; button needs to be pressed for 18 frames in order to initiate the transformation
+  bcc a_exit                      ; branch if timer is less than 18
+  lda player_direction            ; 1 = right, 0 = left
   clc
   ror
-  ror
-  sta player_landed
+  ror                             ; rotating 1 to the right twice is $80, or 00 if player is facing left
+  sta transform_input_timer
   lda #$40
-  ora flight_status
-  sta flight_status
+  ora plr_sprite_status           ; truck = 80, bot = 00
+  sta plr_sprite_status           ; bot to truck = 40, truck to bot = C0 
   lda #$00
-  sta unram_25
-  sta plr_x_inc_lo
-  sta plr_x_inc_hi
+  sta transforming_frame_counter  ; reset transformation frame counter to 0
+  sta plr_x_speed_lo                ; stop player movement when transforming
+  sta plr_x_speed_hi                ; movement still stops even when removing these two lines
   lda player_sprite
-  sta unram_26
+  sta player_sprite_holder                    ; hold player sprite in ram, bot=4, truck=0
   jsr play_transform_sound
-b_9fb3:
-  inc unram_25
-  lda unram_25
+toransufoom:                           ; transform has been initiated, increment timer
+  inc transforming_frame_counter
+  lda transforming_frame_counter
   cmp #$08
-  bne b_8fbe
-  jsr move_pl_y
-b_8fbe:
-  lda unram_25
+  bne :+
+  jsr transform_y_pos_adjust      ; adjust player y position at frame 8
+:
+  lda transforming_frame_counter
   cmp #$18
-  bcc b_8fe4
+  bcc a_exit      ; rts if transform frame counter is less than 18
   lda #$00
-  sta player_landed
-  lda flight_status
-  bmi b_8fe5
-  lda #$80
-  sta flight_status
+  sta transform_input_timer ; reset input timer
+  lda plr_sprite_status
+  bmi truck_to_bot          
+  lda #$80                  ; bot to truck
+  sta plr_sprite_status     ; store truck status
   lda #$04
-  sta player_sprite
-  ora unram_13
-  sta unram_13
-  lda plr_y_pos_hi
+  sta player_sprite         ; set sprite status to 04
+  ora plr_spr_aftr_trnsfrm  ; set the 3rd bit (04), useless*****
+  sta plr_spr_aftr_trnsfrm
+  lda plr_y_pos_hi          ; load player y position
   clc
   adc #08
-  sta plr_y_pos_hi
+  sta plr_y_pos_hi          ; add 08 to player sprite y position, which lowers by 1 tile
   rts
-b_8fe0:
+reset_transform_input_timer:
   lda #$00
-  sta player_landed
-b_8fe4:
+  sta transform_input_timer
+a_exit:
   rts
-b_8fe5:
+truck_to_bot:
   lda #$00
-  sta flight_status
+  sta plr_sprite_status       ; set bot mode
   sta player_sprite
-  lda unram_13
-  and #$FB
-  sta unram_13
+  lda plr_spr_aftr_trnsfrm    ; this line is useless because this value was set to 04 when transforming from bot to truck
+  and #$FB                    ; useless line, clearing the 3rd bit.
+  sta plr_spr_aftr_trnsfrm
   rts
-move_pl_y:
-  lda flight_status
-  bpl b_8fe4
+transform_y_pos_adjust:       ; this is done separate because its done earlier in the transformation
+  lda plr_sprite_status
+  bpl a_exit              ; rts if going from bot to truck = 40, truck to bot = c0 (-ve)
   lda plr_y_pos_hi
   sec
   sbc #$08
-  sta plr_y_pos_hi
+  sta plr_y_pos_hi        ; lower the value, the higher the location, magnus is 1 tile taller in bot mode hence 08
   rts
-b_8ffe:
+d_exit:
   clc
   rts
 scroll_misc_1:
   lda state
   lsr
-  bcs b_8ffe
+  bcs d_exit
   lda #$00
   sta player_un_pos
-  lda flight_status
-  bpl b_9011
+  lda plr_sprite_status
+  bpl b_9011            ; branch if bot mode
   lda #$02
-  sta player_un_pos
+  sta player_un_pos     ; store 02 to player_un_pos if truck
 b_9011:
-  lda plr_x_inc_hi
+  lda plr_x_speed_hi
   bpl b_901b
   lda player_un_pos
   ora #$01
@@ -2362,8 +2351,8 @@ b_902a:
   inc player_un_pos
   jsr inc_plr_un_pos
   bcs b_9027
-  lda flight_status
-  bmi b_9049
+  lda plr_sprite_status
+  bmi b_9049            ; rts if truck
   inc player_un_pos
   inc player_un_pos
   jsr inc_plr_un_pos
@@ -2375,7 +2364,7 @@ b_902a:
 b_9049:
   rts
 inc_plr_un_pos:
-   ldx player_un_pos
+   ldx player_un_pos  
    lda plr_y_pos_hi
    clc
    adc plr_pos_tbl,X
@@ -2383,11 +2372,12 @@ inc_plr_un_pos:
    lda plr_x_pos_hi
    clc
    adc plr_pos_tbl+1,X
-   sta plr_x_pos_hi_old
+   sta plr_x_pos_hi_diff
    jsr lvl_misc_rtn_1
    jsr lvl_misc_rtn_2
    rts
 plr_pos_tbl:    ; @$9063
+        ; Y   X
 	.byte $0D,$08
 	.byte $05,$08
 	.byte $F5,$08
@@ -2402,20 +2392,20 @@ plr_pos_tbl:    ; @$9063
 	.byte $00,$00
 	.byte $05,$EF
 	.byte $FB,$EF
-ram_misc_7:
+plr_pos_rtn_0:
   lda #$0D
-  sta plr_y_pos_hi_diff
-  lda flight_status     ; check if truck mode, #$80
-  bmi b_9095    ; branch if truck mode
+  sta plr_y_pos_hi_diff     ; load 0d to y diff
+  lda plr_sprite_status     ; check if truck mode or transforing to bot 80/c0
+  bmi b_9095    ; branch if truck mode/transforming from truck mode
   jsr plr_pos_rtn_1
   jsr lvl_misc_rtn_2
-  bcc b_9090
+  bcc :+
   rts
-b_9090:
+:
   lda #$08
   cmp plr_y_pos_hi
   rts
-b_9095:       ; truck routine
+b_9095:       ; truck/truck to bot routine
   lda #$0A
   sta plr_y_pos_hi_diff
   jsr plr_pos_rtn_1
@@ -2432,22 +2422,22 @@ b_90a6:
 plr_pos_rtn_1:
   lda plr_y_pos_hi
   sec
-  sbc plr_y_pos_hi_diff
+  sbc plr_y_pos_hi_diff     ; subtrack 0a or 0d from plr_y_pos_hi
   sta plr_y_pos_hi_diff
   lda plr_x_pos_hi
-  sta plr_x_pos_hi_old
+  sta plr_x_pos_hi_diff
   jsr lvl_misc_rtn_1
   rts
 ram_misc_4:
   lda #$00
-  sta $50
-  lda flight_status
-  bpl b_90c6
-  lda #$01
   sta player_un_pos
-b_90c6:
-  asl player_un_pos
-  asl player_un_pos
+  lda plr_sprite_status
+  bpl :+                ; branch if truck
+  lda #$01
+  sta player_un_pos     ; load player_un_pos with 01 if bot
+:
+  asl player_un_pos     ; shift  01 left to 02 *****redundant
+  asl player_un_pos     ; shift 02 left to 04 **** redundant, just store a 0 or 4 if bot or truck
   jsr grav_rtn_1
   bcc grav_rtn_0        ; in c player_un_pos if carry is cleared
   rts
@@ -2463,15 +2453,15 @@ grav_rtn_1:
   lda plr_x_pos_hi
   clc
   adc grav_tbl_1+1,X
-  sta plr_x_pos_hi_old
+  sta plr_x_pos_hi_diff
   jsr lvl_misc_rtn_1
   jsr lvl_misc_rtn_2
   rts
 grav_tbl_1:
-  .byte $11,$05
+  .byte $11,$05 ; bot
   .byte $11,$FB
-  .byte $09,$08
-  .byte $09,$F7
+  .byte $09,$08 ; truck
+  .byte $09,$F7 
 ram_misc_6:
   lda jump_hold
   bmi b_9120
@@ -2481,20 +2471,20 @@ ram_misc_6:
   lda controller_last
   lsr
   bcs b_913d
-  lda flight_status
+  lda plr_sprite_status
   and #$08
   bne b_910f
-  lda plr_y_inc_fraction
-  ora plr_y_inc
+  lda plr_y_speed_lo
+  ora plr_y_speed_hi
   bne b_913d
 b_910f:
-  lda flight_status
+  lda plr_sprite_status
   bmi b_913d
   lda #$80
   sta jump_hold
-  lda flight_status
+  lda plr_sprite_status
   ora #$20
-  sta flight_status
+  sta plr_sprite_status
   jsr play_jump_sound
 b_9120:
   lda jump_hold
@@ -2509,9 +2499,9 @@ b_9120:
   cmp #$0C
   bcs b_913e
   lda #$00
-  sta plr_y_inc_fraction
+  sta plr_y_speed_lo
   lda #$FC
-  sta plr_y_inc
+  sta plr_y_speed_hi
 b_913d:
   rts
 b_913e:
@@ -2521,43 +2511,43 @@ b_913e:
 b_9144:
   jmp ram_misc_5
 ram_misc_3:
-  lda plr_x_inc_lo
+  lda plr_x_speed_lo
   sta $08
-  lda plr_x_inc_hi
+  lda plr_x_speed_hi
   sta $09
-  lda unram_15
-  sta $0A
-  lda unram_16
-  sta $0B
-  lda player_speed
-  sta $00
-  lsr
-  sta $02
+  lda plr_max_x_speed_lo
+  sta $0A           ; store 00
+  lda plr_max_x_speed_hi
+  sta $0B           ; store 02, player speed high byte
+  lda player_acceleration  
+  sta $00           ; player speed is usually 20 (one occasion its 0c?)
+  lsr               ; shift bits to 10 (unless its 06)
+  sta $02           ; store result to 02
   lda #$00
-  sta $01
+  sta $01           ; reset 01 ram to 0
   lda state
   lsr
   bcs b_916b
   lda jump_hold
   beq b_918a
 b_916b:
-  lda $00
+  lda $00         ; load player_acceleration, usually 20
   sec
-  sbc $02
-  sta $00
+  sbc $02         ; subtract 10
+  sta $00         ; store to 00 ram (10 or 6)
   lda $01
-  sbc #$00
-  sta $01
+  sbc #$00        ; subtract the carry from 01 ram, which is already 00
+  sta $01         ; store result to 01 ram
   clc
-  ror $01
-  ror $00
+  ror $01         ; okay, but its probably 0 or ff at best
+  ror $00         ; rotate 00 ram right, 05 or 03
   lda $00
   clc
-  adc $02
-  sta $00
-  lda $01
+  adc $02         ; add 10 to 5 (or 06 to 03)
+  sta $00         ; store result of 15 (or 09) to 00 ram
+  lda $01         
   adc #$00
-  sta $01
+  sta $01         ; add the carry, but i think this is useless again
 b_918a:
   bit controller_current
   bmi right_is_pressed
@@ -2568,41 +2558,41 @@ left_is_pressed:
 right_is_pressed:
   jsr ram_misc_18
   lda $08
-  sta plr_x_inc_lo
+  sta plr_x_speed_lo
   lda $09
-  sta plr_x_inc_hi
+  sta plr_x_speed_hi
 b_919f:
   rts
 ram_misc_17:
-  lda plr_y_inc_fraction
+  lda plr_y_speed_lo
   sta $08
-  lda plr_y_inc
+  lda plr_y_speed_hi
   sta $09
-  lda unram_14
+  lda plr_max_y_speed_lo
   sta $0A
-  lda unram_18
+  lda plr_max_y_speed_hi
   sta $0B
-  lda player_speed
+  lda player_acceleration
   cmp #$18
-  bcs b_91b8
-  lda #$18
+  bcs b_91b8              ; if player acceleration is 20 like normal then branch and continue
+  lda #$18                ; if we're on level 7 and the acceleration is low, then at least increase the vertical acceleration to 18
 b_91b8:
-  sta $00
+  sta $00                 ; store vertical acceleration to 00 ram
   lda #$00
   sta $01
   lda controller_current
   asl
   asl
-  bmi b_91ca
+  bmi b_91ca              ; branch if down is pressed
   asl
-  bpl b_919f
+  bpl b_919f              ; rts if up is pressed
   jsr flip_bits_0
-b_91ca:
+b_91ca:                   ; down is pressed
   jsr ram_misc_18
   lda $08
-  sta plr_y_inc_fraction
+  sta plr_y_speed_lo
   lda $09
-  sta plr_y_inc
+  sta plr_y_speed_hi
   rts
 ram_misc_18:
   lda $08
@@ -2645,24 +2635,24 @@ b_920d:
   sta $00
   lda #$00
   sta $01
-  lda plr_y_inc_fraction
+  lda plr_y_speed_lo
   sta $08
-  lda plr_y_inc
+  lda plr_y_speed_hi
   sta $09
-  lda unram_14
+  lda plr_max_y_speed_lo
   sta $0A
-  lda unram_18
+  lda plr_max_y_speed_hi
   sta $0B
   jsr ram_misc_18
   lda $08
-  sta plr_y_inc_fraction
+  sta plr_y_speed_lo
   lda $09
-  sta plr_y_inc
+  sta plr_y_speed_hi
   beq start_flight
 b_923b:
   rts
 start_flight:
-  lda plr_y_inc_fraction
+  lda plr_y_speed_lo
   cmp #$30
   bcs b_923b
   lda controller_current
@@ -2673,22 +2663,22 @@ start_flight:
   bne b_923b
   lda power_up
   bpl b_923b
-  lda flight_status
+  lda plr_sprite_status
   bmi b_923b
   and #$20
   beq b_923b
   lda #$10
-  sta flight_status
+  sta plr_sprite_status
   lda #$00
   sta jump_hold
   rts
 plr_x_move_rtn:
   lda plr_x_pos_lo
   clc
-  adc plr_x_inc_lo
+  adc plr_x_speed_lo
   sta 00
   lda plr_x_pos_hi
-  adc plr_x_inc_hi
+  adc plr_x_speed_hi
   sta $01
   lda $00
   clc
@@ -2749,8 +2739,8 @@ center_player:
   rts
 clear_x_inc:
   lda #$00
-  sta plr_x_inc_lo
-  sta plr_x_inc_hi
+  sta plr_x_speed_lo
+  sta plr_x_speed_hi
   rts
 b_92db:
   lda $01
@@ -2764,14 +2754,14 @@ b_92e4:
   lda #$01
   sta state         ; set state to exit level
   rts
-new_y_pos:
+plr_y_move_rtn:
   lda plr_y_pos_lo
   clc
-  adc plr_y_inc_fraction
+  adc plr_y_speed_lo
   sta $00
   sta $02
   lda plr_y_pos_hi
-  adc plr_y_inc
+  adc plr_y_speed_hi
   sta $01
   sta $03
   lda stage_orientation
@@ -2800,7 +2790,7 @@ b_932a:
   cmp #$04
   beq b_9361
   jsr ram_misc_19   ; @$93df
-  bcc b_93b0
+  bcc y_scroll_rtn
   jsr ram_misc_20
   bcs new_plr_y_pos
 b_933a:
@@ -2809,10 +2799,10 @@ b_933a:
   lda $03
   sta plr_y_pos_hi
   rts
-clear_plr_y_inc:
+clear_plr_y_inc:    ; clear y increment values in ram
   lda #$00
-  sta plr_y_inc_fraction
-  sta plr_y_inc
+  sta plr_y_speed_lo
+  sta plr_y_speed_hi
   rts
 j_934a:
   jsr ram_misc_20
@@ -2823,12 +2813,12 @@ j_934a:
   jmp b_933a
 b_9358:
   lda stage_orientation
-  and #$40
-  beq clear_plr_y_inc
-  jmp load_state_40
+  and #$40              ; check if its an upwards level, stage orientation = 04
+  beq clear_plr_y_inc   ; branch and clear player y increment values in ram
+  jmp load_state_40     ; load 40 to state and return from subroutine
 b_9361:
   jsr ram_misc_19
-  bcc b_93b0
+  bcc y_scroll_rtn
   lda $01
   cmp #$F0
   bcs b_936f
@@ -2864,16 +2854,16 @@ b_939c:
   sta y_scroll_hi
   lda #$00
   sta plr_y_pos_lo
-  lda flight_status
+  lda plr_sprite_status
   bpl b_93ab
   lda #$90
   sta plr_y_pos_hi
   rts
 b_93ab:
   lda #$88
-  sta plr_y_pos_hi
+  sta plr_y_pos_hi    ; 88 is the lowest magnus can go on vertical level before scrolling. Reset to 88 after scrolling down
   rts
-b_93b0:
+y_scroll_rtn:
   clc
   lda plr_y_prog_fr
   adc $00
@@ -2891,14 +2881,14 @@ b_93b0:
   lda y_scroll_hi
   adc $04
   cmp #$F0
-  bcc vert_scroll_helper
+  bcc :+
   sbc #$10
-vert_scroll_helper:
+:
   sta y_scroll_hi
   lda #$00
   sta plr_y_pos_lo
   lda #$40
-  sta plr_y_pos_hi
+  sta plr_y_pos_hi  ; 40 is the highest player can go on screen for vert up levels, relative to the scroll. so when the screen scrolls, magnus' relative y position is reset to 40
   rts
 ram_misc_19:
   lda $01
@@ -2907,12 +2897,12 @@ ram_misc_19:
   sta $04
   rts
 ram_misc_20:
-  lda flight_status
-  bpl b_93f3
+  lda plr_sprite_status ; check plr_sprite_status
+  bpl b_93f3        ; branch unless in alt mode
   lda $01
   sec
   sbc #$90
-  sta $04
+  sta $04           ; ready value to add to new_plr_y_pos
   rts
 b_93f3:
   lda $01
@@ -2921,25 +2911,25 @@ b_93f3:
   sta $04
   rts
 reset_pal_ram:
-  lda plr_x_inc_lo
+  lda plr_x_speed_lo
   sta $00
-  lda plr_x_inc_hi
+  lda plr_x_speed_hi
   sta $01
   sta $02
   jsr flip_bits_1
-  lda player_speed
+  lda player_acceleration
   sta $03
   jsr ram_misc_21
   lda $00
-  sta plr_x_inc_lo
+  sta plr_x_speed_lo
   lda $01
-  sta plr_x_inc_hi
+  sta plr_x_speed_hi
 b_9417:
   rts
 ram_misc_16:
-  lda plr_y_inc_fraction
+  lda plr_y_speed_lo
   sta $00
-  lda plr_y_inc
+  lda plr_y_speed_hi
   sta $01
   sta $02
   jsr flip_bits_1
@@ -2947,9 +2937,9 @@ ram_misc_16:
   sta $03
   jsr ram_misc_21
   lda $00
-  sta plr_y_inc_fraction
+  sta plr_y_speed_lo
   lda $01
-  sta plr_y_inc
+  sta plr_y_speed_hi
   rts
 ram_misc_21:
   lda $00
@@ -2994,7 +2984,7 @@ b_9471:
 lvl_misc_rtn_1:
   lda plr_x_prog_lo
   clc
-  adc plr_x_pos_hi_old
+  adc plr_x_pos_hi_diff ; 
   sta $00
   lda plr_x_prog_hi
   adc #$00
@@ -3008,7 +2998,7 @@ lvl_misc_rtn_1:
   sta $0F
 lvl_misc_rtn_1a:
   lda $00
-  sta plr_x_pos_hi_old
+  sta plr_x_pos_hi_diff
   lda $0E
   sta plr_y_pos_hi_diff
   jsr get_lvl_nmtbl_addr
@@ -3023,7 +3013,7 @@ lvl_misc_rtn_1a:
   and #$30
   sec
   sbc $04
-  sta $04
+  sta $04 ; store 00, 11, 22, or 33 into $04 ram
 b_94b2:
   lda $0E
   sec
@@ -3066,7 +3056,7 @@ lvl_misc_rtn_2:
   sta $01
   lda current_level
   lsr
-  bcs b_9538
+  bcs b_9538        ; branch if we're on a boss
   lda $00
   cmp #$53
   bcc b_94ee
@@ -3085,7 +3075,7 @@ b_9510:
   cmp #$7D
   bcc b_9516
   inc $01
-b_9516:
+b_9516:       ; common routine for boss and level after we've appropriately incremented $01 in ram
   lda $01
   asl
   tax
@@ -3098,7 +3088,7 @@ b_9516:
   lsr
   tax
   inx
-  lda plr_x_pos_hi_old
+  lda plr_x_pos_hi_diff
   and #$0F
   lsr
   tay
@@ -3111,7 +3101,7 @@ b_9533:
 b_9538:
   lda $00
   cmp #$77
-  bcc b_94ee
+  bcc b_94ee      ; rts
   cmp #$80
   bcc b_9544
   inc $01
@@ -3134,24 +3124,26 @@ enemy_misc_rtn_11:
   sta $01
   jmp ($0000)
 rtn_jmp_tbl:  ; @$9565-9578
-	.byte $79,$95
-	.byte $79,$95
-	.byte $7A,$95
-	.byte $79,$95
-	.byte $79,$95
-	.byte $86,$95
-	.byte $79,$95
-	.byte $98,$95
-	.byte $22,$96
-	.byte $7A,$95
+	.word rtn_jmp_0     ;.byte $79,$95
+	.word rtn_jmp_0     ;.byte $79,$95
+  .word b_957a        ;.byte $7A,$95
+	.word rtn_jmp_0     ;.byte $79,$95
+	.word rtn_jmp_0     ;.byte $79,$95
+  .word b_9586        ;.byte $86,$95
+	.word rtn_jmp_0     ;.byte $79,$95
+  .word b_9598        ;.byte $98,$95
+  .word b_9622        ;.byte $22,$96
+  .word b_957a        ;.byte $7A,$95
 rtn_jmp_0:
   rts
+b_957a:
   ldy #$00
   jsr j_95aa
   bcs rtn_jmp_0
   lda #$10
   sta state
   rts
+b_9586:
   ldy #$04
   jsr j_95aa
   bcs rtn_jmp_0
@@ -3161,6 +3153,7 @@ rtn_jmp_0:
   ora sub_state
   sta sub_state
   rts
+b_9598:
   ldy #$08
   jsr j_95aa
   bcs rtn_jmp_0
@@ -3219,7 +3212,11 @@ ram_misc_22:
   sta $03
   jmp j_95b2
 hrdcod_tbl:   ; @$95FE
-	.byte $3C,$01,$F8,$00,$38,$02,$10,$00,$FC,$01,$10,$00,$3C,$01,$F8,$00,$94,$00,$60,$01,$44,$00,$20,$02,$C4,$00,$E0,$02,$44,$00,$20,$0A,$94,$00,$E0,$0A
+	.byte $3C,$01,$F8,$00,$38,$02,$10,$00,$FC
+  .byte $01,$10,$00,$3C,$01,$F8,$00,$94,$00
+  .byte $60,$01,$44,$00,$20,$02,$C4,$00,$E0
+  .byte $02,$44,$00,$20,$0A,$94,$00,$E0,$0A
+b_9622:
   lda unram_5
   asl
   asl
@@ -3375,14 +3372,14 @@ wpn1_timer_rtn_0:
   beq b_9779
   jsr play_sound_wpn
   jsr fire_wpn
-  lda flight_status     ; check truck mode
+  lda plr_sprite_status     ; check truck mode
   bmi b_975f            ; jump if truck weapon fire
   lda #$00
   sta wpn_y_inc_lo,X    ; load 0 vertical bullet speed
   sta wpn_y_inc_hi,X
-  lda plr_x_inc_lo
+  lda plr_x_speed_lo
   sta $00               ; store bullet speed temporarily to 00
-  lda plr_x_inc_hi
+  lda plr_x_speed_hi
   sta $01               ; store bullet speed hi byte temporarily to 01
   jsr flip_bits_1
   lda $01
@@ -3403,9 +3400,9 @@ b_975f:
   sta wpn_y_inc_lo,X
   lda #vert_wpn_speed   ; #$FC
   sta wpn_y_inc_hi,X
-  lda plr_x_inc_lo
+  lda plr_x_speed_lo
   sta wpn_x_inc_lo,X    ; give the vertical shot players x movement speed
-  lda plr_x_inc_hi
+  lda plr_x_speed_hi
   sta wpn_x_inc_hi,X
 j_9773:
   lda power_up
@@ -3437,10 +3434,10 @@ diag_bullet_rtn:
 b_97a8:
   lda $00
   clc
-  adc plr_x_inc_lo      ; add player horizontal speed
+  adc plr_x_speed_lo      ; add player horizontal speed
   sta wpn_x_inc_lo,X
   lda $01
-  adc plr_x_inc_hi
+  adc plr_x_speed_hi
   sta wpn_x_inc_hi,X
   rts
 fire_wpn:
@@ -3477,7 +3474,7 @@ wpn_set_pos:
   sta wpn_y_pos_ex,X
   rts
 wpn2_timer_rtn_1:
-  lda flight_status   ; check for truck mode
+  lda plr_sprite_status   ; check for truck mode
   bpl b_9810          ; exit if not truck
   lda wpn2_timer
   beq wpn2_timer_rtn_2  ; start timer if its 00
@@ -3518,9 +3515,9 @@ fire_missile:
   sta wpn_status,X  
   lda #$01                ; load missile sprite 
   sta wpn_sprite_type,X 
-  lda plr_x_inc_lo
+  lda plr_x_speed_lo
   sta $00
-  lda plr_x_inc_hi
+  lda plr_x_speed_hi
   sta $01
   jsr flip_bits_1
   lda $01
@@ -3605,7 +3602,7 @@ b_98bf:
 b_98e0:
   lda wpn_x_pos_hi,X
   sta $00
-  sta plr_x_pos_hi_old
+  sta plr_x_pos_hi_diff
   lda wpn_x_pos_ex,X
   sta $01
   lda wpn_y_pos_hi,X
@@ -3802,7 +3799,7 @@ b_9a4c:
 player_sprite_rtn:
   lda player_sprite
   sta $00
-  lda flight_status
+  lda plr_sprite_status
   bpl b_9a64        ; branch if not truck
   and #$40
   bne b_9a64        ; branch if transforming
@@ -3813,9 +3810,9 @@ player_sprite_rtn:
   ora #$08
   sta $00
 b_9a64:
-  lda flight_status
+  lda plr_sprite_status
   ora #$01
-  sta flight_status
+  sta plr_sprite_status
   lda #<lvl_data_tbl      ; $00
   sta $09
   lda #>lvl_data_tbl      ; $9B is this a hard coded address?
@@ -3833,9 +3830,9 @@ b_9a7f:
   bpl b_9a7f
   stx $0F
 b_9a88:
-  lda flight_status
+  lda plr_sprite_status
   and #$FE
-  sta flight_status
+  sta plr_sprite_status
   rts
 ram_misc_24:
   lda $00
@@ -3890,7 +3887,7 @@ load_sprites:
   lda current_level
   cmp #$10
   bne b_9af1
-  lda flight_status
+  lda plr_sprite_status
   lsr
   bcc b_9af1
   lda sprite1_y_pos,X
@@ -3908,33 +3905,72 @@ b_9af1:
   iny
   rts
 lvl_data_tbl:           ; @$9B00-9DB1
-	.byte $24,$9B,$49,$9B,$62,$9B,$83,$9B,$A8,$9B,$CD,$9B,$F2,$9B,$0B,$9C,$30,$9C,$51,$9C,$6E,$9C,$6F,$9C,$98,$9C,$C1,$9C,$EA,$9C
-	.byte $03,$9D,$44,$9D,$85,$9D,$09,$F0,$10,$00,$F8,$F0,$11,$00,$00,$F8,$14,$00,$F8,$F8,$15,$00,$00,$00,$12,$00,$F8,$00,$13,$00
-	.byte $00,$08,$16,$00,$F8,$08,$17,$00,$00,$05,$18,$00,$F0,$06,$F0,$19,$00,$FC,$F8,$1A,$00,$FC,$00,$1B,$00,$FC,$08,$1C,$00,$FC
-	.byte $F4,$1D,$00,$F4,$08,$1E,$00,$F4,$08,$F0,$10,$00,$F8,$F0,$11,$00,$00,$F8,$14,$00,$F8,$F8,$15,$00,$00,$00,$52,$00,$F8,$00
-	.byte $13,$00,$00,$08,$53,$00,$F8,$08,$17,$00,$00,$09,$F0,$2E,$00,$F8,$F0,$2F,$00,$00,$F8,$30,$00,$F8,$F8,$31,$00,$00,$F8,$32
-	.byte $00,$08,$00,$33,$00,$F8,$00,$34,$00,$00,$08,$35,$00,$FA,$08,$36,$00,$02,$09,$FA,$37,$00,$F0,$FA,$38,$00,$F8,$FA,$39,$00
-	.byte $00,$FA,$3A,$00,$08,$02,$0F,$00,$E8,$02,$3B,$00,$F0,$02,$3C,$00,$F8,$02,$3D,$00,$00,$02,$3E,$00,$08,$09,$F9,$37,$00,$F0
-	.byte $F9,$38,$00,$F8,$F9,$39,$00,$00,$F9,$3A,$00,$08,$01,$0F,$00,$E8,$01,$4E,$00,$F0,$01,$4F,$00,$F8,$01,$50,$00,$00,$01,$51
-	.byte $00,$08,$06,$F8,$48,$00,$F5,$F8,$49,$00,$FD,$00,$4A,$00,$F9,$00,$4B,$00,$01,$08,$4C,$00,$F4,$08,$4D,$00,$00,$09,$F8,$3F
-	.byte $00,$F8,$00,$40,$00,$F0,$00,$41,$00,$F8,$00,$42,$00,$00,$00,$43,$00,$08,$08,$44,$00,$F0,$08,$45,$00,$F8,$08,$46,$00,$00
-	.byte $08,$47,$00,$08,$08,$F0,$1F,$00,$00,$F8,$20,$00,$F8,$F8,$21,$00,$00,$00,$22,$00,$F8,$00,$23,$00,$00,$00,$24,$00,$08,$08
-	.byte $25,$00,$F8,$08,$26,$00,$00,$07,$F0,$27,$00,$FC,$F0,$28,$00,$04,$F8,$29,$00,$FC,$F8,$2A,$00,$04,$00,$2B,$00,$FC,$00,$2C
-	.byte $00,$04,$08,$2D,$00,$FC,$00,$0A,$F0,$55,$00,$F5,$F0,$56,$00,$FD,$F0,$57,$00,$05,$F8,$58,$00,$F5,$F8,$59,$00,$FD,$F8,$5A
-	.byte $00,$05,$00,$5B,$00,$F9,$00,$5C,$00,$01,$08,$5D,$00,$F9,$08,$5E,$00,$01,$0A,$FA,$6A,$00,$F0,$FA,$6B,$00,$F8,$FA,$6C,$00
-	.byte $00,$FA,$6D,$00,$08,$FA,$6E,$00,$10,$02,$6F,$00,$F0,$02,$70,$00,$F8,$02,$71,$00,$00,$02,$72,$00,$08,$02,$73,$00,$10,$0A
-	.byte $F9,$6A,$00,$F0,$F9,$6B,$00,$F8,$F9,$6C,$00,$00,$F9,$6D,$00,$08,$F9,$6E,$00,$10,$01,$74,$00,$F0,$01,$75,$00,$F8,$01,$76
-	.byte $00,$00,$01,$77,$00,$08,$01,$78,$00,$10,$06,$F0,$E0,$00,$F8,$F0,$E1,$00,$00,$F8,$E2,$00,$F8,$F8,$E3,$00,$00,$00,$E4,$00
-	.byte $F8,$00,$E5,$00,$00,$10,$F0,$79,$00,$F0,$F0,$7A,$00,$F8,$F0,$7A,$40,$00,$F0,$79,$40,$08,$F8,$7B,$00,$F0,$F8,$7C,$00,$F8
-	.byte $F8,$7C,$40,$00,$F8,$7B,$40,$08,$00,$7B,$80,$F0,$00,$7C,$80,$F8,$00,$7C,$C0,$00,$00,$7B,$C0,$08,$08,$79,$80,$F0,$08,$7A
-	.byte $80,$F8,$08,$7A,$C0,$00,$08,$79,$C0,$08,$10,$F0,$7D,$00,$F0,$F0,$7E,$00,$F8,$F0,$7E,$40,$00,$F0,$7D,$40,$08,$F8,$7F,$00
-	.byte $F0,$F8,$80,$00,$F8,$F8,$80,$40,$00,$F8,$7F,$40,$08,$00,$7F,$80,$F0,$00,$80,$80,$F8,$00,$80,$C0,$00,$00,$7F,$C0,$08,$08
-	.byte $7D,$80,$F0,$08,$7E,$80,$F8,$08,$7E,$C0,$00,$08,$7D,$C0,$08,$0B,$F0,$5F,$00,$F5,$F0,$60,$00,$FD,$F0,$61,$00,$05,$F8,$62
-	.byte $00,$F5,$F8,$63,$00,$FD,$F8,$64,$00,$05,$00,$65,$00,$F5,$00,$66,$00,$FD,$00,$67,$00,$05,$08,$68,$00,$F8,$08,$69,$00,$00
+	.byte $24,$9B,$49,$9B,$62,$9B,$83,$9B,$A8,$9B,$CD,$9B,$F2,$9B,$0B,$9C,$30,$9C ; addressing region
+  .byte $51,$9C,$6E,$9C,$6F,$9C,$98,$9C,$C1,$9C,$EA,$9C,$03,$9D,$44,$9D,$85,$9D ; addressing region
+  ; @9b24
+  .byte $09,$F0,$10,$00,$F8,$F0,$11,$00,$00,$F8,$14,$00,$F8,$F8,$15,$00,$00,$00,$12
+  .byte $00,$F8,$00,$13,$00,$00,$08,$16,$00,$F8,$08,$17,$00,$00,$05,$18,$00,$F0
+  ; @9b49
+  .byte $06,$F0,$19,$00,$FC,$F8,$1A,$00,$FC,$00,$1B,$00,$FC,$08,$1C,$00,$FC,$F4,$1D
+  .byte $00,$F4,$08,$1E,$00,$F4
+  ; @9b62
+  .byte $08,$F0,$10,$00,$F8,$F0,$11,$00,$00,$F8,$14,$00,$F8,$F8,$15,$00,$00,$00,$52
+  .byte $00,$F8,$00,$13,$00,$00,$08,$53,$00,$F8,$08,$17,$00,$00
+  ; @9b83
+  .byte $09,$F0,$2E,$00,$F8,$F0,$2F,$00,$00,$F8,$30,$00,$F8,$F8,$31,$00,$00,$F8,$32
+	.byte $00,$08,$00,$33,$00,$F8,$00,$34,$00,$00,$08,$35,$00,$FA,$08,$36,$00,$02
+  ; @9ba8 
+  .byte $09,$FA,$37,$00,$F0,$FA,$38,$00,$F8,$FA,$39,$00,$00,$FA,$3A,$00,$08,$02,$0F
+  .byte $00,$E8,$02,$3B,$00,$F0,$02,$3C,$00,$F8,$02,$3D,$00,$00,$02,$3E,$00,$08
+  ; @9bcd
+  .byte $09,$F9,$37,$00,$F0,$F9,$38,$00,$F8,$F9,$39,$00,$00,$F9,$3A,$00,$08,$01,$0F
+  .byte $00,$E8,$01,$4E,$00,$F0,$01,$4F,$00,$F8,$01,$50,$00,$00,$01,$51,$00,$08
+  ; @9bf2
+  .byte $06,$F8,$48,$00,$F5,$F8,$49,$00,$FD,$00,$4A,$00,$F9,$00,$4B,$00,$01,$08,$4C
+  .byte $00,$F4,$08,$4D,$00,$00
+  ; @9c0b 
+  .byte $09,$F8,$3F,$00,$F8,$00,$40,$00,$F0,$00,$41,$00,$F8,$00,$42,$00,$00,$00,$43
+  .byte $00,$08,$08,$44,$00,$F0,$08,$45,$00,$F8,$08,$46,$00,$00,$08,$47,$00,$08
+  ; @9c30
+  .byte $08,$F0,$1F,$00,$00,$F8,$20,$00,$F8,$F8,$21,$00,$00,$00,$22,$00,$F8,$00,$23
+  .byte $00,$00,$00,$24,$00,$08,$08,$25,$00,$F8,$08,$26,$00,$00
+  ; @9c51
+  .byte $07,$F0,$27,$00,$FC,$F0,$28,$00,$04,$F8,$29,$00,$FC,$F8,$2A,$00,$04,$00,$2B
+  .byte $00,$FC,$00,$2C,$00,$04,$08,$2D,$00,$FC
+  ; @9c6e 
+  .byte $00
+  ; @9c6f 
+  .byte $0A,$F0,$55,$00,$F5,$F0,$56,$00,$FD,$F0,$57,$00,$05,$F8,$58,$00,$F5,$F8,$59,$00,$FD
+  .byte $F8,$5A,$00,$05,$00,$5B,$00,$F9,$00,$5C,$00,$01,$08,$5D,$00,$F9,$08,$5E,$00,$01
+  ; @9c98
+  .byte $0A,$FA,$6A,$00,$F0,$FA,$6B,$00,$F8,$FA,$6C,$00,$00,$FA,$6D,$00,$08,$FA,$6E,$00,$10
+  .byte $02,$6F,$00,$F0,$02,$70,$00,$F8,$02,$71,$00,$00,$02,$72,$00,$08,$02,$73,$00,$10
+  ; @9cc1
+  .byte $0A,$F9,$6A,$00,$F0,$F9,$6B,$00,$F8,$F9,$6C,$00,$00,$F9,$6D,$00,$08,$F9,$6E,$00,$10
+  .byte $01,$74,$00,$F0,$01,$75,$00,$F8,$01,$76,$00,$00,$01,$77,$00,$08,$01,$78,$00,$10
+  ; @9cea
+  .byte $06,$F0,$E0,$00,$F8,$F0,$E1,$00,$00,$F8,$E2,$00,$F8,$F8,$E3,$00,$00,$00,$E4
+  .byte $00,$F8,$00,$E5,$00,$00
+  ; @9d03
+  .byte $10,$F0,$79,$00,$F0,$F0,$7A,$00,$F8,$F0,$7A,$40,$00,$F0,$79,$40,$08,$F8,$7B,$00,$F0,$F8
+  .byte $7C,$00,$F8,$F8,$7C,$40,$00,$F8,$7B,$40,$08,$00,$7B,$80,$F0,$00,$7C,$80,$F8,$00,$7C,$C0
+  .byte $00,$00,$7B,$C0,$08,$08,$79,$80,$F0,$08,$7A,$80,$F8,$08,$7A,$C0,$00,$08,$79,$C0,$08
+  ; @9d44
+  .byte $10,$F0,$7D,$00,$F0,$F0,$7E,$00,$F8,$F0,$7E,$40,$00,$F0,$7D,$40,$08,$F8,$7F,$00,$F0,$F8
+  .byte $80,$00,$F8,$F8,$80,$40,$00,$F8,$7F,$40,$08,$00,$7F,$80,$F0,$00,$80,$80,$F8,$00,$80,$C0
+  .byte $00,$00,$7F,$C0,$08,$08,$7D,$80,$F0,$08,$7E,$80,$F8,$08,$7E,$C0,$00,$08,$7D,$C0,$08
+  ; @9d85
+  .byte $0B,$F0,$5F,$00,$F5,$F0,$60,$00,$FD,$F0,$61,$00,$05,$F8,$62,$00,$F5,$F8,$63,$00,$FD,$F8,$64
+  .byte $00,$05,$00,$65,$00,$F5,$00,$66,$00,$FD,$00,$67,$00,$05,$08,$68,$00,$F8,$08,$69,$00,$00
 wpn_addr_tbl_2:         ; @$9DB2-9DF1
-	.byte $BC,$9D,$C1,$9D,$C6,$9D,$D7,$9D,$ED,$9D,$01,$FC,$F3,$01,$FC,$01,$FC,$84,$01,$FC,$04,$F8,$8C,$C0,$F8,$00,$8B,$00,$F8,$F8,$8B,$C0
-	.byte $00,$00,$8C,$00,$00,$04,$F8,$87,$00,$F8,$00,$89,$00,$F8,$F8,$88,$00,$00,$00,$8A,$00,$00,$01,$FC,$81,$00,$FC,$01,$FC,$54,$00,$FC
-stage_boss_table_2a:    ; @$9DF2-9EF1
+	.byte $BC,$9D,$C1,$9D,$C6,$9D,$D7,$9D,$ED,$9D,$01,$FC,$F3,$01,$FC,$01,$FC,$84,$01,$FC
+  ; @9dc6
+  .byte $04,$F8,$8C,$C0,$F8,$00,$8B,$00,$F8,$F8,$8B,$C0,$00,$00,$8C,$00,$00
+  ; @9dd7
+  .byte $04,$F8,$87,$00,$F8,$00,$89,$00,$F8,$F8,$88,$00,$00,$00,$8A,$00,$00
+  ; @9de8
+  .byte $01,$FC,$81,$00,$FC,$01,$FC,$54,$00,$FC
+stage_boss_table_2a:    ; @$9DF2-9EF1 a jump table
 	.byte $7E,$9F,$7E,$9F,$8B,$9F,$8B,$9F,$A0,$9F,$B9,$9F,$D2,$9F,$D2,$9F,$DF,$9F,$E8,$9F,$F1,$9F,$F1,$9F,$FA,$9F,$FA,$9F,$03,$A0,$03,$A0
 	.byte $10,$A0,$10,$A0,$10,$A0,$10,$A0,$47,$A0,$4C,$A0,$51,$A0,$51,$A0,$10,$A0,$10,$A0,$56,$A0,$56,$A0,$7C,$A0,$7C,$A0,$89,$A0,$89,$A0
 	.byte $92,$A0,$92,$A0,$9B,$A0,$9B,$A0,$30,$A3,$30,$A3,$A8,$A0,$A8,$A0,$F8,$A0,$09,$A1,$1A,$A1,$1A,$A1,$23,$A1,$23,$A1,$34,$A1,$34,$A1
@@ -3946,49 +3982,186 @@ stage_boss_table_2a:    ; @$9DF2-9EF1
 stage_boss_table_2b:    ; @$9EF2-9FF1
 	.byte $1D,$A0,$1D,$A0,$10,$A0,$10,$A0,$10,$A0,$10,$A0,$10,$A0,$10,$A0,$10,$A0,$10,$A0,$2E,$A0,$33,$A0,$2E,$A0,$33,$A0,$38,$A0,$38,$A0
 	.byte $3D,$A0,$42,$A0,$D1,$A0,$D1,$A0,$D6,$A0,$E7,$A0,$38,$A0,$38,$A0,$3D,$A0,$42,$A0,$4F,$A1,$4F,$A1,$38,$A0,$38,$A0,$3D,$A0,$42,$A0
-	.byte $60,$A1,$60,$A1,$71,$A1,$82,$A1,$93,$A1,$93,$A1,$98,$A1,$9D,$A1,$A2,$A1,$A2,$A1,$A7,$A1,$A7,$A1,$6E,$9C,$6E,$9C,$FE,$A3,$0F,$A4
-	.byte $18,$A4,$18,$A4,$29,$A4,$32,$A4,$4C,$A4,$51,$A4,$C6,$9D,$D7,$9D,$C6,$9D,$D7,$9D,$C6,$9D,$D7,$9D,$C6,$9D,$D7,$9D,$C6,$9D,$D7,$9D
-	.byte $C6,$9D,$D7,$9D,$C6,$9D,$E8,$9D,$C6,$9D,$E8,$9D,$03,$FC,$C0,$41,$04,$FC,$C1,$41,$FC,$FC,$C2,$41,$F4,$05,$F4,$C4,$41,$FC,$F4,$C3
-	.byte $41,$04,$FC,$C5,$01,$F4,$FC,$C6,$41,$FC,$FC,$C5,$41,$04,$06,$F4,$C8,$41,$00,$FC,$CC,$41,$00,$04,$D0,$41,$00,$F4,$C9,$41,$F8,$FC
-	.byte $CD,$41,$F8,$04,$D1,$41,$F8,$06,$F4,$CA,$41,$00,$FC,$CE,$41,$00,$04,$D2,$41,$00,$F4,$CB,$41,$F8,$FC,$CF,$41,$F8,$04,$D3,$41,$F8
-	.byte $03,$FC,$FA,$42,$F4,$FC,$F9,$42,$FC,$FC,$F8,$42,$04,$02,$F8,$F7,$01,$FC,$00,$E9,$01,$FC,$02,$F8,$F7,$01,$FC,$00,$E8,$01,$FC,$02
+	.byte $60,$A1,$60,$A1,$71,$A1,$82,$A1,$93,$A1,$93,$A1,$98,$A1,$9D,$A1,$A2,$A1,$A2,$A1,$A7,$A1,$A7,$A1
+  .byte $6E,$9C,$6E,$9C
+  .byte $FE,$A3,$0F,$A4,$18,$A4,$18,$A4,$29,$A4,$32,$A4,$4C,$A4,$51,$A4
+  .byte $C6,$9D,$D7,$9D,$C6,$9D,$D7,$9D,$C6,$9D,$D7,$9D,$C6,$9D,$D7,$9D
+  .byte $C6,$9D,$D7,$9D,$C6,$9D,$D7,$9D,$C6,$9D,$E8,$9D,$C6,$9D,$E8,$9D
+  ; @9f7e
+  .byte $03,$FC,$C0,$41,$04,$FC,$C1,$41,$FC,$FC,$C2,$41,$F4
+  ; @9f8b
+  .byte $05,$F4,$C4,$41,$FC,$F4,$C3,$41,$04,$FC,$C5,$01,$F4,$FC,$C6,$41,$FC,$FC,$C5,$41,$04
+  ; @9fa0
+  .byte $06,$F4,$C8,$41,$00,$FC,$CC,$41,$00,$04,$D0,$41,$00,$F4,$C9,$41,$F8,$FC,$CD,$41,$F8,$04,$D1,$41,$F8
+  ; @9fb9 
+  .byte $06,$F4,$CA,$41,$00,$FC,$CE,$41,$00,$04,$D2,$41,$00,$F4,$CB,$41,$F8,$FC,$CF,$41,$F8,$04,$D3,$41,$F8
+  ; @9fd2
+	.byte $03,$FC,$FA,$42,$F4,$FC,$F9,$42,$FC,$FC,$F8,$42,$04
+  ; @9fdf
+  .byte $02,$F8,$F7,$01,$FC,$00,$E9,$01,$FC
+  ; @9fe8
+  .byte $02,$F8,$F7,$01,$FC,$00,$E8,$01,$FC
+  ; @9ff1
+  .byte $02
 lvl_data_tbl_contd:   ; @$9FF2-A455
-	.byte $F8,$E0,$02,$FC,$00,$E1,$02,$FC,$02,$FC,$E2,$01,$F8,$FC,$E3,$01,$00,$03,$F6,$F0,$01,$FC,$FE,$F1,$01,$F8,$FE,$F2,$01,$00,$03,$FC
-	.byte $82,$01,$F4,$FC,$83,$01,$FC,$FC,$82,$41,$04,$04,$F8,$BC,$03,$F8,$F8,$BD,$03,$00,$00,$BE,$03,$F8,$00,$BF,$03,$00,$01,$FC,$EA,$21
-	.byte $FC,$01,$FC,$EB,$21,$FC,$01,$FC,$EE,$03,$FC,$01,$FC,$B0,$22,$FC,$01,$FC,$B1,$22,$FC,$01,$FC,$EC,$22,$FC,$01,$FC,$ED,$22,$FC,$01
-	.byte $FC,$E8,$22,$FC,$03,$FC,$EB,$41,$F4,$FC,$EA,$41,$FC,$FC,$E9,$41,$04,$06,$F0,$E0,$01,$F8,$F0,$E0,$41,$00,$F8,$E2,$01,$F8,$F8,$E2
-	.byte $41,$00,$00,$E1,$01,$FC,$08,$E3,$01,$FC,$03,$FC,$EB,$42,$F4,$FC,$EA,$42,$FC,$FC,$E9,$42,$04,$02,$FC,$FC,$02,$FC,$04,$FD,$02,$FC
-	.byte $02,$FC,$FE,$02,$F8,$FC,$FE,$42,$00,$03,$F4,$E7,$22,$FC,$FC,$E5,$22,$FC,$04,$E6,$22,$FC,$0A,$F0,$D6,$62,$00,$F0,$D7,$62,$F8,$F8
-	.byte $D8,$62,$00,$F8,$D9,$62,$F8,$00,$DA,$62,$00,$00,$DB,$62,$F8,$08,$DC,$62,$00,$08,$DD,$62,$F8,$00,$DE,$62,$08,$08,$DF,$62,$08,$01
-	.byte $FC,$C7,$03,$FC,$04,$F8,$C3,$02,$F8,$F8,$C4,$02,$00,$00,$C5,$02,$F8,$00,$C6,$02,$00,$04,$F8,$C6,$C2,$F8,$F8,$C5,$C2,$00,$00,$C4
-	.byte $C2,$F8,$00,$C3,$C2,$00,$04,$FC,$9F,$02,$F4,$FC,$9D,$02,$FC,$FC,$9F,$42,$04,$04,$9E,$02,$FC,$04,$FC,$9C,$02,$F4,$FC,$9D,$02,$FC
-	.byte $FC,$9C,$42,$04,$04,$9E,$02,$FC,$02,$FC,$9A,$02,$F8,$FC,$9B,$02,$00,$04,$F5,$B1,$43,$F8,$F5,$B0,$43,$00,$FD,$B3,$43,$F8,$FD,$B2
-	.byte $43,$00,$02,$FC,$B8,$02,$F8,$FC,$B9,$02,$00,$03,$F8,$F4,$02,$F8,$F8,$F5,$02,$00,$00,$F6,$02,$FC,$01,$FC,$BF,$02,$FC,$04,$F8,$EE
-	.byte $02,$F8,$F8,$EE,$42,$00,$00,$EF,$02,$F8,$00,$EF,$42,$00,$04,$04,$FA,$03,$F8,$FC,$F8,$03,$F8,$FC,$F9,$03,$00,$F4,$F7,$03,$00,$04
-	.byte $F8,$B7,$02,$F8,$F8,$B8,$02,$00,$00,$B9,$02,$F8,$00,$BA,$02,$00,$04,$F8,$BB,$02,$F8,$F8,$BC,$02,$00,$00,$BD,$02,$F8,$00,$BE,$02
-	.byte $00,$01,$FD,$E5,$03,$FD,$01,$FC,$D4,$02,$FC,$01,$FC,$D5,$02,$FC,$01,$FD,$E6,$03,$FD,$01,$FC,$E7,$03,$FC,$03,$FC,$C0,$42,$04,$FC
-	.byte $C1,$42,$FC,$FC,$C2,$42,$F4,$05,$FC,$8E,$02,$F8,$04,$8F,$02,$F8,$FC,$8D,$02,$00,$FC,$86,$02,$08,$F4,$85,$02,$00,$04,$F8,$68,$02
-	.byte $F8,$00,$69,$02,$F8,$F8,$68,$42,$00,$00,$69,$42,$00,$04,$FC,$F1,$02,$F0,$FC,$F2,$02,$F8,$FC,$F2,$42,$00,$FC,$F1,$42,$08,$03,$FC
-	.byte $F5,$02,$F4,$FC,$F6,$02,$FC,$FC,$F5,$02,$04,$02,$F8,$B4,$02,$FC,$00,$B5,$02,$FC,$02,$F8,$B6,$02,$FC,$00,$B7,$02,$FC,$04,$F8,$B0
-	.byte $02,$F8,$F8,$B1,$02,$00,$00,$B2,$02,$F8,$00,$B3,$02,$00,$00,$04,$F8,$D4,$02,$F8,$F8,$D5,$02,$00,$00,$D8,$02,$F8,$00,$D9,$02,$00
-	.byte $04,$F8,$D4,$02,$F8,$F8,$D5,$02,$00,$00,$D6,$02,$F8,$00,$D7,$02,$00,$05,$F8,$90,$02,$F0,$F8,$91,$02,$F8,$F8,$92,$02,$00,$00,$93
-	.byte $02,$F8,$00,$94,$02,$00,$05,$F8,$91,$02,$F8,$F8,$92,$02,$00,$00,$97,$02,$F0,$00,$98,$02,$F8,$00,$94,$02,$00,$02,$F8,$9B,$03,$FC
-	.byte $00,$9C,$03,$FC,$04,$F8,$DC,$43,$F8,$F8,$DB,$43,$00,$00,$DE,$43,$F8,$00,$DD,$43,$00,$03,$FC,$A1,$41,$F4,$FC,$A7,$41,$FC,$FC,$A0
-	.byte $41,$04,$03,$FC,$A1,$41,$F4,$FC,$A2,$41,$FC,$FC,$A0,$41,$04,$03,$FC,$A1,$41,$F4,$FC,$A3,$41,$FC,$FC,$A0,$41,$04,$03,$FC,$A1,$41
-	.byte $F4,$FC,$A4,$41,$FC,$FC,$A0,$41,$04,$03,$FC,$A1,$41,$F4,$FC,$A5,$41,$FC,$FC,$A0,$41,$04,$03,$FC,$A1,$41,$F4,$FC,$A6,$41,$FC,$FC
-	.byte $A0,$41,$04,$03,$FC,$A8,$01,$F4,$FC,$A9,$41,$FC,$FC,$A8,$41,$04,$03,$FC,$A8,$01,$F4,$FC,$AA,$41,$FC,$FC,$A8,$41,$04,$03,$FC,$A8
-	.byte $01,$F4,$FC,$A9,$41,$FC,$FC,$A8,$41,$04,$03,$FC,$A8,$01,$F4,$FC,$AB,$41,$FC,$FC,$A8,$41,$04,$03,$FC,$A8,$01,$F4,$FC,$AC,$41,$FC
-	.byte $FC,$A8,$41,$04,$03,$FC,$A8,$01,$F4,$FC,$A9,$41,$FC,$FC,$A8,$41,$04,$03,$FC,$A8,$01,$F4,$FC,$A9,$41,$FC,$FC,$A8,$41,$04,$03,$FC
-	.byte $D0,$02,$F4,$FC,$D1,$02,$FC,$FC,$D0,$42,$04,$30,$E8,$DF,$42,$E0,$E8,$DE,$42,$E8,$E8,$DD,$42,$F0,$E8,$DC,$42,$F8,$E8,$DB,$42,$00
+	.byte $F8,$E0,$02,$FC,$00,$E1,$02,$FC
+  ; @9ffa
+  .byte $02,$FC,$E2,$01,$F8,$FC,$E3,$01,$00
+  ; @a003
+  .byte $03,$F6,$F0,$01,$FC,$FE,$F1,$01,$F8,$FE,$F2,$01,$00
+  ; @a010
+  .byte $03,$FC,$82,$01,$F4,$FC,$83,$01,$FC,$FC,$82,$41,$04
+  ; @a01d boss?
+  .byte $04,$F8,$BC,$03,$F8,$F8,$BD,$03,$00,$00,$BE,$03,$F8,$00,$BF,$03,$00
+  ; @a02e 
+  .byte $01,$FC,$EA,$21,$FC
+  ; @a033
+  .byte $01,$FC,$EB,$21,$FC
+  ; @a038
+  .byte $01,$FC,$EE,$03,$FC
+  ; @a03d
+  .byte $01,$FC,$B0,$22,$FC
+  ; @a042
+  .byte $01,$FC,$B1,$22,$FC
+  ; @a047
+  .byte $01,$FC,$EC,$22,$FC
+  ; @a04c
+  .byte $01,$FC,$ED,$22,$FC
+  ; @a051
+  .byte $01,$FC,$E8,$22,$FC
+  ; @a056
+  .byte $03,$FC,$EB,$41,$F4,$FC,$EA,$41,$FC,$FC,$E9,$41,$04
+  .byte $06,$F0,$E0,$01,$F8,$F0,$E0,$41,$00,$F8,$E2,$01,$F8,$F8,$E2,$41,$00,$00,$E1,$01,$FC,$08,$E3,$01,$FC
+  ; @a07c
+  .byte $03,$FC,$EB,$42,$F4,$FC,$EA,$42,$FC,$FC,$E9,$42,$04
+  ; @a089
+  .byte $02,$FC,$FC,$02,$FC,$04,$FD,$02,$FC
+  ; @a092
+	.byte $02,$FC,$FE,$02,$F8,$FC,$FE,$42,$00
+  ; @a09b
+  .byte $03,$F4,$E7,$22,$FC,$FC,$E5,$22,$FC,$04,$E6,$22,$FC
+  ; @a0a8
+  .byte $0A,$F0,$D6,$62,$00,$F0,$D7,$62,$F8,$F8,$D8,$62,$00,$F8,$D9,$62,$F8,$00,$DA,$62
+  .byte $00,$00,$DB,$62,$F8,$08,$DC,$62,$00,$08,$DD,$62,$F8,$00,$DE,$62,$08,$08,$DF,$62,$08
+  ; @a0d1
+  .byte $01,$FC,$C7,$03,$FC
+  ; @a0d6
+  .byte $04,$F8,$C3,$02,$F8,$F8,$C4,$02,$00,$00,$C5,$02,$F8,$00,$C6,$02,$00
+  ; @a0e7
+  .byte $04,$F8,$C6,$C2,$F8,$F8,$C5,$C2,$00,$00,$C4,$C2,$F8,$00,$C3,$C2,$00
+  ; @a0f8
+  .byte $04,$FC,$9F,$02,$F4,$FC,$9D,$02,$FC,$FC,$9F,$42,$04,$04,$9E,$02,$FC
+  ; @a109
+  .byte $04,$FC,$9C,$02,$F4,$FC,$9D,$02,$FC,$FC,$9C,$42,$04,$04,$9E,$02,$FC
+  ; @a11a
+  .byte $02,$FC,$9A,$02,$F8,$FC,$9B,$02,$00
+  ; @a123
+  .byte $04,$F5,$B1,$43,$F8,$F5,$B0,$43,$00,$FD,$B3,$43,$F8,$FD,$B2,$43,$00
+  ; @a134
+  .byte $02,$FC,$B8,$02,$F8,$FC,$B9,$02,$00
+  ; @a13d
+  .byte $03,$F8,$F4,$02,$F8,$F8,$F5,$02,$00,$00,$F6,$02,$FC
+  ; @a14a
+  .byte $01,$FC,$BF,$02,$FC
+  ; @a14f
+  .byte $04,$F8,$EE,$02,$F8,$F8,$EE,$42,$00,$00,$EF,$02,$F8,$00,$EF,$42,$00
+  ; @a160
+  .byte $04,$04,$FA,$03,$F8,$FC,$F8,$03,$F8,$FC,$F9,$03,$00,$F4,$F7,$03,$00
+  ; @a171
+  .byte $04,$F8,$B7,$02,$F8,$F8,$B8,$02,$00,$00,$B9,$02,$F8,$00,$BA,$02,$00
+  ; @a182
+  .byte $04,$F8,$BB,$02,$F8,$F8,$BC,$02,$00,$00,$BD,$02,$F8,$00,$BE,$02,$00
+  ; @a193
+  .byte $01,$FD,$E5,$03,$FD
+  ; @a198
+  .byte $01,$FC,$D4,$02,$FC
+  ; @a19d
+  .byte $01,$FC,$D5,$02,$FC
+  ; @a1a2
+  .byte $01,$FD,$E6,$03,$FD
+  ; @a1a7
+  .byte $01,$FC,$E7,$03,$FC
+  ; @a1ac
+  .byte $03,$FC,$C0,$42,$04,$FC,$C1,$42,$FC,$FC,$C2,$42,$F4
+  ; @a1b9
+  .byte $05,$FC,$8E,$02,$F8,$04,$8F,$02,$F8,$FC,$8D,$02,$00,$FC,$86,$02,$08,$F4,$85,$02,$00
+  ; @a1ce
+  .byte $04,$F8,$68,$02,$F8,$00,$69,$02,$F8,$F8,$68,$42,$00,$00,$69,$42,$00
+  .byte $04,$FC,$F1,$02,$F0,$FC,$F2,$02,$F8,$FC,$F2,$42,$00,$FC,$F1,$42,$08
+  .byte $03,$FC,$F5,$02,$F4,$FC,$F6,$02,$FC,$FC,$F5,$02,$04
+  ; @a1fd
+  .byte $02,$F8,$B4,$02,$FC,$00,$B5,$02,$FC
+  ; @a206
+  .byte $02,$F8,$B6,$02,$FC,$00,$B7,$02,$FC
+  ; @a20f
+  .byte $04,$F8,$B0,$02,$F8,$F8,$B1,$02,$00,$00,$B2,$02,$F8,$00,$B3,$02,$00
+  ; @a220
+  .byte $00
+  ; @a221
+  .byte $04,$F8,$D4,$02,$F8,$F8,$D5,$02,$00,$00,$D8,$02,$F8,$00,$D9,$02,$00
+  ; @a232
+	.byte $04,$F8,$D4,$02,$F8,$F8,$D5,$02,$00,$00,$D6,$02,$F8,$00,$D7,$02,$00
+  ; @a243
+  .byte $05,$F8,$90,$02,$F0,$F8,$91,$02,$F8,$F8,$92,$02,$00,$00,$93,$02,$F8,$00,$94,$02,$00
+  ; @a258
+  .byte $05,$F8,$91,$02,$F8,$F8,$92,$02,$00,$00,$97,$02,$F0,$00,$98,$02,$F8,$00,$94,$02,$00
+  ; @a26d
+  .byte $02,$F8,$9B,$03,$FC,$00,$9C,$03,$FC
+  ; @a276
+  .byte $04,$F8,$DC,$43,$F8,$F8,$DB,$43,$00,$00,$DE,$43,$F8,$00,$DD,$43,$00
+  ; @a287
+  .byte $03,$FC,$A1,$41,$F4,$FC,$A7,$41,$FC,$FC,$A0,$41,$04
+  ; @a294 
+  .byte $03,$FC,$A1,$41,$F4,$FC,$A2,$41,$FC,$FC,$A0,$41,$04
+  ; @a2a1
+  .byte $03,$FC,$A1,$41,$F4,$FC,$A3,$41,$FC,$FC,$A0,$41,$04
+  ; @a2ae 
+  .byte $03,$FC,$A1,$41,$F4,$FC,$A4,$41,$FC,$FC,$A0,$41,$04
+  ; @a2bb
+  .byte $03,$FC,$A1,$41,$F4,$FC,$A5,$41,$FC,$FC,$A0,$41,$04
+  ; @a2c8
+  .byte $03,$FC,$A1,$41,$F4,$FC,$A6,$41,$FC,$FC,$A0,$41,$04
+  ; @a2d5
+  .byte $03,$FC,$A8,$01,$F4,$FC,$A9,$41,$FC,$FC,$A8,$41,$04
+  ; @a2e2
+  .byte $03,$FC,$A8,$01,$F4,$FC,$AA,$41,$FC,$FC,$A8,$41,$04
+  ; @a2ef
+  .byte $03,$FC,$A8,$01,$F4,$FC,$A9,$41,$FC,$FC,$A8,$41,$04
+  ; @a2fc
+  .byte $03,$FC,$A8,$01,$F4,$FC,$AB,$41,$FC,$FC,$A8,$41,$04
+  ; @a309
+  .byte $03,$FC,$A8,$01,$F4,$FC,$AC,$41,$FC,$FC,$A8,$41,$04
+  ; @a316
+  .byte $03,$FC,$A8,$01,$F4,$FC,$A9,$41,$FC,$FC,$A8,$41,$04
+  ; @a323
+  .byte $03,$FC,$A8,$01,$F4,$FC,$A9,$41,$FC,$FC,$A8,$41,$04
+  ; @a330
+  .byte $03,$FC,$D0,$02,$F4,$FC,$D1,$02,$FC,$FC,$D0,$42,$04
+  .byte $30,$E8,$DF,$42,$E0,$E8,$DE,$42,$E8,$E8,$DD,$42,$F0,$E8,$DC,$42,$F8,$E8,$DB,$42,$00
 	.byte $E8,$DA,$42,$08,$E8,$D9,$42,$10,$E8,$D8,$42,$18,$F0,$FF,$42,$E0,$F0,$FE,$42,$E8,$F0,$FD,$42,$F0,$F0,$FC,$42,$F8,$F0,$FB,$42,$00
 	.byte $F0,$FA,$42,$08,$F0,$F9,$42,$10,$F0,$F8,$42,$18,$F8,$B7,$42,$E0,$F8,$B6,$42,$E8,$F8,$B5,$42,$F0,$F8,$B4,$42,$F8,$F8,$B3,$42,$00
 	.byte $F8,$B2,$42,$08,$F8,$B1,$42,$10,$F8,$B0,$42,$18,$00,$BF,$42,$E0,$00,$BE,$42,$E8,$00,$BD,$42,$F0,$00,$BC,$42,$F8,$00,$BB,$42,$00
 	.byte $00,$BA,$42,$08,$00,$B9,$42,$10,$00,$B8,$42,$18,$08,$C7,$42,$E0,$08,$C6,$42,$E8,$08,$C5,$42,$F0,$08,$C4,$42,$F8,$08,$C3,$42,$00
-	.byte $08,$C2,$42,$08,$08,$C1,$42,$10,$08,$C0,$42,$18,$10,$CF,$42,$E0,$10,$CE,$42,$E8,$10,$CD,$42,$F0,$10,$CC,$42,$F8,$10,$CB,$42,$00
-	.byte $10,$CA,$42,$08,$10,$C9,$42,$10,$10,$C8,$42,$18,$04,$F8,$90,$01,$F8,$F8,$91,$01,$00,$00,$92,$01,$F8,$00,$93,$01,$00,$02,$F8,$94
-	.byte $01,$FC,$00,$95,$01,$FC,$04,$F8,$96,$01,$F8,$F8,$97,$01,$00,$00,$98,$01,$F8,$00,$99,$01,$00,$02,$FC,$BA,$02,$F8,$FC,$BA,$02,$00
-	.byte $02,$FC,$BB,$01,$F8,$FC,$BB,$01,$00,$04,$FC,$F2,$01,$F4,$FC,$FF,$01,$FC,$FC,$F2,$41,$04,$04,$FB,$01,$FC,$01,$FC,$EA,$01,$FC,$01
-	.byte $FC,$EB,$01,$FC
+	.byte $08
+  ; @a3d3
+  .byte $C2,$42,$08,$08,$C1,$42,$10,$08,$C0,$42,$18,$10,$CF,$42,$E0,$10,$CE,$42,$E8,$10,$CD,$42,$F0,$10,$CC,$42,$F8,$10,$CB,$42,$00
+	.byte $10,$CA,$42,$08,$10,$C9,$42,$10,$10,$C8,$42,$18
+  ; @a3fe
+  .byte $04,$F8,$90,$01,$F8,$F8,$91,$01,$00,$00,$92,$01,$F8,$00,$93,$01,$00
+  ; @a40f
+  .byte $02,$F8,$94,$01,$FC,$00,$95,$01,$FC
+  ; @a418
+  .byte $04,$F8,$96,$01,$F8,$F8,$97,$01,$00,$00,$98,$01,$F8,$00,$99,$01,$00
+  ; @a429 
+  .byte $02,$FC,$BA,$02,$F8,$FC,$BA,$02,$00
+  ; @a432
+	.byte $02,$FC,$BB,$01,$F8,$FC,$BB,$01,$00
+  ; @a43b
+  .byte $04,$FC,$F2,$01,$F4,$FC,$FF,$01,$FC,$FC,$F2,$41,$04,$04,$FB,$01,$FC
+  ; @a44c
+  .byte $01,$FC,$EA,$01,$FC
+  ; @a451
+  .byte $01,$FC,$EB,$01,$FC
 enemy_misc_rtn_7:
   lda stage_orientation
   and #$C0
@@ -7296,9 +7469,9 @@ b_c3e4:
 eny_frozen_timer_tbl:     ; @$C3EE-C3F5
   .byte $34,$35,$36,$37,$38,$34,$35,$36
 enemy_misc_rtn_9:
-  lda flight_status
+  lda plr_sprite_status
   and #$F7
-  sta flight_status
+  sta plr_sprite_status
   ldx #$00
   stx unram_6
   stx unram_8
@@ -7323,7 +7496,7 @@ b_c412:
   sta $04
   lda #$0C
   sta $05
-  lda flight_status
+  lda plr_sprite_status
   bpl b_c434
   lda #$0E
   sta $04
@@ -7476,9 +7649,9 @@ b_c549:
   lda power_up
   and #$3F
   sta power_up
-  lda flight_status
+  lda plr_sprite_status
   and #$EF
-  sta flight_status
+  sta plr_sprite_status
   jmp b_c51d
 b_c558:
   jsr play_sound_f
@@ -7541,28 +7714,28 @@ b_c5a5:
   bcc b_c5e0
   cmp $02
   bcs b_c5dd
-  lda plr_x_inc_hi
+  lda plr_x_speed_hi
   eor $07
   bmi b_c5dd
   lda #$00
-  sta plr_x_inc_lo
-  sta plr_x_inc_hi
+  sta plr_x_speed_lo
+  sta plr_x_speed_hi
 b_c5dd:
   jmp j_c494
 b_c5e0:
   lda $06
   bne b_c5f3
-  lda plr_y_inc
+  lda plr_y_speed_hi
   bpl b_c5dd
   lda #$00
-  sta plr_y_inc_fraction
-  sta plr_y_inc
+  sta plr_y_speed_lo
+  sta plr_y_speed_hi
   sta jump_hold
   jmp j_c494
 b_c5f3:
   lda jump_hold
   bpl b_c5fb
-  lda plr_y_inc
+  lda plr_y_speed_hi
   bmi b_c5dd
 b_c5fb:
   ldy #$00
@@ -7575,17 +7748,17 @@ b_c605:
   lda eny_y_inc_lo,X
   sec
   sbc $00
-  sta plr_y_inc_fraction
+  sta plr_y_speed_lo
   lda eny_y_inc_hi,X
   sbc #$00
-  sta plr_y_inc
+  sta plr_y_speed_hi
   lda eny_x_inc_lo,X
   sta unram_6
   lda eny_x_inc_hi,X
   sta unram_8
-  lda flight_status
+  lda plr_sprite_status
   ora #$08
-  sta flight_status
+  sta plr_sprite_status
   jmp j_c494
 j_c629:
   ldx #$00
@@ -7596,7 +7769,7 @@ b_c62b:
   sta $02
   lda #$0C
   sta $03
-  lda flight_status
+  lda plr_sprite_status
   bpl b_c644
   lda #$0C
   sta $02
@@ -7744,9 +7917,9 @@ misc_tbl_1:
 chr_rom_bank_tbl: ; @$C912-C92E
   .byte $00,$00,$00,$00,$00,$02,$01,$01,$01,$00,$00,$02,$00,$00,$01,$02,$02,$00,$01,$02,$03,$00,$03,$00,$03,$00,$03,$00,$00
 stage_boss_table:     ; @$C92F-C943
-  .byte $00,$01,$00,$01,$00,$01,$00,$01,$00,$01,$00,$01,$00,$01,$00,$01,$00,$01,$00,$01
-untbl_1:
-  .byte $00,$00,$00,$00,$00,$00,$00,$00,$01   ; padding?
+  .byte $00,$01,$00,$01,$00,$01,$00,$01,$00,$01   ; stages 1-5
+  .byte $00,$01,$00,$01,$00,$01,$00,$01,$00,$01   ; stages 6-10
+  .byte $00,$00,$00,$00,$00,$00,$00,$00,$01   ; ride rooms and stuff?
 stage_misc_tbl_1:; @$rom495c-496e/memory c94c
   .byte $01,$03,$01,$01,$01,$01,$01,$01,$01,$01
 untbl_2:
@@ -7772,14 +7945,13 @@ player_x_pos_tbl:     ; @$C9D4-C9FA
   .byte $90,$28       ; Stage 3 Y and X start positions
   .byte $50,$10,$50,$10,$50,$10,$50,$10,$50,$10
 	.byte $50,$28,$50,$10,$50,$10,$50,$10,$30,$34,$50,$10,$60,$10,$50,$10,$90,$60,$50,$10
-stage_tbl_1:          ; @$C9FB-CA0C
-	.byte $A0,$10,$C0,$08,$80,$10,$50,$10,$A0,$10,$50,$10,$80,$50,$50,$10,$C0,$10
+	.byte $A0,$10,$C0,$08,$80,$10,$50,$10,$A0,$10,$50,$10,$80,$50,$50,$10,$C0,$10 ; @$C9FB-CA0C
 stage_tbl_2:          ; @$CA0D-CA10
-  .byte $32,$FB,$F2,$FD
-player_speed_tbl:     ; @$CA11-CA1A
+  .byte $32,$FB,$F2,$FD   ; stage table stuff @fb32, boss table stuff @fdf2
+player_acceleration_tbl:     ; @$CA11-CA1A
   .byte $20,$20,$20,$20,$20,$20,$20,$20,$20,$20
-stage_tbl_0:          ; @$CA1B-CA2CCC76
-	.byte $20,$20,$0C,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20
+	.byte $20,$20,$0C,$20,$20,$20,$20,$20,$20,$20   ; stage 7 has low acceleration because of the ice
+  .byte $20,$20,$20,$20,$20,$20,$20,$20,$20 ; @$CA1B-CA2CCC76
 stage_tbl_3:          ; @$CA2D-CBC2
   ; jump table
   .byte $69,$CA,$9A,$CA,$9E,$CA,$CF,$CA,$D3,$CA,$D7,$CA,$DB,$CA,$0C,$CB,$10,$CB,$41,$CB,$D3,$CA,$D7,$CA,$45,$CB,$76
@@ -8117,8 +8289,8 @@ screen_misc_rtn_2:
   bpl :-
   rts
 cursor_tbl:
-  .byte $A7,$8F,$00,$50       ; oam info for title screen cursor
-screen_misc_rtn_1:
+  .byte $A7,$8F,$00,$50       ; oam info for title screen cursor, yaddr, tile addr, attr, xaddr
+titlescreen_input_check:
   lda controller_current
   and #$04
   bne :++                     ; branch if select is pushed at title
@@ -8126,18 +8298,18 @@ screen_misc_rtn_1:
   and #$08 
   bne :+++                    ; branch if start is pushed at title
 :
-  rts
-:
+  rts                         ; return from subroutine because nothing was pushed at tile screen
+:                             ; select is just pushed at tile screen
   lda controller_p1_last
   and #$04
-  bne :--                     ; branch if select was pushed last frame
+  bne :--                     ; return from subroutine if select was pushed last frame
   lda sel_status
   eor #$FF                    ; swap 1 or 2 player modes in sel_status, 00 or FF
   sta sel_status
   rts
-:
+:                             ; start is just pushed at title screen
   lda #$80
-  sta state
+  sta state                   ; state=80 means start is pushed at title screen
   rts
 write_player:
   lda #$10              ; background pattern table $1000, sprite pattern table $0000, base nametable address $2400
@@ -8234,7 +8406,7 @@ pre_stage_screen: ; @cf17
   sta plr_y_prog_fr
   sta plr_y_prog_lo
   sta plr_y_prog_hi
-  sta flight_status
+  sta plr_sprite_status
   lda #$98
   sta plr_y_pos_hi
   lda #$60
@@ -8518,11 +8690,11 @@ game_over_screen:
   lda #$00
   sta timer_lo_byte       ; reset timer
   sta timer_hi_byte
-  sta state
+  sta state               ; reset state
   sta code_press          ; reset code_press to 00
   lda #$08
   sta rtn_trk_a
-  lda #$0A
+  lda #$0A                ; ********not sure what that means, maybe no sprite or an unused sprite. 0b is front facing magnus... 
   sta player_sprite
   lda #<palette_table_2     ; low byte for palette_table_2 address @$D354-D373
   sta $00
@@ -9155,10 +9327,10 @@ audio_jump_tbl_1:
   .byte <not_played_sound_a
 audio_jump_tbl_1a:
   .byte >not_played_sound_a
-  .byte <not_played_sound_a,>not_played_sound_a
-  .byte <play_sound_g,>play_sound_g
-  .byte <play_sound_g,>play_sound_g
-  .byte <not_played_sound_c,>not_played_sound_c
+  .word not_played_sound_a    ; .byte <not_played_sound_a,>not_played_sound_a
+  .word play_sound_g          ; .byte <play_sound_g,>play_sound_g
+  .word play_sound_g          ; .byte <play_sound_g,>play_sound_g
+  .word not_played_sound_c    ; .byte <not_played_sound_c,>not_played_sound_c
 not_played_sound_a:
   lda #$0f
   ldx #$06
@@ -9624,7 +9796,10 @@ level_stuff_tbl:  ; @DAA8
 .byte $7A,$7A,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$7A,$7A,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$7A,$7A,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$7A
 .byte $7A,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$7A,$7A,$00,$00,$00,$55,$55,$55,$55,$00,$00,$00,$00,$00,$00,$7A
 .byte $7A,$00,$00,$00,$55,$55,$55,$55,$00,$00,$00,$00,$00,$00,$7A,$7A,$00,$00,$00,$55,$55,$55,$55,$55,$00,$00,$00,$00,$00,$7A,$7A,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-.byte $00,$20,$20,$20,$20,$20,$2A,$20,$03,$04,$05,$06,$07,$20,$08,$20,$20,$0D,$0E,$0F,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$1A,$1B,$1C,$20,$20,$2B,$2C,$2B,$2C,$21,$2D,$21,$2F,$21,$30,$20
+.byte $00
+
+stage_table_start:
+.byte $20,$20,$20,$20,$20,$2A,$20,$03,$04,$05,$06,$07,$20,$08,$20,$20,$0D,$0E,$0F,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$1A,$1B,$1C,$20,$20,$2B,$2C,$2B,$2C,$21,$2D,$21,$2F,$21,$30,$20
 .byte $31,$35,$36,$37,$38,$39,$21,$3A,$20,$3E,$3A,$21,$21,$21,$21,$20,$32,$40,$42,$3C,$20,$44,$45,$21,$21,$43,$47,$33,$48,$22,$39,$21,$49,$21,$4A,$20,$35,$31,$21,$2D,$21,$21,$21,$20,$31,$35
 .byte $21,$4E,$4B,$4B,$2E,$21,$36,$21,$2F,$4A,$21,$36,$21,$2D,$21,$49,$21,$4D,$2E,$21,$21,$4F,$22,$4E,$50,$2F,$37,$30,$39,$37,$22,$36,$3E,$21,$38,$21,$51,$4B,$3D,$21,$3F,$22,$22,$52,$53,$55
 .byte $20,$53,$3B,$54,$23,$23,$23,$22,$22,$56,$57,$4C,$4C,$21,$21,$3D,$22,$58,$3D,$53,$22,$22,$22,$3C,$20,$59,$3C,$5A,$5B,$53,$22,$20,$20,$5A,$5B,$21,$3E,$21,$37,$55,$35,$22,$5C,$21,$3E,$21
@@ -9633,14 +9808,28 @@ level_stuff_tbl:  ; @DAA8
 .byte $20,$48,$20,$20,$20,$0F,$10,$0F,$10,$20,$20,$42,$20,$20,$20,$DB,$DC,$DF,$E0,$E3,$E4,$20,$F3,$20,$F4,$F5,$20,$F6,$20,$85,$86,$87,$88,$89,$8A,$8B,$8C,$20,$20,$78,$79,$20,$20,$7C,$7D,$20
 .byte $20,$7E,$7E,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$CE,$CE,$CF,$CF,$20,$20,$20,$20,$00,$00,$00,$00,$22,$22,$22,$22,$00,$01,$02,$03,$04,$05,$06,$07,$08,$09,$0A,$0B,$0C,$0D,$0E,$0F,$65,$66,$67
 .byte $68,$69,$6A,$6B,$6C,$6F,$70,$71,$71,$75,$73,$7B,$7B,$70,$70,$71,$71,$70,$70,$74,$71,$70,$77,$71,$71,$85,$86,$87,$88,$89,$8A,$8B,$8C,$FB,$FB,$FC,$FC,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
-.byte $FF,$FF,$FF,$AB,$AC,$B0,$B1,$3F,$3F,$41,$41,$44,$44,$45,$46,$45,$46,$45,$46,$49,$4A,$4B,$4C,$4D,$4E,$50,$51,$52,$53,$54,$55,$56,$57,$58,$59,$5A,$5B,$5C,$5D,$5E,$5F,$60,$61,$62,$62,$63
-.byte $63,$00,$01,$02,$03,$08,$08,$09,$09,$04,$05,$06,$07,$0A,$0B,$0C,$0D,$DF,$E0,$E1,$E2,$1F,$24,$25,$26,$13,$14,$27,$12,$02,$01,$01,$02,$F0,$F1,$F2,$F2,$F7,$F8,$F9,$FA,$8E,$8F,$90,$90,$91
-.byte $92,$90,$90,$93,$94,$90,$90,$20,$20,$01,$02,$20,$20,$00,$00,$20,$20,$78,$79,$20,$20,$71,$71,$20,$20,$72,$73,$20,$20,$73,$73,$20,$20,$75,$73,$20,$20,$73,$76,$20,$20,$7C,$7D,$20,$20,$7E
-.byte $7E,$97,$98,$9F,$A0,$99,$9A,$A1,$A2,$9B,$9C,$A3,$A4,$9D,$9E,$A5,$A6,$20,$20,$3F,$3F,$20,$20,$1B,$1C,$11,$0E,$0F,$10,$20,$20,$17,$18,$20,$20,$19,$1A,$20,$20,$3F,$42,$20,$20,$3E,$3F,$95
-.byte $96,$90,$90,$0F,$10,$15,$16,$1D,$1E,$20,$20,$00,$00,$20,$20,$64,$64,$20,$20,$6D,$6E,$20,$20,$72,$73,$20,$20,$73,$73,$20,$20,$7A,$7A,$20,$20,$75,$73,$20,$20,$73,$76,$20,$20,$A7,$A8,$20
-.byte $20,$AD,$AE,$B2,$20,$41,$41,$20,$20,$41,$43,$20,$20,$40,$41,$20,$20,$FF,$FF,$FF,$FF,$20,$10,$20,$10,$A9,$AA,$20,$AF,$0F,$10,$0F,$10,$20,$3E,$20,$40,$20,$F3,$20,$F4,$FF,$FF,$FF,$FF,$42
-.byte $20,$43,$20,$F5,$20,$F6,$20,$FF,$FF,$FF,$FF,$00,$00,$00,$00,$20,$20,$20,$20,$20,$08,$20,$20,$2D,$20,$32,$20,$35,$36,$37,$38,$20,$20,$20,$3B,$25,$20,$20,$20,$20,$20,$3C,$20,$20,$39,$20
-.byte $20,$1D,$1E,$16,$17,$20,$1A,$1B,$1C,$20,$20,$20,$26,$3D,$24,$27,$28,$0D,$0E,$0F,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$1A,$1B,$1C,$20,$2A,$20,$03,$04,$05,$06,$07,$87,$88,$89,$8A,$20
+.byte $FF,$FF,$FF
+.byte $AB,$AC,$B0,$B1,$3F,$3F,$41,$41,$44,$44,$45,$46,$45,$46,$45,$46,$49,$4A,$4B,$4C,$4D,$4E,$50,$51,$52,$53,$54,$55,$56,$57,$58,$59,$5A,$5B,$5C,$5D,$5E,$5F,$60,$61,$62,$62,$63,$63
+.byte $00,$01,$02,$03,$08,$08,$09,$09,$04,$05,$06,$07,$0A,$0B,$0C,$0D,$DF,$E0,$E1,$E2,$1F,$24,$25,$26,$13,$14,$27,$12,$02,$01,$01,$02,$F0,$F1,$F2,$F2,$F7,$F8,$F9,$FA
+.byte $8E,$8F,$90,$90,$91,$92,$90,$90,$93,$94,$90,$90
+.byte $20,$20,$01,$02,$20,$20,$00,$00,$20,$20,$78,$79,$20,$20,$71,$71,$20,$20,$72,$73
+.byte $20,$20,$73,$73,$20,$20,$75,$73,$20,$20,$73,$76,$20,$20,$7C,$7D,$20,$20,$7E,$7E
+.byte $97,$98,$9F,$A0,$99,$9A,$A1,$A2,$9B,$9C,$A3,$A4,$9D,$9E,$A5,$A6,$20,$20,$3F,$3F
+.byte $20,$20,$1B,$1C,$11,$0E,$0F,$10,$20,$20,$17,$18,$20,$20,$19,$1A,$20,$20,$3F,$42
+.byte $20,$20,$3E,$3F,$95,$96,$90,$90,$0F,$10,$15,$16,$1D,$1E,$20,$20,$00,$00,$20,$20
+.byte $64,$64,$20,$20,$6D,$6E,$20,$20,$72,$73,$20,$20,$73,$73,$20,$20,$7A,$7A,$20,$20
+.byte $75,$73,$20,$20,$73,$76,$20,$20,$A7,$A8,$20,$20
+.byte $AD,$AE,$B2,$20,$41,$41,$20,$20,$41,$43,$20,$20
+.byte $40,$41,$20,$20,$FF,$FF,$FF,$FF,$20,$10,$20,$10
+.byte $A9,$AA,$20,$AF,$0F,$10,$0F,$10,$20,$3E,$20,$40
+.byte $20,$F3,$20,$F4,$FF,$FF,$FF,$FF,$42,$20,$43,$20
+.byte $F5,$20,$F6,$20,$FF,$FF,$FF,$FF,$00,$00,$00,$00
+
+boss_table_start:   ; @fdf2
+.byte $20,$20,$20,$20,$20,$08,$20,$20,$2D,$20,$32,$20,$35,$36,$37,$38,$20,$20,$20,$3B,$25
+.byte $20,$20,$20,$20,$20,$3C,$20,$20,$39,$20,$20,$1D,$1E,$16,$17,$20,$1A,$1B,$1C,$20,$20
+.byte $20,$26,$3D,$24,$27,$28,$0D,$0E,$0F,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$1A,$1B
+.byte $1C,$20,$2A,$20,$03,$04,$05,$06,$07,$87,$88,$89,$8A,$20
 .byte $8B,$8C,$8D,$8E,$8F,$90,$91,$92,$20,$93,$94,$95,$96,$97,$98,$99,$9A,$F4,$22,$9C,$9D,$9E,$9F,$A0,$A1,$A2,$A3,$A4,$A5,$A6,$A7,$A8,$A9,$20,$AA,$9B,$22,$AB,$AC,$AD,$AE,$AF,$B0,$B1,$B2,$B3
 .byte $B4,$B5,$B6,$B7,$B8,$20,$B9,$BA,$BB,$BC,$BD,$F0,$BE,$AC,$BF,$C0,$C1,$C2,$C3,$C4,$C5,$C6,$C7,$C8,$C9,$CA,$CB,$CC,$F2,$CD,$CE,$CF,$D0,$F3,$D1,$D2,$D3,$D4,$D5,$D6,$D7,$D8,$F1,$D9,$DA,$DB
 .byte $DC,$DD,$DE,$B2,$B3,$B4,$B5,$B6,$20,$B7,$20,$20,$20,$B8,$B8,$C0,$20,$C1,$20,$C9,$20,$20,$20,$20,$CA,$20,$20,$20,$20,$20,$D3,$D8,$20,$D9,$20,$20,$20,$20,$8D,$20,$90,$20,$91,$20,$96,$20
