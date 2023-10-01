@@ -84,7 +84,7 @@ room_timer_lo           = $66
 room_timer_hi           = $67
 unram_3                 = $68
 lives                   = $69
-current_level           = $6A     ; $00=lv1,$02=lv2,$04=lv3,$06=lv4,$08=lv5,$0A=lv6,$0C=lv7,$0E=lv8,$10=lv9,$12=lv10 odd levels are bosses, $16 is mining guy, level $18 is rodimus U, 
+current_level           = $6A     ; $00=lv1,$02=lv2,$04=lv3,$06=lv4,$08=lv5,$0A=lv6,$0C=lv7,$0E=lv8,$10=lv9,$12=lv10 $15=Prime Brainwave screen after title screen odd levels are bosses, $16 is mining guy, 17 is brainwaves coming in on magnus, level $18 is guardian room, 
 bk_crnt_lvl             = $6B     ; used to backup current level when going to a secret area or side room
 plr_x_prog_fr           = $6C
 plr_x_prog_lo           = $6D
@@ -124,7 +124,7 @@ palette_data_start_word = $0099
 unram_11                = $A7
 
 player_palette_ram      = $AA
-stage_boss2             = $A8
+text_flash_pal_ram       = $A8
 unram_12                = $B8
 nametable_addr_hi       = $B9
 nametable_addr_lo       = $BA
@@ -166,6 +166,8 @@ audio_ram_C             = $030C
 audio_ram_D             = $030D
 audio_ram_E             = $030E
 audio_ram_F             = $030F
+
+jump_sound_ram          = $0350
 
 apu_status_ram_0        = $0380
 apu_status_ram_1        = $0381
@@ -503,7 +505,7 @@ b_822f:
   sta $8000,X
   jsr clear_sprite_ram      ; @$A7C3
   jsr ready_level           ; @$8ACB
-  jsr play_sound_a          ; @$D87C
+  jsr play_stage_music          ; @$D87C
   jsr level_sub_a           ; @$A5DA
   jsr set_PPU_CTRL_a
   jsr set_PPU_MASK_a
@@ -651,7 +653,7 @@ reset_current_player_ram:
   bpl :-                    ; loop back until we've cleared all $17 bytes of current player ram
   lda #$02                  ; initialize player with 2 lives
   sta lives                 ; store in current player ram
-  lda #$E8                  ; initialize score goal for next 1-Up reward
+  lda #$E8                  ; initialize score goal for next 1-Up reward, 1000
   sta score_1_up_lo
   lda #$03
   sta score_1_up_mid
@@ -699,7 +701,7 @@ nmi:                        ; beginning of frame
 :
   jmp sound_rtn_jmp_point_1         ; jump to the first one, if A isnt $08
 :
-  jmp get_player_input_jump_point
+  jmp titlescreen_get_player_input
 :
   lda current_level                         ; load current level
   lsr
@@ -821,10 +823,10 @@ enemy_misc_rtn_1:
   jsr enemy_misc_rtn_2
 :
   jmp pull_stack_and_rti
-get_player_input_jump_point:
+titlescreen_get_player_input:
   jsr get_player_input
   jsr titlescreen_input_check
-  jsr screen_misc_rtn_2
+  jsr sel_sprite_rtn
   jsr clear_audio_channels
   jmp pull_stack_and_rti
 sound_rtn_jmp_point_1:
@@ -1142,7 +1144,7 @@ controller_input_check_b:
   lda rtn_trk_a
   and #$BF
   sta rtn_trk_a
-  jsr play_sound_a   ;@$d87c
+  jsr play_stage_music   ;@$d87c
 :
   rts
 set_PPU_MASK_a:
@@ -4162,6 +4164,10 @@ lvl_data_tbl_contd:   ; @$9FF2-A455
   .byte $01,$FC,$EA,$01,$FC
   ; @a451
   .byte $01,$FC,$EB,$01,$FC
+
+
+
+  
 enemy_misc_rtn_7:
   lda stage_orientation
   and #$C0
@@ -5956,13 +5962,13 @@ b_b18a:
   and #$08
   bne b_b199
   lda #$0F
-  sta stage_boss2
+  sta text_flash_pal_ram
   lda #$00
   sta unram_11
   rts
 b_b199:
   lda #$00
-  sta stage_boss2
+  sta text_flash_pal_ram
   lda #$0F
   sta unram_11
   rts
@@ -6279,7 +6285,7 @@ b_b4c7:
   jsr lvl_misc_rtn_6
   lda $00
   beq b_b50f
-  jsr play_sound_j
+  jsr play_boss_wpn_sound
   jsr set_new_enemy
   stx $00
   ldx $0d
@@ -7385,7 +7391,7 @@ b_c309:
   lda ($06),Y
   cmp $08
   bcs b_c35f
-  jsr play_sound_c
+  jsr play_explosion_sound
   ldy $0F
   lda eny_spr_type,Y
   jsr ram_misc_36
@@ -7580,7 +7586,7 @@ b_c4a1:
   lda power_up
   and #$DF
   sta power_up
-  jsr play_sound_a
+  jsr play_stage_music
   jmp j_c494
 b_c4d3:
   lda #$02
@@ -7654,7 +7660,7 @@ b_c549:
   sta plr_sprite_status
   jmp b_c51d
 b_c558:
-  jsr play_sound_f
+  jsr play_barrier_music
   lda #$00
   sta hits_taken
   ldy #$20
@@ -7834,7 +7840,7 @@ b_c6a4:
   lda power_up
   and #$DF
   sta power_up
-  jsr play_sound_a
+  jsr play_stage_music
   jmp b_c69a
 ram_misc_36:
   sta $0B
@@ -8046,6 +8052,10 @@ lvl_misc_jmp_tbl:   ; @$CC94
 	.byte $00,$00,$00,$00,$FF,$FF,$FF,$FF
     ; @ccbe
   .byte $FF,$FF,$FF,$FF,$00,$00,$00,$00
+
+
+
+; Title screen stuff
 draw_title:          ; @$CCC6
   jsr clear_screen
   jsr clear_oam_ram
@@ -8266,25 +8276,25 @@ draw_subtitle:
   sta PPU_VRAM_IO     ; load next tile to PPU data
   iny 
   rts
-screen_misc_rtn_2:
-  lda sel_status        ; do something with player status
-  bpl :+
-  jsr :+++
-  lda #$B7                  ; load title sprite y position
+sel_sprite_rtn:
+  lda sel_status        ; load which player is selected, 00 of FF
+  bpl :+                ; branch if player 1
+  jsr set_p1_sel_sprite
+  lda #$B7                  ; load title sprite y position for player 2
   sta sprite1_y_pos         ; load y position to first sprite after score
-  jmp :++
+  jmp enable_sel_sprite_PPU
 :
-  jsr :++
-:
-  lda #$1A
+  jsr set_p1_sel_sprite
+enable_sel_sprite_PPU:
+  lda #$1A        ; %0001 1010 sprite enable, background enable, background left column enabled
   sta ram_PPU_Mask
   sta PPU_MASK
   rts
-:
+set_p1_sel_sprite:
   ldx #$03
 :
   lda cursor_tbl,X ;@$ce93
-  sta sprite1_y_pos,X
+  sta sprite1_y_pos,X   ; set select sprite in ram for player 1
   dex
   bpl :-
   rts
@@ -8466,7 +8476,10 @@ stage_text_tbl:
   .byte $20,$EB,$04,$EC,$ED,$DA,$E0,$DE     ; x position, y position, length, "Stage" @D05F
 takara_tbl:
   .byte $23,$4A,$0B,$F4,$ED,$DA,$E4,$DA,$EB,$DA,$20,$D1,$D9,$D8,$D6   ;"©TAKARA 1986"  @D067
-rodimus_check:              ; this is where the end screen stuff starts, maybe
+
+
+; End screen stuff
+rodimus_check:              ; this is where the end screen stuff starts
   jsr clear_screen
   jsr clear_oam_ram
   lda $8003                 ; load chr bank 3
@@ -8479,7 +8492,7 @@ rodimus_check:              ; this is where the end screen stuff starts, maybe
 :                   ; start of loading rodimus stuff
   lda rodimus_ram   
   lsr               ; shift right, if rodimus is activated there will be a carry
-  bcs b_d0bc        ; branch if rodimus is already enabled (if rodimus_ram = 01)
+  bcs rod_wins_endscreen        ; branch if rodimus is already enabled (if rodimus_ram = 01)
   lda #$FF
   sta rodimus_ram   ; if no carry, load FF to rodimus ram for activating rodimus next game runthrough
   lda #$06          ; write "YUKE RODIMUS !"
@@ -8498,11 +8511,11 @@ rodimus_check:              ; this is where the end screen stuff starts, maybe
   lda #$28
   sta plr_y_pos_hi  ; text screen sprite y position
   lda #$0B
-  sta player_sprite ; load stage start sprite
-  jmp j_d11e
-b_d0bc:
+  sta player_sprite ; load endscreen sprite
+  jmp start_endscreen_timer
+rod_wins_endscreen:
   lda #$00
-  sta rodimus_ram
+  sta rodimus_ram   ; wtf, restart as magnus?!?!?! we just beat the game as rodimus
   lda #$01          ; write score
   sta $02
   lda #<rodimus_end_text  ; low byte of rodimus ending text table
@@ -8531,7 +8544,7 @@ plr_1_wins:
   sta plr_y_pos_hi
   lda #$0B              ; load Magnus stage/end screen sprite
   sta player_sprite
-  jmp j_d11e
+  jmp start_endscreen_timer
 no_rodimus:
   lda #$07              ; write "destron wo.."
   sta $02
@@ -8550,7 +8563,7 @@ no_rodimus:
   sta plr_y_pos_hi
   lda #$0E              ; load prime head
   sta player_sprite
-j_d11e:
+start_endscreen_timer:
   lda #$00
   sta timer_lo_byte
   sta timer_hi_byte
@@ -8561,29 +8574,29 @@ j_d11e:
   sta plr_x_pos_lo
   lda #$08
   sta rtn_trk_a
-  jsr play_sound_e
+  jsr play_endscreen_music
   jsr set_PPU_CTRL_a
   jsr set_PPU_MASK_a
-j_d13b:
+endscreen_loop:
   lda controller_p1_current
   and #$08
-  bne b_d15f          ; branch out if start is pushed
+  bne endscreen_exit        ; branch out if start is pushed
   lda timer_hi_byte
   cmp #$F0
-  bcs b_d15f          ; branch out if timer is up, 0F at the hi byte is pretty long
-  ldx #$20
+  bcs endscreen_exit        ; branch out if timer is up, 0F at the hi byte is pretty long
+  ldx #$20                  ; load white text
   lda timer_lo_byte
   and #$08
-  bne b_d151          ; load $20 to stage_boss every 256 frames at frame 8
-  ldx #$16        ; load $16 to stage_boss every frame, except frame 8
-b_d151:
-  stx stage_boss2 ; thought this was for the stage_boss ram value, but its something different afterall
+  bne flash_white_text      ; load $20 white to text_flash_pal_ram every 8 frames
+  ldx #$16                  ; load $16 red to text_flash_pal_ram every other 8 frames
+flash_white_text:
+  stx text_flash_pal_ram
   lda timer_hi_byte
   cmp #$01
-  bne j_d13b         ; loop back and check if controller pressed start on the second loop of the timer, only?***
-  jsr flip_rodimus_ram  ; check if rodimus ram is FF, show magnus 
-  jmp j_d13b         ; jump back and check for start press
-b_d15f:
+  bne endscreen_loop        ; loop back and check if controller pressed start on the second loop of the timer, only?***
+  jsr flip_rodimus_ram      ; check if rodimus ram is FF, show magnus 
+  jmp endscreen_loop        ; jump back and check for start press
+endscreen_exit:
   jsr set_PPU_MASK_b
   jsr set_PPU_CTRL_b
   jsr disable_audio_channels
@@ -8600,11 +8613,11 @@ show_mag_flash_rod:
   lda  timer_lo_byte
   and #$08
   bne show_rodimus
-b_d17c: 
+show_magnus: 
   lda magnus_pal_tbl2,Y     ; load magnus 2 pal tbl
   sta player_palette_ram,Y  ; store magnus palette to ram
   dey
-  bpl b_d17c                    ; load 3 bytes of the palette colours
+  bpl show_magnus                    ; load 3 bytes of the palette colours
   lda #$0B
   sta player_sprite         ; load magnus sprite
   rts
@@ -8804,12 +8817,12 @@ b_d46a:
   lda $00
   clc
   adc #$02
-  sta $00
-  txa
+  sta $00   ; set x speed to 0 for middle bullet, then 02 for right bullet
+  txa       ; store 00 to a
   clc
-  adc #$10
-  tax
-  dey
+  adc #$10  ; add 10 for the next line in ram
+  tax       ; set x with +10
+  dey        
   bpl b_d46a
   rts
 disable_audio_channels:
@@ -9239,10 +9252,10 @@ inc_audio_ram_6:
 audio_tbl_0:                ; @$D7C0-D7D7
   .byte $AE,$06,$4E,$06,$F4,$05,$9E,$05,$4D,$05,$01,$05,$B9,$04,$75,$04,$35,$04,$F9,$03,$C0,$03,$8A,$03
 send_apu_status:
-  sta apu_status_ram_6
+  sta apu_status_ram_6      ; which audio channel
   bit rtn_trk_b
-  bmi :+
-  sta APU_CHANCTRL
+  bmi :+                    ; rts if rtn_trk_b is negative
+  sta APU_CHANCTRL          ; send channel to apu
 :
   rts
 audio_tbl_1:                ; @$D7E3-D832
@@ -9252,40 +9265,40 @@ audio_tbl_1a:               ; @$D7E7
 audio_tbl_1b:               ; @$D7EB
   .byte $FE,$DC,$BA,$98,$76,$54,$32,$10,$01,$23,$45,$67,$89,$AB,$CD,$EF,$FE,$DC,$BA,$98,$89,$AB,$CD,$EF,$89,$AB,$CD,$EF,$FE,$DC,$BA,$98,$FD,$B9,$75,$31,$EC,$A8,$64,$20,$FE,$DC,$CD,$ED,$CA,$86,$42,$10,$FD,$B9,$AB,$97,$65,$43,$21,$10,$44,$44,$44,$46,$67,$8A,$CF,$B8,$FF,$A8,$FF,$A8,$77,$66,$55,$42
 load_audio_ram:
-  sta $12
-  asl
+  sta $12         ; play jump sound, for example, lda#$02 and ldx#$05 coming in here (then 3 and 4)
+  asl             ; $12 is now 02, we shift it left to 04 (06)
   clc
-  adc $12
-  tay
-  lda end_tbl_a,Y           ; @$DA1E low byte of address
-  sta $12
-  lda end_tbl_a+1,Y           ; @$DA1F high byte of address
-  sta $13
-  lda end_tbl_a+2,Y           ; @$DA20 some low value between 0 and 3
-  sta $14
-  txa
+  adc $12         ; add 02+04=06 (09) essentially multiply a by 3
+  tay             ; transfrer 06 to y, which will point to the first jump point for magnus' jump sound
+  lda audio_jump_tbl_2,Y           ; @$DA1E low byte of address
+  sta $12         ; store low byte in $12
+  lda audio_jump_tbl_2+1,Y           ; @$DA1F high byte of address
+  sta $13         ; store high byte in $13
+  lda audio_jump_tbl_2+2,Y           ; @$DA20 some low value between 0 and 3
+  sta $14         ; store 3rd value in $14
+  txa             ; transfer x to a, which is 05 (04)
   asl
   asl
   asl
-  asl
-  clc
-  adc #$00
-  sta $15
-  lda #$00
-  adc #$03
-  sta $16
-  ldy #$02
-  lda $12
-  sta ($15),Y
-  ldy #$03
-  lda $13
-  sta ($15),Y
-  ldy #$01
-  lda $14
-  sta ($15),Y
-  ldy #$00
-  lda #$00
-  sta ($15),Y
+  asl             ; shift left 4 times so we now have 50 (40)
+  clc             ; redundant?
+  adc #$00        ; redundant?
+  sta $15         ; store 50 (40)to $15
+  lda #$00        ; why not just load #03?
+  adc #$03        
+  sta $16         ; store 03 to $16
+  ldy #$02        ; make y=2
+  lda $12         ; $12 should be the low byte of the jump sound address $a8
+  sta ($15),Y     ; $15 should be 0350, plus 2, makes 0352, where we store $a8
+  ldy #$03        ; make y=3
+  lda $13         ; load high byte of sound address, which is $da for the jump sound
+  sta ($15),Y     ; store it to 0353
+  ldy #$01        ; make y=1
+  lda $14         ; load the small byte at the end
+  sta ($15),Y     ; to 0351
+  ldy #$00        ; make y=0
+  lda #$00        ; make a=a
+  sta ($15),Y     ; store 00 to 0350: shouldlook like $00 $01 $a8 $da (0340 $00 $03 $af $da)
   rts
 store_ind_17_18:
   stx $17
@@ -9295,26 +9308,26 @@ load_ind_17_18:
   ldx $17
   ldy $18
   rts
-play_sound_a:
+play_stage_music:
   lda current_level
   cmp #$14
-  bcs :++
+  bcs :++             ; branch on stage 14 and up
   lsr
-  bcs :+
+  bcs :+              ; branch to boss music if its an odd number
   lda #$00
   ldx #$06
   jsr load_audio_ram
   lda #$01
   ldx #$07
   jmp load_audio_ram
-:
+:                     ; boss music
   lda #$0D 
   ldx #$06
   jsr load_audio_ram
   lda #$0E
   ldx #$07
   jmp load_audio_ram
-:
+:                     ; sideroom music
   sec
   sbc #$14
   tax
@@ -9324,28 +9337,28 @@ play_sound_a:
   sta $01
   jmp ($0000)
 audio_jump_tbl_1:
-  .byte <not_played_sound_a
+  .byte <play_sideroom_music
 audio_jump_tbl_1a:
-  .byte >not_played_sound_a
-  .word not_played_sound_a    ; .byte <not_played_sound_a,>not_played_sound_a
-  .word play_sound_g          ; .byte <play_sound_g,>play_sound_g
-  .word play_sound_g          ; .byte <play_sound_g,>play_sound_g
-  .word not_played_sound_c    ; .byte <not_played_sound_c,>not_played_sound_c
-not_played_sound_a:
+  .byte >play_sideroom_music
+  .word play_sideroom_music               ; .byte <play_sideroom_music,>play_sideroom_music
+  .word play_guardian_room_music          ; .byte <play_guardian_room_music,>play_guardian_room_music
+  .word play_guardian_room_music          ; .byte <play_guardian_room_music,>play_guardian_room_music
+  .word play_warp_room_music              ; .byte <play_warp_room_music,>play_warp_room_music
+play_sideroom_music:
   lda #$0f
   ldx #$06
   jsr load_audio_ram
   lda #$10
   ldx #$07
   jmp load_audio_ram
-play_sound_g:
+play_guardian_room_music:
   lda #$15
   ldx #$06
   jsr load_audio_ram
   lda #$16
   ldx #$07
   jmp load_audio_ram
-not_played_sound_c:
+play_warp_room_music:
   lda #$17
   ldx #$06
   jmp load_audio_ram
@@ -9381,7 +9394,7 @@ play_boss_exp_sound:
   ldx #$04
   jsr load_audio_ram
   jmp load_ind_17_18
-play_sound_c:
+play_explosion_sound:
   jsr store_ind_17_18
   lda #$0B
   ldx #$04
@@ -9423,7 +9436,7 @@ play_enemy_hit_sound:
   ldx #$02
   jsr load_audio_ram
   jmp load_ind_17_18
-play_sound_e:
+play_endscreen_music:
   lda #$1B
   ldx #$00
   jsr load_audio_ram
@@ -9462,7 +9475,7 @@ play_sound_k:
   ldx #$04
   jsr load_audio_ram
   jmp load_ind_17_18
-play_sound_j:
+play_boss_wpn_sound:
   jsr store_ind_17_18
   lda #$27
   ldx #$01
@@ -9490,7 +9503,7 @@ play_pause_sound:
   lda #$2B
   ldx #$00
   jmp load_audio_ram
-play_sound_f:
+play_barrier_music:
   jsr store_ind_17_18
   lda #$2C
   ldx #$06
@@ -9499,7 +9512,7 @@ play_sound_f:
   ldx #$07
   jsr load_audio_ram
   jmp load_ind_17_18
-end_tbl_a:  ; @DA1E
+audio_jump_tbl_2:  ; @DA1E
   .byte $CC,$DB,$00     ; stage music.
   .byte $04,$DC,$02     ; stage music.2
 	.byte $A8,$DA,$01     ; magnus jump sound.
@@ -9511,7 +9524,7 @@ end_tbl_a:  ; @DA1E
 	.byte $D7,$DC,$01     ; end of subtitle.2
 	.byte $3C,$DD,$02     ; end of subtitle.3
 	.byte $99,$DD,$03     ; end of subtitle.4
-	.byte $03,$DB,$03     ; magnus explostion sound.2 / boss explosion sound.2
+	.byte $03,$DB,$03     ; magnus explostion sound.2 / boss explosion sound.2  / enemy second explosion sound
 	.byte $12,$DB,$01
 	.byte $90,$DB,$00     ; boss music.
 	.byte $B6,$DB,$02     ; boss music.2
@@ -9521,8 +9534,8 @@ end_tbl_a:  ; @DA1E
 	.byte $73,$80,$01     ; game over b @$8073
 	.byte $8A,$80,$02     ; game over c @$808A
 	.byte $A1,$80,$03     ; tftheme/game over d @$80A1
-	.byte $54,$DE,$00
-	.byte $76,$DE,$02
+	.byte $54,$DE,$00     ; guardian room music.
+	.byte $76,$DE,$02     ; guardian room music.2
 	.byte $B8,$80,$01     ; rodimus endscreen @$80B8 / bumblebee screen
 	.byte $D6,$80,$03     ; Subtitle sound a @$80D6
 	.byte $DD,$80,$01     ; Subtitle sound b @$80DD
@@ -9542,12 +9555,10 @@ end_tbl_a:  ; @DA1E
 	.byte $70,$DB,$01     ; sideroom sound.   / boss weapon sound.
 	.byte $77,$DB,$03     ; sideroom sound.2  / boss weapon sound.2
 	.byte $27,$DB,$01     ; magnus explosion sound.
-	.byte $36,$DB,$01     ; powerup sound
+	.byte $36,$DB,$01     ; powerup sound / rodimus letter sound
 	.byte $45,$DB,$01     ; pause sound
 	.byte $BA,$DF,$00     ; barrier powerup music.
 	.byte $02,$E0,$02     ; barrier powerup music.2
-; this last chunk is probably the level data
-level_stuff_tbl:  ; @DAA8
 ; magnus jump sound. @daa8
 .byte $10,$01,$0F,$8B,$59,$08,$FF
 ; magnus jump sound.2 @daaf

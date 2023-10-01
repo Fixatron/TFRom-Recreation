@@ -24,6 +24,7 @@
     -Theres a side room in stage 8 where the player fights a guardian, megatron appears and the reward is a U for RODIMUS
     -Rodimus letters: (Stage:Letter) 1:R,2:O,4:D,5:I,7:M,8:U,9:S
     -The vertical levels dont actually update new backgrounds, it loops the same 2 screens
+    -Extra life every 10,000 points. (1000 actual points because the last 0 is a placeholder)
 
     
 
