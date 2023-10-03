@@ -39,6 +39,7 @@
     - pause menu
     - health bar
     - Expand PRG Rom
+    - Improve ice mechanics
 
 #   Tools
     -YYCHR  https://w.atwiki.jp/yychr
