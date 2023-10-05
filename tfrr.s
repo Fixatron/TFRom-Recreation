@@ -4335,8 +4335,6 @@ stage_boss_table_2b:    ; @$9EF2-9FF1
   .byte $01,$FC,$EB,$01,$FC
 
 
-
-
 enemy_misc_rtn_7:
   lda stage_orientation
   and #$C0
@@ -5191,97 +5189,97 @@ eny_misc_jmp_tbl:   ; @$AA6E-AA71
   .word boss_lookup_tbl
 enemy_lookup_tbl:   ; @$aa72-ab27
 	.word eny_00  ;.byte $5C,$B2 ramjet
-  .word eny_01  ;.byte $79,$B2
-  .word eny_02  ;.byte $CE,$B2
-  .word eny_03  ;.byte $23,$B3
-  .word eny_04  ;.byte $45,$B3
-  .word eny_05  ;.byte $55,$B3
-  .word eny_06  ;.byte $6B,$B3
-  .word eny_07  ;.byte $77,$B3
-  .word eny_08  ;.byte $F0,$B3
-  .byte $5C,$B6
-  .byte $B9,$B6
-  .byte $22,$B4
-  .byte $6A,$B6
-  .byte $78,$B6
-  .byte $2A,$B7
-  .byte $64,$B7
-	.byte $87,$B7
-  .byte $AC,$B7
-  .byte $7B,$BB
-  .byte $1C,$B8   ; #13 this is where the unknown music K is played
-  .byte $D3,$B8
-  .byte $DF,$B8
-  .byte $E8,$B8
-  .byte $0F,$B9
-  .byte $2A,$B9
-  .byte $32,$B9
-  .byte $96,$B9
-  .byte $A1,$B9
-  .byte $3F,$AB
-  .byte $3F,$AB
-  .byte $1D,$BB
-  .byte $1D,$BB
-	.byte $3F,$AB
-  .byte $3D,$BA
-  .byte $3F,$AB
-  .byte $82,$BA
-  .byte $A6,$BA
-  .byte $0F,$BC
-  .byte $49,$BA
-  .byte $5D,$BA
-  .byte $8E,$BB
-  .byte $3F,$AB
-  .byte $DA,$BA
-  .byte $69,$BA
-  .byte $9B,$BA
-  .byte $E6,$BA
-  .byte $0C,$BB
-  .byte $32,$B9
-	.byte $41,$BB
-  .byte $41,$BB
-  .byte $41,$BB
-  .byte $41,$BB
-  .byte $72,$BB
-  .byte $72,$BB
-  .byte $72,$BB
-  .byte $72,$BB
-  .byte $72,$BB
-  .byte $72,$BB
-  .byte $72,$BB
-  .byte $72,$BB
-  .byte $72,$BB
-  .byte $72,$BB
-  .byte $72,$BB
-  .byte $72,$BB
+  .word eny_01  ;.byte $79,$B2 blitzwing
+  .word eny_02  ;.byte $CE,$B2 bot 
+  .word eny_03  ;.byte $23,$B3 crack
+  .word eny_04  ;.byte $45,$B3 gosupu
+  .word eny_05  ;.byte $55,$B3 hammer
+  .word eny_06  ;.byte $6B,$B3 tosher
+  .word eny_07  ;.byte $77,$B3 heru
+  .word eny_08  ;.byte $F0,$B3 platform
+  .word eny_09  ;.byte $5C,$B6 platform
+  .word eny_0a  ;.byte $B9,$B6 gau
+  .word eny_0b  ;.byte $22,$B4 laggar
+  .word eny_0c  ;.byte $6A,$B6 platform
+  .word eny_0d  ;.byte $78,$B6 laserbeak
+  .word eny_0e  ;.byte $2A,$B7 condor
+  .word eny_0f  ;.byte $64,$B7 zunobat
+	.word eny_10  ;.byte $87,$B7 zunobat flying
+  .word eny_11  ;.byte $AC,$B7 Marakirasu
+  .word eny_12  ;.byte $7B,$BB Guardian
+  .word eny_13  ;.byte $1C,$B8 azak
+  .word eny_14  ;.byte $D3,$B8 ratbat
+  .word eny_15  ;.byte $DF,$B8 ratbat tape
+  .word eny_16  ;.byte $E8,$B8 snow commander
+  .word eny_17  ;.byte $0F,$B9 wasta
+  .word eny_18  ;.byte $2A,$B9 zaffuru
+  .word eny_19  ;.byte $32,$B9 bugs
+  .word eny_1a  ;.byte $96,$B9 starscream jet
+  .word eny_1b  ;.byte $A1,$B9 starscream bot
+  .word eny_none;.byte $3F,$AB gido
+  .word eny_none;.byte $3F,$AB gido
+  .word eny_1e  ;.byte $1D,$BB takara baby
+  .word eny_1e  ;.byte $1D,$BB energon cube
+  .word eny_none;.byte $3F,$AB explostion A
+  .word eny_21  ;.byte $3D,$BA
+  .word eny_none;.byte $3F,$AB explostion B
+  .word eny_23  ;.byte $82,$BA
+  .word eny_24  ;.byte $A6,$BA
+  .word eny_25  ;.byte $0F,$BC
+  .word eny_26  ;.byte $49,$BA
+  .word eny_27  ;.byte $5D,$BA
+  .word eny_28  ;.byte $8E,$BB megatron poster
+  .word eny_none;.byte $3F,$AB
+  .word eny_2a  ;.byte $DA,$BA
+  .word eny_2b  ;.byte $69,$BA
+  .word eny_2c  ;.byte $9B,$BA
+  .word eny_2d  ;.byte $E6,$BA
+  .word eny_2e  ;.byte $0C,$BB
+  .word eny_19  ;.byte $32,$B9
+  .word eny_pu_jet  ;.byte $41,$BB  ramjet with powerup
+  .word eny_pu_jet  ;.byte $41,$BB
+  .word eny_pu_jet  ;.byte $41,$BB
+  .word eny_pu_jet  ;.byte $41,$BB
+  .word eny_powerup  ;.byte $72,$BB P
+  .word eny_powerup  ;.byte $72,$BB F
+  .word eny_powerup  ;.byte $72,$BB D
+  .word eny_powerup  ;.byte $72,$BB B
+  .word eny_powerup  ;.byte $72,$BB 1Up
+  .word eny_powerup  ;.byte $72,$BB R
+  .word eny_powerup  ;.byte $72,$BB O
+  .word eny_powerup  ;.byte $72,$BB D
+  .word eny_powerup  ;.byte $72,$BB I
+  .word eny_powerup  ;.byte $72,$BB M
+  .word eny_powerup  ;.byte $72,$BB U
+  .word eny_powerup  ;.byte $72,$BB S
 boss_lookup_tbl:    ; boss stuff
-	.byte $3C,$B4
-  .byte $F0,$B3
-  .byte $04,$B4
-  .byte $0E,$B4
-  .byte $18,$B4
-  .byte $2D,$B5
-  .byte $70,$B5
-  .byte $AB,$B4
-  .byte $C2,$B5
-  .byte $77,$B8
-  .byte $C7,$B8
-  .byte $3E,$B9
-  .byte $49,$B9
-  .byte $5B,$B9
-  .byte $6E,$B9
-  .byte $79,$B9
-	.byte $D0,$B9
-  .byte $78,$B6
-  .byte $E1,$B9
-  .byte $78,$B6
-  .byte $FA,$B9
-  .byte $13,$BA
-  .byte $2C,$BA
-  .byte $E5,$BB
-  .byte $97,$BB
-  .byte $FC,$BB
-  .byte $1B,$BC
+	.word bos_00  ;.byte $3C,$B4  planet boss
+  .word eny_08  ;.byte $F0,$B3  platform
+  .word bos_02  ;.byte $04,$B4  platform
+  .word bos_03  ;.byte $0E,$B4  platform
+  .word bos_04  ;.byte $18,$B4  platform
+  .word bos_05  ;.byte $2D,$B5  kabusu
+  .word bos_06  ;.byte $70,$B5  
+  .word bos_07  ;.byte $AB,$B4  
+  .word bos_08  ;.byte $C2,$B5  
+  .word bos_09  ;.byte $77,$B8  
+  .word bos_0a  ;.byte $C7,$B8  
+  .word bos_0b  ;.byte $3E,$B9  
+  .word bos_0c  ;.byte $49,$B9  firewheel
+  .word bos_0d  ;.byte $5B,$B9  scary spider
+  .word bos_0e  ;.byte $6E,$B9  decepticon boss
+  .word bos_0f  ;.byte $79,$B9  nemesis boss
+	.word bos_10  ;.byte $D0,$B9  trypticon
+  .word eny_0d  ;.byte $78,$B6  explosion
+  .word bos_12  ;.byte $E1,$B9  Menasor
+  .word eny_0d  ;.byte $78,$B6
+  .word bos_14  ;.byte $FA,$B9  Bruticus
+  .word bos_15  ;.byte $13,$BA  Megatron
+  .word bos_16  ;.byte $2C,$BA
+  .word bos_17  ;.byte $E5,$BB  bumblebee botmode
+  .word bos_18  ;.byte $97,$BB  bumblebee carmode
+  .word bos_19  ;.byte $FC,$BB  menasor laser
+  .word bos_1a  ;.byte $1B,$BC
 
 
 b_ab28:
@@ -5294,6 +5292,7 @@ b_ab28:
   sta eny_y_inc_lo,X
   lda $07
   sta eny_y_inc_hi,X
+eny_none:  ; ab1d
   rts
 enemy_kabasu_rtn:
   lda eny_x_inc_lo,X
@@ -6228,7 +6227,6 @@ b_b2b1:
   sta $0F
   jsr b_ac4b
   rts
-
 eny_02: ; @b2ce
   lda #$00
   sta eny_x_inc_lo,X
@@ -6268,7 +6266,6 @@ b_b306:
   sta $0F
   jsr b_ac4b
   rts
-
 eny_03:  ; @$B323
   lda #$20
   sta $00
@@ -6286,7 +6283,6 @@ eny_03:  ; @$B323
   sta $0A
   jsr dec_boss_wpn_timer_2  ; same as the first ****
   rts
-
 eny_04:
   lda #$40
   sta $00
@@ -6296,7 +6292,6 @@ eny_04:
   sta $09
   jsr enemy_misc_rtn_3
   rts
-
 eny_05:
   lda #$08
   sta $00
@@ -6308,7 +6303,6 @@ eny_05:
   lda #$ff
   sta eny_x_inc_hi,X     ; give enemy powerup?? ***
   rts
-
 eny_06:  
   lda #$20
   sta $00
@@ -6316,7 +6310,6 @@ eny_06:
   sta $05
   jsr enemy_misc_rtn_5
   rts
-
 eny_07: ; @$B377
   lda eny_spr_x_pos_hi,X
   sta $00
@@ -6374,8 +6367,7 @@ b_b3dd:
   jsr dec_boss_wpn_timer_4
 b_b3ef:
   rts
-
-eny_08:
+eny_08:   ; b3f0 also bos_01
   lda #$04
   sta $00
   lda #$01
@@ -6388,22 +6380,25 @@ j_b3fb:
   sta eny_spr_substatus,X
   rts
 
-
+bos_02: ; b404
   lda #$04
   sta $00
   lda #$01
   sta $05
   bne b_b3f8
+bos_03: ; b40e
   lda #$0C
   sta $00
   lda #$01
   sta $05
   bne b_b3f8
+bos_04: ; b418
   lda #$08
   sta $00
   lda #$02
   sta $05
   bne b_b3f8
+eny_0b: 
   lda #$10
   sta $00
   lda #$02
@@ -6416,8 +6411,8 @@ j_b3fb:
   lda #$ff
   sta eny_x_inc_hi,X
   rts
+bos_00:
   jsr enemy_misc_rtn_6
-dec_boss_wpn_timer_10:
   lda eny_boss_wpn_timer,x
   beq spawn_kabusu
   dec eny_boss_wpn_timer,x
@@ -6468,6 +6463,7 @@ spawn_boss_enemy:
   sta eny_boss_wpn_timer,X
 b_b4aa:
   rts
+bos_07: ; b4ab
   lda #$80
   sta unram_22
   lda #$08
@@ -6533,8 +6529,7 @@ enemy_misc_rtn_6:
 b_b52a:
   sty unram_12
   rts
-
-
+bos_05: ; b52d
   lda eny_spr_substatus,X
   and #$04
   bne b_b560
@@ -6565,8 +6560,7 @@ b_b560:
   sta $09
   jsr enemy_misc_rtn_3
   rts
-
-
+bos_06:  ; b570
   lda #$10
   sta $00
   lda #$02
@@ -6604,7 +6598,7 @@ b_b560:
 b_b5c1:
   rts
 
-
+bos_08: ; b5c2
   lda #$C0
   sta eny_x_inc_lo,X
   lda #$ff
@@ -6679,24 +6673,21 @@ b_b64f:
   sta eny_spr_substatus,X
 b_b65b:
   rts
-
-
+eny_09: ; b65c
   lda #$06
   sta $00
   lda #$01
   sta $05
   jsr enemy_kabasu_rtn
   jmp j_b3fb
-
-
+eny_0c: ; b66a
   lda #$80
   sta $02
   lda #$00
   sta $03
   jsr eny_pu_misc
   jmp j_b3fb
-
-
+eny_0d: ;b678
   lda eny_spr_substatus,X
   and #$04
   bne b_b6b8
@@ -6726,8 +6717,7 @@ j_b699:
   sta eny_spr_substatus,X
 b_b6b8:
   rts
-
-
+eny_0a:   ; b6b9
   lda eny_spr_substatus,X
   and #$04
   bne b_b714
@@ -6779,8 +6769,7 @@ b_b714:
   sta $03
   jsr ram_misc_35
   rts
-
-
+eny_0e: ; b72a
   lda #$00
   sta eny_x_inc_lo,X
   lda #$ff
@@ -6808,8 +6797,7 @@ b_b74e:
   sta $0A
   jsr dec_boss_wpn_timer_2
   rts
-
-
+eny_0f:
   jsr scroll_plr_rt
   lda eny_spr_x_pos_hi,X
   sec
@@ -6827,8 +6815,7 @@ b_b74e:
   inc eny_spr_type,X      ; increment enemy sprite type ***
 b_b786:
   rts
-
-
+eny_10: ; b787
   lda #$80
   sta eny_x_inc_lo,X
   lda #$ff
@@ -6846,8 +6833,7 @@ b_b786:
   sta $0A
   jsr dec_boss_wpn_timer_2
   rts
-
-
+eny_11: ; b7ac
   lda eny_spr_substatus,x
   and #$04
   bne b_b7db
@@ -6902,9 +6888,8 @@ b_b813:
   ora #$01
   sta eny_spr_substatus,X
   rts
-
-
-  lda eny_spr_substatus,X   ; this area is specifically called... @b81c
+eny_13: ; b81c Azak
+  lda eny_spr_substatus,X
   and #$04
   bne b_b84e
   jsr scroll_plr_rt
@@ -6924,7 +6909,7 @@ b_b813:
   lda eny_spr_substatus,X
   ora #$04
   sta eny_spr_substatus,X
-  jsr play_azak_sound      ;;;; *** how and why does this play?
+  jsr play_azak_sound
 b_b84d:
   rts
 b_b84e:
@@ -6947,6 +6932,7 @@ b_b84e:
   sta $0A
   jsr dec_boss_wpn_timer_2
   rts
+bos_09: ; b877
   jsr enemy_misc_rtn_6
   inc eny_exp_timer,X
   jsr enemy_misc_rtn_19
@@ -6984,28 +6970,26 @@ b_b84e:
   sta eny_boss_wpn_timer,X
 b_b8c6:
   rts
-
-
+bos_0a: ; b8c7
   lda #$40
   sta unram_22
   lda #$00
   sta $0A
   jsr dec_boss_wpn_timer_2
   rts
-
-
+eny_14: ; b8d3
   lda #$10
   sta $00
   lda #$02    ; enemy max y speed
   sta $05
   jsr enemy_kabasu_rtn
   rts
+eny_15: ; b8df  
   lda eny_spr_substatus,X
   ora #$08
   sta eny_spr_substatus,X
   rts
-
-
+eny_16: ; b8e8
   lda #$00
   sta eny_x_inc_lo,X
   lda #$fe
@@ -7023,8 +7007,7 @@ b_b8c6:
   sta $0F
   jsr b_ac4b
   rts
-
-
+eny_17: ;b90f
   lda #$20
   sta $00
   lda #$02
@@ -7038,14 +7021,12 @@ b_b8c6:
   sta $09
   jsr enemy_misc_rtn_3
   rts
-
-
+eny_18: ; b92a
   lda #$60
   sta unram_22
   jsr dec_boss_wpn_timer_5
   rts
-
-
+eny_19: ; b932 gau/bugs also eny_2f
   lda #$00
   sta $02
   lda #$01
@@ -7053,12 +7034,13 @@ b_b8c6:
   jsr ram_misc_35
   rts
 
-
+bos_0b: ; b93e
   lda #$80
   sta unram_22
   lda #$0C
   sta $0B
   jmp b_b4b3
+bos_0c: ; b948
   lda eny_spr_substatus,X
   and #$04
   bne :+
@@ -7068,8 +7050,7 @@ b_b8c6:
   sta unram_22
   jsr dec_boss_wpn_timer_3
   rts
-
-
+bos_0d: ; b95b
   lda #$05
   sta $00
   lda #$01
@@ -7079,15 +7060,13 @@ b_b8c6:
   sta unram_22
   jsr dec_boss_wpn_timer_8
   rts
-
-
+bos_0e: ; b96e
   lda #$98
   sta unram_22
   lda #$0F
   sta $0B
   jmp b_b4b3
-
-
+bos_0f: ; b979
   lda #$00
   sta eny_x_inc_lo,X
   lda #$FF
@@ -7101,15 +7080,13 @@ b_b8c6:
   sta unram_22
   jsr dec_boss_wpn_timer
   rts
-
-
+eny_1a: ; b996
   lda #$00
   sta eny_x_inc_lo,X
   lda #$fe
   sta eny_x_inc_hi,X
   rts
-
-
+eny_1b: ; b9a1  
   lda #$00
   sta eny_x_inc_lo,X
   lda #$03
@@ -7133,8 +7110,7 @@ b_b8c6:
   sta eny_spr_status,X
 b_b9cf:
   rts
-
-
+bos_10:  ; b9d0
   inc eny_exp_timer,X
   jsr enemy_misc_rtn_19
   lda #$78
@@ -7142,8 +7118,7 @@ b_b9cf:
   lda #$11
   sta $0B
   jmp b_b4b3
-
-
+bos_12: ; b9e1
   inc eny_exp_timer,X
   jsr enemy_misc_rtn_19
   lda #$80
@@ -7155,8 +7130,7 @@ b_b9cf:
   lda #$12
   sta $0E
   jmp j_b4bb
-
-
+bos_14: ; b9fa
   inc eny_exp_timer,X
   jsr enemy_misc_rtn_19
   lda #$50
@@ -7168,8 +7142,7 @@ b_b9cf:
   lda #$12
   sta $0E
   jmp j_b4bb
-
-
+bos_15: ; ba13
   inc eny_exp_timer,X
   jsr enemy_misc_rtn_19
   lda #$80
@@ -7181,6 +7154,7 @@ b_b9cf:
   lda #$27
   sta $0E
   jmp j_b4bb
+bos_16: ; ba2c
   lda #$B8
   sta unram_22
   lda #$05                  ; spawn kabusu
@@ -7189,12 +7163,14 @@ b_b9cf:
   sta $0E
   sta $0f
   jmp dec_boss_wpn_timer_11
+eny_21: ; ba3d
   lda #$00
   sta $02
   lda #$01
   sta $03
   jsr eny_pu_misc
   rts
+eny_26: ; ba49
   lda #$60
   sta unram_22
   lda #$80
@@ -7204,12 +7180,14 @@ b_b9cf:
   ora #$80
   sta eny_spr_substatus,X
   rts
+eny_27: ; ba5d
   lda #$60
   sta unram_22
   lda #$40
   sta $0A
   jsr dec_boss_wpn_timer_2
   rts
+eny_2b: ; ba69
   lda eny_spr_substatus,X
   and #$20
   sta eny_spr_substatus,X
@@ -7221,6 +7199,7 @@ b_b9cf:
   sta $0E
   sta $0F
   jmp dec_boss_wpn_timer_11
+eny_23: ; ba82
   lda eny_spr_substatus,X
   and #$20
   sta eny_spr_substatus,X
@@ -7232,11 +7211,13 @@ b_b9cf:
   sta $0E
   sta $0F
   jmp dec_boss_wpn_timer_11
+eny_2c: ; ba9b
   lda #$00
   sta eny_y_inc_lo,X
   lda #$fe
   sta eny_y_inc_hi,X
   rts
+eny_24: ; baa6
   lda eny_spr_substatus,X
   and #$04
   bne b_bac0
@@ -7261,13 +7242,14 @@ b_bac0:
   sta $09
   jsr enemy_misc_rtn_3
   rts
+eny_2a: ; bada
   lda #$60
   sta unram_22
   lda #$10
   sta $0A
   jsr dec_boss_wpn_timer_2
   rts
-hidden_boss_rtn:      ; this part of the code wasnt used up to BB1C
+eny_2d: ; bae6
   lda #$00
   sta $02
   lda #$02
@@ -7285,6 +7267,7 @@ hidden_boss_rtn:      ; this part of the code wasnt used up to BB1C
   lda #$10
   sta $0F
   jmp dec_boss_wpn_timer_11
+eny_2e: ; bb0c
   lda #$00
   sta eny_x_inc_lo,X
   sta eny_x_inc_hi,X
@@ -7292,8 +7275,7 @@ hidden_boss_rtn:      ; this part of the code wasnt used up to BB1C
   lda #$03
   sta eny_y_inc_hi,X
   rts                 ; hidden boss code end
-
-
+eny_1e: ; bb1d
   lda eny_spr_substatus,X
   and #$04
   bne b_bb32
@@ -7312,6 +7294,7 @@ b_bb3b:
   lda #$00
   sta eny_spr_status,X
   rts
+eny_pu_jet: ; bb41
   lda #$C0
   sta $00
   lda #$01
@@ -7340,10 +7323,12 @@ b_bb51:
   lda $01
   sta eny_x_inc_hi,X
   rts
+eny_powerup: ; bb72
   lda eny_spr_substatus,X
   ora #$20
   sta eny_spr_substatus,X
   rts
+eny_12: ; bb7b
   lda #$00
   sta $02
   lda #$02
@@ -7353,10 +7338,12 @@ b_bb51:
   sta unram_22
   jsr dec_boss_wpn_timer_3
   rts
+eny_28: ; bb8e
   lda eny_spr_substatus,X
   ora #$20
   sta eny_spr_substatus,X
   rts
+bos_18: ; bb97
   lda eny_spr_substatus,X
   ora #$80
   sta eny_spr_substatus,X
@@ -7394,6 +7381,7 @@ b_bbe0:
   lda #$00
   sta state
   rts
+bos_17: ; bbe5
   lda #$01
   sta state
   jsr scroll_plr_rt
@@ -7405,6 +7393,7 @@ b_bbe0:
   adc #$00
   sta eny_spr_x_pos_page,X
   rts
+bos_19: ; bbfc
   lda #$80
   sta eny_x_inc_lo,X
   lda #$FD
@@ -7413,12 +7402,14 @@ b_bbe0:
   sta eny_y_inc_lo,X
   sta eny_y_inc_hi,X
   rts
+eny_25: ; bc0f
   lda #$80
   sta $02
   lda #$00
   sta $03
   jsr ram_misc_35
   rts
+bos_1a: ; bc1b
   lda current_level
   and #$02
   bne b_bc32
@@ -8322,18 +8313,18 @@ eny_hitbox_jmp_tbl: ; @c798
   .word bos_hitbox_table
 eny_hitbox_table:         ; @c79c enemy hitbox stuff
       ;   X, Y
-  .byte $0A,$03,$0A,$03,$06,$0A,$0A,$03 ; 00 ramjet, blitzwing, bot, Crack (lobster)
-  .byte $04,$08,$04,$08,$08,$04,$08,$08 ; 04 Gosupu(rocket), hammer (plumbus),tosher(ufo),hero(mouse drone)
-  .byte $0C,$04,$0C,$04,$04,$04,$04,$04 ; 08 platform?,Platform?,Gau,Laggar
-  .byte $0C,$04,$08,$04,$0A,$04,$04,$08 ; 0C , , , Zunonbat(closed)
-  .byte $08,$04,$04,$0C,$0C,$04,$08,$10 ; 10 Zunobat(flying),,,Azak
+  .byte $0A,$03,$0A,$03,$06,$0A,$0A,$03 ; 00 ramjet,blitzwing,bot,Crack (lobster)
+  .byte $04,$08,$04,$08,$08,$04,$08,$08 ; 04 Gosupu(rocket),hammer(plumbus),tosher(ufo),heru(mouse drone)
+  .byte $0C,$04,$0C,$04,$04,$04,$04,$04 ; 08 platform,Platform,Gau,Laggar
+  .byte $0C,$04,$08,$04,$0A,$04,$04,$08 ; 0C platform,laserbeak,condor,Zunonbat(closed)
+  .byte $08,$04,$04,$0C,$0C,$04,$08,$10 ; 10 Zunobat(flying),Marakirasu,Guardian,Azak
   .byte $0C,$04,$08,$04,$08,$05,$08,$04 ; 14 Ratbat,Ratbat(tape),Snow Commander,Wasta(orange dome ufo)
-  .byte $08,$08,$04,$04,$0A,$03,$08,$08 ; 18 Zaffuru(Rosie),,Starscream(Jet),Starscream(Bot)Explosion A,Gido
-  .byte $00,$00,$00,$00,$08,$08,$04,$04 ; 1C Gido,,Takara Baby,Energon Cube
+  .byte $08,$08,$04,$04,$0A,$03,$08,$08 ; 18 Zaffuru(Rosie),bugs,Starscream(Jet),Starscream(Bot)
+  .byte $00,$00,$00,$00,$08,$08,$04,$04 ; 1C Gido,Gido,Takara Baby,Energon Cube
   .byte $00,$00,$08,$08,$10,$04,$00,$00 ; 20 Explosion A,Gido,Explosion B,
-  .byte $04,$04,$0C,$04,$04,$08,$04,$08 ; 24 Burcane Ball,,Rabu(wall pyramid),Rabu(again?)
-  .byte $00,$00,$04,$04,$08,$08,$00,$00
-  .byte $08,$08,$08,$08,$04,$08,$04,$04 ; 2C ,,,Gau
+  .byte $04,$04,$0C,$04,$04,$08,$04,$08 ; 24 Burcane Ball,,Rabu(wall pyramid),ganzo(wallslug)
+  .byte $00,$00,$04,$04,$08,$08,$00,$00 ; 28 Megatron poster,,,
+  .byte $08,$08,$08,$08,$04,$08,$04,$04 ; 2C ,pickaxe,goldbar,Gau
   .byte $0A,$04,$0A,$04,$0A,$04,$0A,$04 ; 30 Ramjet,
   .byte $04,$04,$04,$04,$04,$04,$04,$04 ; 34 P,F,D,B
   .byte $04,$04,$04,$04,$04,$04,$04,$04 ; 38 1Up,R,O,D
@@ -8353,17 +8344,17 @@ eny_altmode_addr_tbl: ; @$C850
 .word bos_altmode_tbl
 eny_altmode_tbl:      ; @c854   enemy sprite altmode table or how many hits does it take to kill wildlife on another planet?
     ; alt mode, number of hits
-  .byte $82,$00,$82,$00,$00,$00,$00,$00 ; 00 thundercracker has an alt mode, tank has an alt mode, running bot has no alt mode, lobster has no alt mode
-  .byte $7F,$FF,$00,$00,$00,$00,$00,$02 ; 04 Gosupu(rocket), hammer (plumbus),tosher(ufo),hero(mouse drone)
-  .byte $00,$0F,$00,$0F,$00,$00,$00,$00 ; 08 platform?,Platform?,Gau,Laggar
-  .byte $00,$0F,$00,$00,$00,$03,$00,$0A ; 0C , , , Zunonbat(closed)
-  .byte $00,$00,$00,$02,$00,$05,$00,$0A ; 10 Zunobat(flying),,,Azak
-  .byte $95,$00,$00,$0A,$00,$00,$00,$00 ; 14 Ratbat,Ratbat(tape),Snow Commander,Wasta(orange dome ufo)
-  .byte $00,$02,$00,$02,$9B,$00,$00,$00 ; 18 Zaffuru(Rosie),,Starscream(Jet),Starscream(Bot)Explosion A,Gido
-  .byte $00,$00,$00,$00,$00,$80,$00,$00 ; 1C Gido,,Takara Baby,Energon Cube
-  .byte $00,$00,$00,$02,$7F,$FF,$00,$FF ; 20 Explosion A,Gido,Explosion B,
-  .byte $00,$00,$7F,$FF,$00,$02,$00,$02 ; 24 Burcane Ball,,Rabu(wall pyramid),Rabu(again?)
-  .byte $00,$FF,$9F,$00,$00,$02,$00,$FF ; 28
+  .byte $82,$00,$82,$00,$00,$00,$00,$00 ; 
+  .byte $7F,$FF,$00,$00,$00,$00,$00,$02 ; 
+  .byte $00,$0F,$00,$0F,$00,$00,$00,$00 ; 
+  .byte $00,$0F,$00,$00,$00,$03,$00,$0A ; 
+  .byte $00,$00,$00,$02,$00,$05,$00,$0A ; 
+  .byte $95,$00,$00,$0A,$00,$00,$00,$00 ; 
+  .byte $00,$02,$00,$02,$9B,$00,$00,$00 ; 
+  .byte $00,$00,$00,$00,$00,$80,$00,$00 ; 
+  .byte $00,$00,$00,$02,$7F,$FF,$00,$FF ; 
+  .byte $00,$00,$7F,$FF,$00,$02,$00,$02 ; 
+  .byte $00,$FF,$9F,$00,$00,$02,$00,$FF ; 
   .byte $00,$30,$00,$00,$9F,$00,$9E,$00 ; 2C ,,,Gau
   .byte $80,$00,$B7,$00,$B8,$00,$80,$00 ; 30 Ramjet,
   .byte $00,$00,$00,$00,$00,$00,$00,$00 ; 34 P,F,D,B
