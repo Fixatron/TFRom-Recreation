@@ -15,31 +15,30 @@
     To compile, go to the *.s file and use the hotkey shift+ctrl+P and Run Build Task, should spit out a rom
 
 #   Things I've learned
-    -theres a player speed setting
-    -a strange boss battle can be found by replacing current_level 1c with 14 or 16 when the bumblebee warp is activated, also at the end of the other . I found the entrance to this mystery room in stage 6. Can be seen in playthrough with Protoman and Jawz.D
-    -bullet velocity will by increased by how fast player is moving 
     -At least 2 versions exist, only difference is the copyright at the title screen "©Takara 1986 " vs "© FMG 1987  "
     -Stage 2 theres a hidden energon cube shorly before starscream
     -The Black Baby in stage 9 is the old Takara Logo
+    -Theres a sideroom with the pickaxe guy in stage 3 on the top right just before the end. Use the Ratbat tape as a platform. Also, in stage 6, left side, theres a pickaxe guy battle room. Level 10 also has a load point for this sideroom, but its blocked by a wall, so even if you do enter it the player get stuck when exiting the sideroom.
     -Theres a side room in stage 8 where the player fights a guardian, megatron appears and the reward is a U for RODIMUS
     -Rodimus letters: (Stage:Letter) 1:R,2:O,4:D,5:I,7:M,8:U,9:S
     -The vertical levels dont actually update new backgrounds, it loops the same 2 screens
     -Extra life every 10,000 points. (1000 actual points because the last 0 is a placeholder)
+    -Level 9 uses 5 checkpoints or you start the stage over again. As long as these 5 checkpoints are hit, you can take any path to the end of the level.
 
     
 
 #   Things I want to change
 
-    - Better hit boxes
+    - better hit boxes
     - new characters
     - simultaneous 2 players
     - megaman style boss fights
-    - pre-fight boss dialog
+    - pre-bossfight dialog
     - better music
     - pause menu
     - health bar
-    - Expand PRG Rom
-    - Improve ice mechanics
+    - expand PRG Rom
+    - improve ice mechanics
 
 #   Tools
     -YYCHR  https://w.atwiki.jp/yychr
