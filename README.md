@@ -16,8 +16,6 @@
 
 #   Things I've learned
     -At least 2 versions exist, only difference is the copyright at the title screen "©Takara 1986 " vs "© FMG 1987  "
-    -Stage 2 theres a hidden energon cube shorly before starscream
-    -The Black Baby in stage 9 is the old Takara Logo
     -Theres a sideroom with the pickaxe guy in stage 3 on the top right just before the end. Use the Ratbat tape as a platform. Also, in stage 6, left side, theres a pickaxe guy battle room. Level 10 also has a load point for this sideroom, but its blocked by a wall, so even if you do enter it the player get stuck when exiting the sideroom.
     -Theres a side room in stage 8 where the player fights a guardian, megatron appears and the reward is a U for RODIMUS
     -Rodimus letters: (Stage:Letter) 1:R,2:O,4:D,5:I,7:M,8:U,9:S
@@ -25,12 +23,28 @@
     -Extra life every 10,000 points. (1000 actual points because the last 0 is a placeholder)
     -Level 9 uses 5 checkpoints or you start the stage over again. As long as these 5 checkpoints are hit, you can take any path to the end of the level.
 
-    
+#   Walkthrough
+    -Stage 1: 
+            Hold right as the level starts and jump over the first swooping decepticon jet. 
+            Run under the subsequent jets and under the Gosupu (rocket). Shoot the powerup ramjet, but watch out for the jet that swoops just after the Gosupu.
+            Running along, there is a Gosupu directly under a moon, right after this is the jet with the first Rodimus letter, R.
+            Hidden energon cube is at plrxprog0xA078F8, w/ plrxpos0xBF78, or between the two large moons before the end of the level. Jump as high as you can in the middle of the two moons and shoot once to the right to reveal an energon cube. Dont shoot the cube, it can be killed and you wont get any points.
+    -Boss 1:
+            Go to the grey platform which looks like Optimus Prime's bumper under the boss and transform into a truck by holding down.
+            Fire 4 vertical bullets into the glowing part of the planet and complete the stage.
+    -Stage 2:
+            More of a platforming level, but still get the hell out of there.
+            Theres a hidden energon cube shorly before starscream
+
+    -Stage 9:
+            Stage 9 requires the player to hit 5 checkpoints or start the stage over again. As long as these 5 checkpoints are hit, you can take any path to the end of the level.
+           The Black Baby in stage 9 is the old Takara Logo
+
 
 #   Things I want to change
 
     - better hit boxes
-    - new characters
+    - new character sprites
     - simultaneous 2 players
     - megaman style boss fights
     - pre-bossfight dialog

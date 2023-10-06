@@ -55,8 +55,8 @@ frame_counter_96        = $45   ; Resets every $60 frames, Counts to $18 by incr
 unram_17                = $46
 
 stage_boss              = $48   ; 00 is level, 01 is boss
-unram_22                = $49
-unram_10                = $4A   ; related to the boss wpn timer
+eny_status_ram                = $49
+eny_time_ram                = $4A   ; related to the boss wpn timer
 level_backup            = $4B
 unram_7                 = $4C
 num_bosses              = $4D   ; only stage 2 has 2 bosses
@@ -208,18 +208,18 @@ bullet_timer            = $050D
 ; enemy weapon ram
 eny_wpn_status          = $0540
 eny_wpn_substatus       = $0541
-bos_x_pos_lo            = $0542
-bos_x_pos_hi            = $0543
-bos_x_pos_page          = $0544
-bos_y_pos_lo            = $0545
-bos_y_pos_hi            = $0546
-bos_y_pos_page          = $0547
-bos_sprite_type         = $0548
-bos_x_inc_lo            = $0549
-bos_x_inc_hi            = $054A
-bos_y_inc_lo            = $054B
-bos_y_inc_hi            = $054C
-bos_timer               = $054D
+eny_wpn_x_pos_lo        = $0542
+eny_wpn_x_pos_hi        = $0543
+eny_wpn_x_pos_page      = $0544
+eny_wpn_y_pos_lo        = $0545
+eny_wpn_y_pos_hi        = $0546
+eny_wpn_y_pos_page      = $0547
+eny_wpn_sprite_type     = $0548
+eny_wpn_x_speed_lo      = $0549
+eny_wpn_x_speed_hi      = $054A
+eny_wpn_y_speed_lo      = $054B
+eny_wpn_y_speed_hi      = $054C
+eny_wpn_timer           = $054D
 
 ; enemy ram
 enemy_sprite_data_start = $0600
@@ -3184,7 +3184,7 @@ fetch_siderm_chkpts:
   lda #>siderm_chkpts         ; hard coded address(#$95), high byte *******
   sta $03
 j_95b2:
-  jsr scroll_plr_up   ; get the offset for the hard coded address into $00 and $01 ram plr y pos hi= 00, plr y prog hi = 01
+  jsr plr_stage_y_loc   ; get the offset for the hard coded address into $00 and $01 ram plr y pos hi= 00, plr y prog hi = 01
   lda $00             ; load plr_y_pos_hi + plr_y_prog_hi
   sec
   sbc ($02),Y         ; subtract from table (3c)
@@ -3200,7 +3200,7 @@ j_95b2:
   lda $00
   cmp #$06
   bcs set_carry
-  jsr scroll_plr_rt   ; same business as before, loaded into 01 and 00 ram
+  jsr plr_stage_x_loc   ; same business as before, loaded into 01 and 00 ram
   lda $00             ; plr_x_prog_hi + plr_x_pos_hi
   sec
   sbc ($02),Y         ; subtract from table (F8)
@@ -5237,9 +5237,9 @@ enemy_lookup_tbl:   ; @$aa72-ab27
   .word eny_2e  ;.byte $0C,$BB
   .word eny_19  ;.byte $32,$B9
   .word eny_pu_jet  ;.byte $41,$BB  ramjet with powerup
-  .word eny_pu_jet  ;.byte $41,$BB
-  .word eny_pu_jet  ;.byte $41,$BB
-  .word eny_pu_jet  ;.byte $41,$BB
+  .word eny_pu_jet  ;.byte $41,$BB  ramjet with Barrier
+  .word eny_pu_jet  ;.byte $41,$BB  ramjet with 1Up
+  .word eny_pu_jet  ;.byte $41,$BB  ramjet with rodimus letter
   .word eny_powerup  ;.byte $72,$BB P
   .word eny_powerup  ;.byte $72,$BB F
   .word eny_powerup  ;.byte $72,$BB D
@@ -5282,8 +5282,8 @@ boss_lookup_tbl:    ; boss stuff
   .word bos_1a  ;.byte $1B,$BC
 
 
-b_ab28:
-  lda eny_y_inc_lo,X    ; @$ab28
+move_enemy_vert:        ; b_ab28
+  lda eny_y_inc_lo,X
   sta $06
   lda eny_y_inc_hi,X
   sta $07
@@ -5358,7 +5358,7 @@ b_abac:
 enemy_misc_rtn_3:
   lda eny_spr_substatus,X
   sta $08
-  jsr b_ab28
+  jsr move_enemy_vert
   lda eny_spr_substatus,X
   eor $08
   and #$01
@@ -5371,7 +5371,7 @@ enemy_misc_rtn_3:
   lda eny_spr_y_pos_page,X
   adc #$00
   sta $05
-  jsr scroll_plr_up
+  jsr plr_stage_y_loc
   lda $04
   sec
   sbc $00
@@ -5387,50 +5387,52 @@ b_abe6:
   sta eny_spr_substatus,X
 b_abf2:
   rts
-enemy_misc_rtn_5:
-  lda eny_spr_x_pos_hi,X
+
+move_tosher:
+  lda eny_spr_x_pos_hi,X    ; load enemy x position high
   sec
-  sbc plr_x_prog_hi
-  sta $01
-  lda eny_spr_x_pos_page,X
-  sbc plr_x_prog_pg
-  bne b_ac10
+  sbc plr_x_prog_hi         ; subract player x progress high
+  sta $01                   ; store in 01 ram
+  lda eny_spr_x_pos_page,X  ; load enemy x position page
+  sbc plr_x_prog_pg         ; subtract player progress page
+  bne b_ac10                ; branch if Tosher is not on same page as player
   lda $01
   cmp #$C0
-  bcc b_ac1b
+  bcc b_ac1b                ; branch of Tosher is within C0 horizontal pixels or ~10(24?) tiles from player
 b_ac08:
-  lda #$00
+  lda #$00                  ; stop Tosher vertical movement if farther than C0 from player
   sta eny_y_inc_lo,X
   sta eny_y_inc_hi,X
-b_ac10:
+b_ac10:                     ; continue moving Tosher horizonal
   lda #$80
-  sta eny_x_inc_lo,X
+  sta eny_x_inc_lo,X        ; store 80 to Tosher speed low byte
   lda #$FE
-  sta eny_x_inc_hi,X
+  sta eny_x_inc_hi,X        ; store FE to Tosher speed high byte, moving left
   rts
-b_ac1b:
-  jsr scroll_plr_up
-  lda $0
+b_ac1b:                     ; Tosher is within ~10 tiles from player
+  jsr plr_stage_y_loc
+  lda $00                   ; load player y stage location high byte
   sec
-  sbc #$0F
+  sbc #$0F                  ; subtract 0F from player y location, probably an offset because of the actual location point
   sta $00
-  lda $01
-  sbc #$00
+  lda $01                   ; load player y page location
+  sbc #$00                  ; subtract any carry from the page
   sta $01
-  lda eny_spr_y_pos_hi,X
+  lda eny_spr_y_pos_hi,X 
   sec
-  sbc $00
+  sbc $00                   ; enemy y position - player y position
   lda eny_spr_y_pos_page,X
-  sbc $01
-  bcs b_ac08
-  lda #$00
+  sbc $01                   ; enemy y page - player y page
+  bcs b_ac08                ; branch if player is above enemy, or if player position is higher
+  lda #$00                  ; stop Tosher horizontal movement
   sta eny_x_inc_lo,X
   sta eny_x_inc_hi,X
   lda #$80
-  sta eny_y_inc_lo,X
+  sta eny_y_inc_lo,X        ; store 80 to Tosher y speed low byte
   lda #$04
-  sta eny_y_inc_hi,X
+  sta eny_y_inc_hi,X        ; store 04 to Tosher y speed high byte, speed of 4.5
   rts   
+
 b_ac4b:
   jsr lvl_misc_rtn_1a
   jsr lvl_misc_rtn_2
@@ -5604,45 +5606,45 @@ j_ad7b:
   sta eny_y_inc_hi,X
 b_adae:
   rts
-dec_boss_wpn_timer:
+ramjet_nemesis_timer:
   lda eny_boss_wpn_timer,X
-  beq b_adb8
-  dec eny_boss_wpn_timer,X
-b_adb7:
+  beq :++                   ; branch if timer reached 00
+  dec eny_boss_wpn_timer,X  ; decrement timer and rts
+:
   rts
-b_adb8:
-  jsr scroll_plr_up
+:                           ; timer reached 00, do stuff
+  jsr plr_stage_y_loc       ; get player y location to ram
   lda $00
   sec
-  sbc eny_spr_y_pos_hi,X
+  sbc eny_spr_y_pos_hi,X    ; player y pos hi - enemy y pos high
   sta $00
   lda $01
-  sbc eny_spr_y_pos_page,X
-  bne b_adb7
+  sbc eny_spr_y_pos_page,X  ; player y page - enemy y page
+  bne :--                   ; exit if enemy is on different page
   lda $00
   cmp #$04
-  bcs b_adb7
+  bcs :--                   ; exit if enemy is more than 04 vertical pixels above player
   jsr ram_misc_27
-  bcc b_adb7
-  lda unram_10
-  sta eny_boss_wpn_timer,X
+  bcc :--                   ; exit
+  lda eny_time_ram
+  sta eny_boss_wpn_timer,X  ; add time to enemy/boss weapon timer
   lda #$30
-  sta bos_timer,Y
+  sta eny_wpn_timer,Y       ; store 30 to enemy weapon timer
   lda #$00
   sta $00
   lda #$04
-  sta $01
-  lda eny_spr_substatus,X
-  bmi b_adef
+  sta $01                   ; store positive speed (to the right) of 4 to 00
+  lda eny_spr_substatus,X   ; if enemy substatus is positive, then flip bits to -ve to leftwards velocity of 4
+  bmi :+                    ; if enemy substatus is negative, branch and store positive/right velocity of 4
   jsr flip_bits_0
-b_adef:
+:                           ; b_adef
   lda $00
-  sta bos_x_inc_lo,Y
+  sta eny_wpn_x_speed_lo,Y
   lda $01
-  sta bos_x_inc_hi,Y
+  sta eny_wpn_x_speed_hi,Y  ; store enemy bullet speed of +/- 4.0 depending on enemy substatus
   lda #$00
-  sta bos_y_inc_lo,Y
-  sta bos_y_inc_hi,Y
+  sta eny_wpn_y_speed_lo,Y
+  sta eny_wpn_y_speed_hi,Y  ; store enemy bullet y speed of 0
   rts
 dec_boss_wpn_timer_2:
   lda eny_boss_wpn_timer,x
@@ -5684,17 +5686,17 @@ b_ae3d:
   bpl b_ae2b
 b_ae43:
   lda $04
-  sta bos_x_inc_lo,Y
+  sta eny_wpn_x_speed_lo,Y
   lda $05
-  sta bos_x_inc_hi,Y
+  sta eny_wpn_x_speed_hi,Y
   lda $00
-  sta bos_y_inc_lo,Y
+  sta eny_wpn_y_speed_lo,Y
   lda $01
-  sta bos_y_inc_hi,Y
-  lda unram_10
+  sta eny_wpn_y_speed_hi,Y
+  lda eny_time_ram
   sta eny_boss_wpn_timer,X
   lda #$30
-  sta bos_timer,Y
+  sta eny_wpn_timer,Y
   rts
 ram_misc_28:
   jsr ram_misc_29
@@ -5788,7 +5790,7 @@ b_af05:
   rts
 dec_boss_wpn_timer_4:
   lda eny_boss_wpn_timer,X
-  beq b_af1a
+  beq b_af1a                ; branch if boss weapon timer reaches 0 and fire another weapon
   dec eny_boss_wpn_timer,X
   rts
 b_af1a:
@@ -5812,15 +5814,15 @@ ram_misc_31:
   jsr ram_misc_27
   bcc b_af5a
   lda #$00
-  sta bos_x_inc_lo,Y
-  sta bos_x_inc_hi,Y
+  sta eny_wpn_x_speed_lo,Y
+  sta eny_wpn_x_speed_hi,Y
   lda $04
-  sta bos_y_inc_lo,Y
+  sta eny_wpn_y_speed_lo,Y
   lda $05
-  sta bos_y_inc_hi,Y
+  sta eny_wpn_y_speed_hi,Y
   lda #$40
-  sta bos_timer,Y
-  lda unram_10
+  sta eny_wpn_timer,Y
+  lda eny_time_ram
   sta eny_boss_wpn_timer,X
 b_af5a:
   rts
@@ -5830,7 +5832,7 @@ dec_boss_wpn_timer_5:     ; ******
   dec eny_boss_wpn_timer,X
   rts
 b_af64:
-  jsr scroll_plr_rt
+  jsr plr_stage_x_loc
   lda $00
   sec
   sbc eny_spr_x_pos_hi,X
@@ -5863,15 +5865,15 @@ j_af9c:               ; this section of the subroutine is repeated above ****
   jsr ram_misc_27
   bcc b_afbd
   lda #$00
-  sta bos_y_inc_lo,Y
-  sta bos_y_inc_hi,Y
+  sta eny_wpn_y_speed_lo,Y
+  sta eny_wpn_y_speed_hi,Y
   lda $04
-  sta bos_x_inc_lo,Y
+  sta eny_wpn_x_speed_lo,Y
   lda $05
-  sta bos_x_inc_hi,Y
+  sta eny_wpn_x_speed_hi,Y
   lda #$40
-  sta bos_timer,Y
-  lda unram_10
+  sta eny_wpn_timer,Y
+  lda eny_time_ram
   sta eny_boss_wpn_timer,X
 b_afbd:
   rts
@@ -5896,9 +5898,9 @@ b_afcb:
   jsr flip_bits_0
 b_afe1:
   lda $00
-  sta bos_x_inc_lo,Y
+  sta eny_wpn_x_speed_lo,Y
   lda $01
-  sta bos_x_inc_hi,Y
+  sta eny_wpn_x_speed_hi,Y
   lda #$00
   sta $00
   lda #$02
@@ -5909,15 +5911,15 @@ b_afe1:
   jsr flip_bits_0
 b_affc:
   lda $00
-  sta bos_y_inc_lo,Y
+  sta eny_wpn_y_speed_lo,Y
   lda $01
-  sta bos_y_inc_hi,Y
+  sta eny_wpn_y_speed_hi,Y
   lda #$20
-  sta bos_timer,Y
+  sta eny_wpn_timer,Y
   dec $0B
   bpl b_afcb
 b_b00f:
-  lda unram_10
+  lda eny_time_ram
   sta eny_boss_wpn_timer,X
   rts
 ram_misc_34:
@@ -5980,19 +5982,19 @@ b_b078:
   lda eny_spr_x_pos_hi,X
   clc
   adc $00
-  sta bos_x_pos_hi,Y
+  sta eny_wpn_x_pos_hi,Y
   lda eny_spr_x_pos_page,X
   adc $01
-  sta bos_x_pos_page,Y
+  sta eny_wpn_x_pos_page,Y
   lda eny_spr_y_pos_hi,X
   clc
   adc $02
-  sta bos_y_pos_hi,Y
+  sta eny_wpn_y_pos_hi,Y
   lda $02
   bpl b_b0aa
   lda eny_spr_y_pos_page,X
   adc #$ff
-  sta bos_y_pos_page,Y
+  sta eny_wpn_y_pos_page,Y
   jmp b_b0b2
 b_b0a8:
   clc
@@ -6000,15 +6002,15 @@ b_b0a8:
 b_b0aa:
   lda eny_spr_y_pos_page,X
   adc #$00
-  sta bos_y_pos_page,Y
+  sta eny_wpn_y_pos_page,Y
 b_b0b2:
   lda #$80
   sta eny_wpn_status,Y
   lda #$04
-  sta bos_sprite_type,Y
+  sta eny_wpn_sprite_type,Y
   sec
   rts
-scroll_plr_rt:
+plr_stage_x_loc:
   lda plr_x_prog_hi
   clc
   adc plr_x_pos_hi
@@ -6017,7 +6019,7 @@ scroll_plr_rt:
   adc #$00
   sta $01
   rts
-scroll_plr_up:
+plr_stage_y_loc:
   lda plr_y_prog_hi
   clc
   adc plr_y_pos_hi
@@ -6027,32 +6029,32 @@ scroll_plr_up:
   sta $01
   rts
 ram_misc_29:
-  jsr scroll_plr_up
+  jsr plr_stage_y_loc
   lda $00
   sta $02
   lda $01
   sta $03
-  jsr scroll_plr_rt
+  jsr plr_stage_x_loc
   rts
 ram_misc_33:
   lda current_level   ; load current level
   sta level_backup    ; store into current level backup
-  lda unram_22        ; load unram_22
+  lda eny_status_ram        ; load eny_status_ram
   sec                 ; set carry
   sbc level_backup    ; subtract current level backup
-  bcc b_b0ff          ; branch if unram_22 is less than current level backup
+  bcc b_b0ff          ; branch if eny_status_ram is less than current level backup
   cmp #$10
-  bcc b_b0ff          ; branch if unram_22 is up to $10 more than current level backup
+  bcc b_b0ff          ; branch if eny_status_ram is up to $10 more than current level backup
   cmp #$80
   bcs b_b104
-  sta unram_10
+  sta eny_time_ram
   rts
 b_b0ff:
   lda #$10
-  sta unram_10
+  sta eny_time_ram
   rts
 b_b104:
-  sta unram_10
+  sta eny_time_ram
   lda eny_spr_status,X
   ora #$20
   sta eny_spr_status,X
@@ -6174,19 +6176,19 @@ mid_tbl_b_3:        ; @$B226-B25B
   .byte $00,$00,$00,$00,$00,$00,$00,$00
   .byte $00,$00,$00,$00,$00,$00
 
-eny_00:
-  lda #$08  ; @$B25C, give enemy a powerup?
+eny_00:                   ; swooping Ramjet
+  lda #$08                ; load 08 to 00 ram
   sta $00
-  lda #$02
+  lda #$02                ; load 02 to 05 ram
   sta $05
-  jsr b_ab28
-  lda #$80
+  jsr move_enemy_vert     ; progress enemy y speed if needed
+  lda #$80                ; load speed of -1.5
   sta eny_x_inc_lo,X
   lda #$FE
-  sta eny_x_inc_hi,X
+  sta eny_x_inc_hi,X      ; store speed of -1.5
   lda #$30
-  sta unram_22
-  jsr dec_boss_wpn_timer
+  sta eny_status_ram
+  jsr ramjet_nemesis_timer
   rts
 eny_01: ; @$B279
   lda #$40
@@ -6276,9 +6278,9 @@ eny_03:  ; @$B323
   sta $00
   lda #$03
   sta $05
-  jsr b_ab28
+  jsr move_enemy_vert
   lda #$50
-  sta unram_22
+  sta eny_status_ram
   lda #$10
   sta $0A
   jsr dec_boss_wpn_timer_2  ; same as the first ****
@@ -6297,20 +6299,20 @@ eny_05:
   sta $00
   lda #$02
   sta $05
-  jsr b_ab28
+  jsr move_enemy_vert
   lda #$00
   sta eny_x_inc_lo,X
   lda #$ff
-  sta eny_x_inc_hi,X     ; give enemy powerup?? ***
+  sta eny_x_inc_hi,X
   rts
-eny_06:  
+eny_06:                 ; Tosher routine (ufo)
   lda #$20
   sta $00
   lda #$02
   sta $05
-  jsr enemy_misc_rtn_5
+  jsr move_tosher
   rts
-eny_07: ; @$B377
+eny_07: ; @$B377          Heru routine (mouse drone)
   lda eny_spr_x_pos_hi,X
   sta $00
   lda eny_spr_x_pos_page,X
@@ -6363,7 +6365,7 @@ b_b3dd:
   sta $03
   jsr eny_pu_misc   ; @$ACB8
   lda #$40
-  sta unram_22
+  sta eny_status_ram
   jsr dec_boss_wpn_timer_4
 b_b3ef:
   rts
@@ -6373,7 +6375,7 @@ eny_08:   ; b3f0 also bos_01
   lda #$01
   sta $05
 b_b3f8:
-  jsr b_ab28
+  jsr move_enemy_vert
 j_b3fb:
   lda eny_spr_substatus,X
   ora #$08
@@ -6451,21 +6453,21 @@ spawn_boss_enemy:
   lda rng_ram
   sta eny_y_inc_lo,Y    ; randomly assign initial vertical speed
   lda #$C0
-  sta unram_22
+  sta eny_status_ram
   lda num_bosses
   and #$02              ; check if 2 bosses
   beq :+                ; branch if only one boss
   lda #$f0
-  sta unram_22          ; f0 to unram_22 for 2 bosses, c0 for 1
+  sta eny_status_ram          ; f0 to eny_status_ram for 2 bosses, c0 for 1
 :
   jsr ram_misc_33
-  lda unram_10
+  lda eny_time_ram
   sta eny_boss_wpn_timer,X
 b_b4aa:
   rts
 bos_07: ; b4ab
   lda #$80
-  sta unram_22
+  sta eny_status_ram
   lda #$08
   sta $0B
 b_b4b3:
@@ -6509,7 +6511,7 @@ b_b4c7:
   lda $0B
   sta eny_spr_type,Y
   jsr ram_misc_33
-  lda unram_10
+  lda eny_time_ram
   sta eny_boss_wpn_timer,X
 b_b50f:
   rts
@@ -6536,7 +6538,7 @@ bos_05: ; b52d
   lda eny_spr_substatus,X
   ora #$04
   sta eny_spr_substatus,X
-  jsr scroll_plr_rt
+  jsr plr_stage_x_loc
   lda #$C0
   sta eny_x_inc_lo,X
   lda #$00
@@ -6580,7 +6582,7 @@ bos_06:  ; b570
   eor $08
   and #$01
   beq b_b5c1
-  jsr scroll_plr_rt
+  jsr plr_stage_x_loc
   lda #$80
   sta eny_x_inc_lo,X
   lda #$00
@@ -6619,7 +6621,7 @@ b_b5e4:
   lda #$02
   sta $05
   jsr enemy_misc_rtn_17
-  jsr scroll_plr_rt
+  jsr plr_stage_x_loc
   lda eny_spr_x_pos_hi,X
   sec
   sbc $00
@@ -6630,7 +6632,7 @@ b_b5e4:
   lda $00
   cmp #$50
   bcs b_b627
-  jsr scroll_plr_up
+  jsr plr_stage_y_loc
   lda eny_spr_y_pos_hi,X
   sec
   sbc $00
@@ -6646,7 +6648,7 @@ b_b5e4:
   sta eny_spr_substatus,X
 b_b627:
   lda #$C0
-  sta unram_22
+  sta eny_status_ram
   lda #$40
   sta $0A
   jsr dec_boss_wpn_timer_2
@@ -6654,7 +6656,7 @@ b_b627:
 enemy_misc_rtn_17:
   lda eny_spr_substatus,X
   sta $08
-  jsr b_ab28
+  jsr move_enemy_vert
   lda eny_spr_substatus,X
   eor $08
   and #$01
@@ -6695,7 +6697,7 @@ eny_0d: ;b678
   sta eny_x_inc_lo,X
   lda #$FE
   sta eny_x_inc_hi,X
-  jsr scroll_plr_rt
+  jsr plr_stage_x_loc
   lda eny_spr_x_pos_hi,X
   sec
   sbc $00
@@ -6727,7 +6729,7 @@ eny_0a:   ; b6b9
   sta eny_x_inc_hi,X
   lda #$02
   sta eny_y_inc_hi,X
-  jsr scroll_plr_up
+  jsr plr_stage_y_loc
   lda $00
   sec
   sbc#$10
@@ -6792,13 +6794,13 @@ b_b74e:
   lda $01
   sta eny_y_inc_hi,X
   lda #$38
-  sta unram_22
+  sta eny_status_ram
   lda #$40
   sta $0A
   jsr dec_boss_wpn_timer_2
   rts
 eny_0f:
-  jsr scroll_plr_rt
+  jsr plr_stage_x_loc
   lda eny_spr_x_pos_hi,X
   sec
   sbc $00
@@ -6828,7 +6830,7 @@ eny_10: ; b787
   sta $09
   jsr enemy_misc_rtn_3
   lda #$A0
-  sta unram_22
+  sta eny_status_ram
   lda #$00
   sta $0A
   jsr dec_boss_wpn_timer_2
@@ -6837,7 +6839,7 @@ eny_11: ; b7ac
   lda eny_spr_substatus,x
   and #$04
   bne b_b7db
-  jsr scroll_plr_rt
+  jsr plr_stage_x_loc
   lda $00
   sec
   sbc eny_spr_x_pos_hi,X
@@ -6892,7 +6894,7 @@ eny_13: ; b81c Azak
   lda eny_spr_substatus,X
   and #$04
   bne b_b84e
-  jsr scroll_plr_rt
+  jsr plr_stage_x_loc
   lda $00
   sec
   sbc eny_spr_x_pos_hi,X
@@ -6927,7 +6929,7 @@ b_b84e:
   sta eny_y_inc_lo,X
   sta eny_y_inc_hi,X
   lda #$B0
-  sta unram_22
+  sta eny_status_ram
   lda #$40
   sta $0A
   jsr dec_boss_wpn_timer_2
@@ -6942,13 +6944,13 @@ bos_09: ; b877
   rts
 :             ; b_b889
   lda #$50
-  sta unram_22
+  sta eny_status_ram              ; store 50 to eny_status_ram
   jsr ram_misc_27
   bcc b_b8c6
   lda #$00
-  sta bos_x_inc_lo,Y
+  sta eny_wpn_x_speed_lo,Y
   lda  #$fe
-  sta bos_x_inc_hi,Y
+  sta eny_wpn_x_speed_hi,Y
   lda eny_exp_timer,X
   sec
   sbc #$80
@@ -6961,18 +6963,18 @@ bos_09: ; b877
   asl $00
   rol $01
   lda $0
-  sta bos_y_inc_lo,Y
+  sta eny_wpn_y_speed_lo,Y
   lda $01
-  sta bos_y_inc_hi,Y
+  sta eny_wpn_y_speed_hi,Y
   lda #$40
-  sta bos_timer,Y
-  lda unram_10
+  sta eny_wpn_timer,Y
+  lda eny_time_ram
   sta eny_boss_wpn_timer,X
 b_b8c6:
   rts
 bos_0a: ; b8c7
   lda #$40
-  sta unram_22
+  sta eny_status_ram
   lda #$00
   sta $0A
   jsr dec_boss_wpn_timer_2
@@ -7023,7 +7025,7 @@ eny_17: ;b90f
   rts
 eny_18: ; b92a
   lda #$60
-  sta unram_22
+  sta eny_status_ram
   jsr dec_boss_wpn_timer_5
   rts
 eny_19: ; b932 gau/bugs also eny_2f
@@ -7036,7 +7038,7 @@ eny_19: ; b932 gau/bugs also eny_2f
 
 bos_0b: ; b93e
   lda #$80
-  sta unram_22
+  sta eny_status_ram
   lda #$0C
   sta $0B
   jmp b_b4b3
@@ -7047,7 +7049,7 @@ bos_0c: ; b948
   jmp j_b699
 :               ;b_b953
   lda #$B0
-  sta unram_22
+  sta eny_status_ram
   jsr dec_boss_wpn_timer_3
   rts
 bos_0d: ; b95b
@@ -7055,14 +7057,14 @@ bos_0d: ; b95b
   sta $00
   lda #$01
   sta $05
-  jsr b_ab28
+  jsr move_enemy_vert
   lda #$80
-  sta unram_22
+  sta eny_status_ram
   jsr dec_boss_wpn_timer_8
   rts
 bos_0e: ; b96e
   lda #$98
-  sta unram_22
+  sta eny_status_ram
   lda #$0F
   sta $0B
   jmp b_b4b3
@@ -7077,8 +7079,8 @@ bos_0f: ; b979
   sta $05
   jsr enemy_misc_rtn_17
   lda #$90
-  sta unram_22
-  jsr dec_boss_wpn_timer
+  sta eny_status_ram
+  jsr ramjet_nemesis_timer
   rts
 eny_1a: ; b996
   lda #$00
@@ -7114,7 +7116,7 @@ bos_10:  ; b9d0
   inc eny_exp_timer,X
   jsr enemy_misc_rtn_19
   lda #$78
-  sta unram_22
+  sta eny_status_ram
   lda #$11
   sta $0B
   jmp b_b4b3
@@ -7122,7 +7124,7 @@ bos_12: ; b9e1
   inc eny_exp_timer,X
   jsr enemy_misc_rtn_19
   lda #$80
-  sta unram_22
+  sta eny_status_ram
   lda #$19
   sta $0B
   lda #$19
@@ -7134,7 +7136,7 @@ bos_14: ; b9fa
   inc eny_exp_timer,X
   jsr enemy_misc_rtn_19
   lda #$50
-  sta unram_22
+  sta eny_status_ram
   lda #$13                  ; spawn bruticus bullet
   sta $0B
   lda #$0C
@@ -7146,7 +7148,7 @@ bos_15: ; ba13
   inc eny_exp_timer,X
   jsr enemy_misc_rtn_19
   lda #$80
-  sta unram_22
+  sta eny_status_ram
   lda #$13                  ; spawn bruticus bullet
   sta $0B
   lda #$18
@@ -7156,7 +7158,7 @@ bos_15: ; ba13
   jmp j_b4bb
 bos_16: ; ba2c
   lda #$B8
-  sta unram_22
+  sta eny_status_ram
   lda #$05                  ; spawn kabusu
   sta $0B
   lda #$00
@@ -7172,7 +7174,7 @@ eny_21: ; ba3d
   rts
 eny_26: ; ba49
   lda #$60
-  sta unram_22
+  sta eny_status_ram
   lda #$80
   sta $0A
   jsr dec_boss_wpn_timer_2
@@ -7182,7 +7184,7 @@ eny_26: ; ba49
   rts
 eny_27: ; ba5d
   lda #$60
-  sta unram_22
+  sta eny_status_ram
   lda #$40
   sta $0A
   jsr dec_boss_wpn_timer_2
@@ -7192,7 +7194,7 @@ eny_2b: ; ba69
   and #$20
   sta eny_spr_substatus,X
   lda #$60
-  sta unram_22
+  sta eny_status_ram
   lda #$2C
   sta $0B
   lda #$00
@@ -7204,7 +7206,7 @@ eny_23: ; ba82
   and #$20
   sta eny_spr_substatus,X
   lda #$80
-  sta unram_22
+  sta eny_status_ram
   lda #$24
   sta $0B
   lda #$00
@@ -7244,7 +7246,7 @@ b_bac0:
   rts
 eny_2a: ; bada
   lda #$60
-  sta unram_22
+  sta eny_status_ram
   lda #$10
   sta $0A
   jsr dec_boss_wpn_timer_2
@@ -7259,7 +7261,7 @@ eny_2d: ; bae6
   and #$80
   sta eny_spr_substatus,X
   lda #$38
-  sta unram_22
+  sta eny_status_ram
   lda #$2E
   sta $0B
   lda #$00
@@ -7335,7 +7337,7 @@ eny_12: ; bb7b
   sta $03
   jsr eny_pu_misc
   lda #$40
-  sta unram_22
+  sta eny_status_ram
   jsr dec_boss_wpn_timer_3
   rts
 eny_28: ; bb8e
@@ -7351,7 +7353,7 @@ bos_18: ; bb97
   bne b_bbe0
   lda #$01
   sta state
-  jsr scroll_plr_rt
+  jsr plr_stage_x_loc
   lda $00
   sec
   sbc eny_spr_x_pos_hi,X
@@ -7384,7 +7386,7 @@ b_bbe0:
 bos_17: ; bbe5
   lda #$01
   sta state
-  jsr scroll_plr_rt
+  jsr plr_stage_x_loc
   lda $00
   clc
   adc #$30
@@ -7931,7 +7933,7 @@ b_c434:
   beq b_c452
   jmp j_c564
 b_c452:
-  jsr scroll_plr_rt
+  jsr plr_stage_x_loc
   lda eny_spr_x_pos_hi,X
   sec
   sbc $00
@@ -7945,7 +7947,7 @@ b_c452:
   lda $00
   cmp $02
   bcs j_c494
-  jsr scroll_plr_up
+  jsr plr_stage_y_loc
   lda eny_spr_y_pos_hi,X
   sec
   sbc $00
@@ -8075,7 +8077,7 @@ j_c564:
   clc
   adc #$04
   sta $03
-  jsr scroll_plr_up
+  jsr plr_stage_y_loc
   lda #$00
   sta $06
   lda eny_spr_y_pos_hi,X
@@ -8108,7 +8110,7 @@ b_c5a5:
   sec
   sbc #$02
   sta $04
-  jsr scroll_plr_rt
+  jsr plr_stage_x_loc
   lda eny_spr_x_pos_hi,X
   sec
   sbc $00
@@ -8187,13 +8189,13 @@ chk_plr_hit:
   lda #$06              ; player y hitbox truck
   sta $03
 :
-  jsr scroll_plr_rt
+  jsr plr_stage_x_loc
   lda $00               ; load player x position hi
   sec
-  sbc bos_x_pos_hi,X
+  sbc eny_wpn_x_pos_hi,X
   sta $00
   lda $01               ; load player x position page
-  sbc bos_x_pos_page,X
+  sbc eny_wpn_x_pos_page,X
   sta $01
   jsr flip_bits_1
   lda $01
@@ -8201,13 +8203,13 @@ chk_plr_hit:
   lda $00
   cmp $02
   bcs nxt_eny_wpn_slot
-  jsr scroll_plr_up
+  jsr plr_stage_y_loc
   lda $00
   sec
-  sbc bos_y_pos_hi,X
+  sbc eny_wpn_y_pos_hi,X
   sta $00
   lda $01
-  sbc bos_y_pos_page,X
+  sbc eny_wpn_y_pos_page,X
   sta $01
   jsr flip_bits_1
   lda $01
