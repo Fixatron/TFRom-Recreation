@@ -40,6 +40,13 @@
             Stage 9 requires the player to hit 5 checkpoints or start the stage over again. As long as these 5 checkpoints are hit, you can take any path to the end of the level.
            The Black Baby in stage 9 is the old Takara Logo
 
+#   RAM cheats
+    - Store 40 to ram 0x22 to complete level (need to make 0x76 0 for level 9)
+    - Store FF to 0x53 for all powerups (0x54 is number of hits taken)
+    - 0x69 is number of lives, 0x6a is current level
+    - To jump to another level, press pause, enter the level before into ram and complete the level by storing 40 to ram 0x22
+    - 0x42 is player accelleration
+    - 0x41 is player max x speed, 0x3f is player max y speed
 
 #   Things I want to change
 

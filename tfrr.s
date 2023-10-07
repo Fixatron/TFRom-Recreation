@@ -7,6 +7,8 @@ max_bullet_frames       = $20 ; how many frames the bullet is on screen for
 missile_frames_int      = $30 ; how many frames the bullet is on screen for
 max_missile_frames      = $40 ; how many frames the bullet is on screen for
 ;;Custom defines
+current_enemy           = $0D
+
 timer_lo_byte           = $19
 timer_hi_byte           = $1A
 which_player            = $1B    ; 00= player 1, ff= player 2
@@ -16,7 +18,7 @@ rtn_trk_b               = $1E
 flash_counter           = $1F
 unram_27                = $20
 sel_status              = $21    ; selection status for title screen, 0= 1 player, FF=2 players
-state                   = $22    ; level state %0000 0000 start pushed at title, level complete, warp 2 stages, mining guy room trigger,  01 = level checkpoint reached
+state                   = $22    ; level state %0000 0000 start pushed at title, level complete, warp 2 stages, sideroom trigger,  01 = level checkpoint reached
 p1ScoreLo               = $23
 p1ScoreMid              = $24
 p1ScoreHi               = $25
@@ -37,7 +39,7 @@ player_sprite           = $33
 player_sprite_holder    = $34       ; normally: bot=04 truck=00
 transform_input_timer   = $35
 plr_sprite_status       = $36 ; 00000000 = truck,transforming,jumping,flying,0,0,0,0 (40= bot to truck, C0= truck to bot)
-plr_spr_aftr_trnsfrm    = $37
+plr_spr_aftr_trnsfrm    = $37 ; useless******
 wpn_timer               = $38
 wpn2_timer              = $39
 plr_y_speed_lo          = $3A
@@ -55,14 +57,14 @@ frame_counter_96        = $45   ; Resets every $60 frames, Counts to $18 by incr
 unram_17                = $46
 
 stage_boss              = $48   ; 00 is level, 01 is boss
-eny_status_ram                = $49
-eny_time_ram                = $4A   ; related to the boss wpn timer
+eny_status_ram          = $49
+eny_time_ram            = $4A   ; related to the boss wpn timer
 level_backup            = $4B
 unram_7                 = $4C
 num_bosses              = $4D   ; only stage 2 has 2 bosses
 jump_hold               = $4E   ; how long was jump button held for, 0c is max, 02 is about the lowest
 trnsfrmng_frame_counter = $4F
-player_un_pos           = $50   ; 0= standing 2= falling 4=alt mode 6=jumping/flying 
+plr_grnd_col_state           = $50   ; 0= standing 2= falling 4=alt mode 6=jumping/flying 
 plr_x_pos_hi_diff       = $51
 plr_y_pos_hi_diff       = $52
 power_up                = $53   ; %0000 0000 Flight, Dbl Shot, Barrier, *, *, *, *, *
@@ -224,7 +226,7 @@ eny_wpn_timer           = $054D
 ; enemy ram
 enemy_sprite_data_start = $0600
 eny_spr_status          = $0600     ; 80=alive,90=hit/transform,00=inactive,d0=explode,f0=explode
-eny_spr_substatus       = $0601     ; 01=direction, 19=frozen,20=stationary powerup,80=flip scprite horizontal
+eny_spr_substatus       = $0601     ; 01=vert direction, 19=frozen,20=stationary powerup,80=flip scprite horizontal %0000 0000 flip sprite horiz,,powerup?,,,,horiz direction,vert direction
 eny_spr_x_pos_lo        = $0602
 eny_spr_x_pos_hi        = $0603
 eny_spr_x_pos_page      = $0604
@@ -232,10 +234,10 @@ eny_spr_y_pos_lo        = $0605
 eny_spr_y_pos_hi        = $0606
 eny_spr_y_pos_page      = $0607
 eny_spr_type            = $0608     ; 00= jet, 01=tank,02=running bot,03=lobster,04=rocket,05=plumbus,06=UFO,07=vocano?,08=platform,09=?,10=crab,13=gundam,14=ratbat,15=ratbat tape,18=rosie,1a=starscream,1b=starscream bot,1c=cutebot,1f=energon cube,20=explosion A,21=cutebot,22=explosion B,26=wall turret,30=jet,34=P powerup,35=F,36=D,37=B,38=1up,39=R,3a=O,3b=d,3c=i,3d=m,3e=u,3f=s
-eny_x_inc_lo            = $0609
-eny_x_inc_hi            = $060A
-eny_y_inc_lo            = $060B
-eny_y_inc_hi            = $060C
+eny_x_spd_lo            = $0609
+eny_x_spd_hi            = $060A
+eny_y_spd_lo            = $060B
+eny_y_spd_hi            = $060C
 eny_exp_timer           = $060D
 eny_altmode             = $060E
 eny_boss_wpn_timer      = $060F
@@ -769,7 +771,7 @@ stack_handler_1:
   jmp pull_stack_and_rti
 :
   jsr enemy_sprite_rtn
-  jsr enemy_misc_rtn_4
+  jsr boss_defeated
   jsr flash_background
   jmp pull_stack_and_rti
 :
@@ -1530,7 +1532,7 @@ save_plr_x_prog:
   adc #$01
   sta $01
 load_scrolling_bg_tiles:
-  jsr get_lvl_nmtbl_addr
+  jsr get_bg_tile_tbl_addr
   lda current_level                 ; check if we're on a boss
   and #$01
   asl
@@ -1647,26 +1649,26 @@ inc_lvl_pal_addr:
   adc #$00
   sta $03
   rts
-get_lvl_nmtbl_addr:
-  lda current_level
-  asl
+get_bg_tile_tbl_addr:
+  lda current_level         ; glacier for example, is stage 7 or 0B
+  asl                       ; shift left to 16
   tax
-  lda stage_tbl_3,X
+  lda bg_column_table,X
   sta $09
-  lda stage_tbl_3+1,X
-  sta $0A
-  lda $00
-  and #$C0
+  lda bg_column_table+1,X
+  sta $0A                   ; stage 7 is CB45
+  lda $00                   ; load enemy x position hi (06for example)
+  and #$C0                  ; and %1100 0000
   sta $07
-  lda $01
-  sta $08
-  asl $07
-  rol $08
-  asl $07
-  rol $08
+  lda $01                   ; (01)
+  sta $08                   ; store enemy x page
+  asl $07                   ; multiply x pos hi by 2 (0)
+  rol $08                   ; roll the carry into 08 ram (02)
+  asl $07                   ; multiply x pos by 2 again (0)
+  rol $08                   ; roll another carry into 08 ram (04) : divide the x position into setions of 0x40 and number them starting from 00 to get stuff from the table
   ldy $08
-  lda ($09),Y
-  asl
+  lda ($09),Y               ; (04)
+  asl                       ; (08)
   tax
   lda bg_tile_table,X
   sta $02
@@ -2067,7 +2069,7 @@ ram_misc_14:
   jsr ram_misc_9
   rts
 :
-  jsr clear_x_inc
+  jsr stop_plr_x_speed
   jmp no_ram_misc_10
 :
   jsr ram_misc_10
@@ -2317,8 +2319,8 @@ truck_to_bot:
   sta plr_sprite_status       ; set bot mode
   sta player_sprite
   lda plr_spr_aftr_trnsfrm    ; this line is useless because this value was set to 04 when transforming from bot to truck
-  and #$FB                    ; useless line, clearing the 3rd bit.
-  sta plr_spr_aftr_trnsfrm
+  and #$FB                    ; useless line?******
+  sta plr_spr_aftr_trnsfrm    ; ^
   rts
 transform_y_pos_adjust:       ; this is done separate because its done earlier in the transformation
   lda plr_sprite_status
@@ -2336,46 +2338,46 @@ scroll_misc_1:
   lsr
   bcs d_exit
   lda #$00
-  sta player_un_pos
+  sta plr_grnd_col_state
   lda plr_sprite_status
   bpl b_9011            ; branch if bot mode
   lda #$02
-  sta player_un_pos     ; store 02 to player_un_pos if truck
+  sta plr_grnd_col_state     ; store 02 to plr_grnd_col_state if truck
 b_9011:
   lda plr_x_speed_hi
   bpl b_901b
-  lda player_un_pos
+  lda plr_grnd_col_state
   ora #$01
-  sta player_un_pos
+  sta plr_grnd_col_state
 b_901b:
-  lda player_un_pos
+  lda plr_grnd_col_state
   asl
   asl
   asl
-  sta player_un_pos
-  jsr inc_plr_un_pos
+  sta plr_grnd_col_state
+  jsr plr_grnd_col_chk
   bcc b_902a
 b_9027:
-  jmp clear_x_inc
+  jmp stop_plr_x_speed
 b_902a:
-  inc player_un_pos
-  inc player_un_pos
-  jsr inc_plr_un_pos
+  inc plr_grnd_col_state
+  inc plr_grnd_col_state
+  jsr plr_grnd_col_chk
   bcs b_9027
   lda plr_sprite_status
   bmi b_9049            ; rts if truck
-  inc player_un_pos
-  inc player_un_pos
-  jsr inc_plr_un_pos
+  inc plr_grnd_col_state
+  inc plr_grnd_col_state
+  jsr plr_grnd_col_chk
   bcs b_9027
-  inc player_un_pos
-  inc player_un_pos
-  jsr inc_plr_un_pos
+  inc plr_grnd_col_state
+  inc plr_grnd_col_state
+  jsr plr_grnd_col_chk
   bcs b_9027
 b_9049:
   rts
-inc_plr_un_pos:
-   ldx player_un_pos  
+plr_grnd_col_chk:
+   ldx plr_grnd_col_state          ; load player ground collision state
    lda plr_y_pos_hi
    clc
    adc plr_pos_tbl,X
@@ -2384,16 +2386,16 @@ inc_plr_un_pos:
    clc
    adc plr_pos_tbl+1,X
    sta plr_x_pos_hi_diff
-   jsr lvl_misc_rtn_1
-   jsr lvl_misc_rtn_2
+   jsr get_plr_bg_tile
+   jsr collision_chk_rtn
    rts
 plr_pos_tbl:    ; @$9063
         ; Y   X
-	.byte $0D,$08
-	.byte $05,$08
-	.byte $F5,$08
-	.byte $FD,$08
-	.byte $0D,$F7
+	.byte $0D,$08   ; on the ground
+	.byte $05,$08   ; falling
+	.byte $F5,$08   ; truck mode
+	.byte $FD,$08   ; truck mode, falling
+	.byte $0D,$F7   ; jumpting
 	.byte $05,$F7
 	.byte $F5,$F7
 	.byte $FD,$F7
@@ -2409,7 +2411,7 @@ plr_pos_rtn_0:
   lda plr_sprite_status     ; check if truck mode or transforing to bot 80/c0
   bmi b_9095    ; branch if truck mode/transforming from truck mode
   jsr plr_pos_rtn_1
-  jsr lvl_misc_rtn_2
+  jsr collision_chk_rtn
   bcc :+
   rts
 :
@@ -2437,26 +2439,26 @@ plr_pos_rtn_1:
   sta plr_y_pos_hi_diff
   lda plr_x_pos_hi
   sta plr_x_pos_hi_diff
-  jsr lvl_misc_rtn_1
+  jsr get_plr_bg_tile
   rts
 ram_misc_4:
   lda #$00
-  sta player_un_pos
+  sta plr_grnd_col_state
   lda plr_sprite_status
   bpl :+                ; branch if truck
   lda #$01
-  sta player_un_pos     ; load player_un_pos with 01 if bot
+  sta plr_grnd_col_state     ; load plr_grnd_col_state with 01 if bot
 :
-  asl player_un_pos     ; shift  01 left to 02 *****redundant
-  asl player_un_pos     ; shift 02 left to 04 **** redundant, just store a 0 or 4 if bot or truck
+  asl plr_grnd_col_state     ; shift  01 left to 02 *****redundant
+  asl plr_grnd_col_state     ; shift 02 left to 04 **** redundant, just store a 0 or 4 if bot or truck
   jsr grav_rtn_1
-  bcc grav_rtn_0        ; in c player_un_pos if carry is cleared
+  bcc grav_rtn_0        ; in c plr_grnd_col_state if carry is cleared
   rts
 grav_rtn_0:
-  inc player_un_pos
-  inc player_un_pos
+  inc plr_grnd_col_state
+  inc plr_grnd_col_state
 grav_rtn_1:
-  ldx player_un_pos
+  ldx plr_grnd_col_state
   lda plr_y_pos_hi
   clc
   adc grav_tbl_1,X
@@ -2465,8 +2467,8 @@ grav_rtn_1:
   clc
   adc grav_tbl_1+1,X
   sta plr_x_pos_hi_diff
-  jsr lvl_misc_rtn_1
-  jsr lvl_misc_rtn_2
+  jsr get_plr_bg_tile
+  jsr collision_chk_rtn
   rts
 grav_tbl_1:
   .byte $11,$05 ; bot
@@ -2702,7 +2704,7 @@ plr_x_move_rtn:
   sta $03
   lda $01
   cmp #$10
-  bcc clear_x_inc
+  bcc stop_plr_x_speed
   lda state
   lsr
   bcs b_92db
@@ -2748,7 +2750,7 @@ scroll_trig_rtn:
 center_player:
   sta plr_x_pos_hi
   rts
-clear_x_inc:
+stop_plr_x_speed:
   lda #$00
   sta plr_x_speed_lo
   sta plr_x_speed_hi
@@ -2757,7 +2759,7 @@ b_92db:
   lda $01
   cmp #$FA
   bcc b_92ad
-  jmp clear_x_inc
+  jmp stop_plr_x_speed
 b_92e4:
   lda $01
   cmp #$90
@@ -2994,7 +2996,7 @@ warp_2_stages:
   lda #$00
   sta sideroom_state
   rts
-lvl_misc_rtn_1:
+get_plr_bg_tile:
   lda plr_x_prog_hi
   clc
   adc plr_x_pos_hi_diff ; 
@@ -3009,94 +3011,94 @@ lvl_misc_rtn_1:
   lda plr_y_prog_pg
   adc #$00
   sta $0F
-lvl_misc_rtn_1a:
-  lda $00
+get_eny_bg_tile:             ; get column from tile table where enemy is positioned
+  lda $00                   ; load enemy x position hi
   sta plr_x_pos_hi_diff
-  lda $0E
+  lda $0E                   ; load enemy y position hi
   sta plr_y_pos_hi_diff
-  jsr get_lvl_nmtbl_addr
-  lda $00
-  and #$30
+  jsr get_bg_tile_tbl_addr  ; get current column of tiles table address and store to 02,03 and 07,08
+  lda $00                   ; load enemy x position hi
+  and #$30                  ; and %0011 0000
   lsr
   lsr
   lsr
   lsr
-  sta $04
-  lda $00
-  and #$30
+  sta $04                   ; divide by 16 and store in 4
+  lda $00                   ; load enemy x position hi
+  and #$30                  ; and %0011 0000
   sec
   sbc $04
-  sta $04 ; store 00, 0f/11, 1e/22, or 2d/33 into $04 ram
-b_94b2:
-  lda $0E
-  sec
-  sbc #$F0
-  sta $0E
+  sta $04                   ; store 00, 0f, 1e, or 2d into $04 ram to get one of 4 columns
+:                           ; b_94b2 loop back here for screen wrapping
+  lda $0E                   ; load enemy y position hi
+  sec 
+  sbc #$F0                  ; subtract F0, to wrap screen for vertical level
+  sta $0E                   ; store to 0e ram
   lda $0F
   sbc #$00
-  sta $0F
-  bcs b_94b2
-  lda $0E
+  sta $0F                   ; subtract carry and store in 0f ram
+  bcs :-                    ; loop back if we're on the same page
+  lda $0E                   ; load enemy y position - F0
   clc
-  adc #$F0
-  sta $0F
+  adc #$F0                  ; add back the F0
+  sta $0F                   ; store now to 0f ram
   lsr
   lsr
   lsr
   lsr
-  sta $05
+  sta $05                   ; divide by 16 and store in 05 ram, this is to find which vertical tile, 0 is at the top and 0F is at the bottom
   clc
-  lda $02
-  adc $04
+  lda $02                   ; load address of currnet section of tiles low byte
+  adc $04                   ; add 04 ram to select which of the 4 columns
   sta $02
   lda $03
   adc #$00
-  sta $03
+  sta $03                   ; add the carry to the high byte
   clc
   lda $02
-  adc $05
+  adc $05                   ; indicate which tile within the column to choose
   sta $02
   lda $03
   adc #$00
-  sta $03
-  ldy #$00
+  sta $03                   ; store address to load the tile where enemy is located
+  ldy #$00                  ; load 00 to y because we already have the address of the byte we need
   lda ($02),Y
-  sta $00
+  sta $00                   ; store which tile the enemy is on and rts
 b_94ee:
   rts
-lvl_misc_rtn_2:
+collision_chk_rtn:
   lda #$00
   sta $01
   lda current_level
   lsr
   bcs b_9538        ; branch if we're on a boss
-  lda $00
+  lda $00           ; load bg tile
   cmp #$53
-  bcc b_94ee
+  bcc b_94ee        ; branch to exit if tile is less than 53
   cmp #$AC
-  bcc b_9504
-  inc $01
+  bcc b_9504        ; branch if tile is less than AC
+  inc $01           ; increment 01 ram if tile is AC or above
 b_9504:
   cmp #$A6
-  bcc b_950a
-  inc $01
+  bcc b_950a        ; branch if tile is less than A6
+  inc $01           ; increment 01 ram if tile is A6 or more
 b_950a:
   cmp #$96
-  bcc b_9510
-  inc $01
+  bcc b_9510        ; branch if tile is less than 96
+  inc $01           ; increment 01 ram if tile is 96 or more
 b_9510:
   cmp #$7D
-  bcc b_9516
-  inc $01
+  bcc b_9516        ; branch if tile is less than 7D
+  inc $01           ; increment 01 ram if tile is 7D or more
 b_9516:       ; common routine for boss and level after we've appropriately incremented $01 in ram
-  lda $01
+  lda $01           ; load 01 ram
   asl
-  tax
-  lda lvl_misc_jmp_tbl,X    ; @$cc94,x
+  tax               ; multiply by 2 and store to x register
+  lda collision_jmp_tbl,X    ; @$cc94,x
   sta $09
-  lda lvl_misc_jmp_tbl+1,X
+  lda collision_jmp_tbl+1,X
   sta $0A
-  lda plr_y_pos_hi_diff
+  lda plr_y_pos_hi_diff ; load enemy y position high
   and #$0F
   lsr
   tax
@@ -3110,7 +3112,7 @@ b_9533:
   lsr
   dex
   bne b_9533
-  rts
+  rts           ; collision happened if carry is set, clear if no carry
 b_9538:
   lda $00
   cmp #$77
@@ -3240,6 +3242,7 @@ lvl_9_chkpts:
   .byte $44,$00,$20,$0A         ; end top checkpoint
   .byte $94,$00,$E0,$0A         ; end mid checkpoint
 
+; Level 9 checkpoint stuff
 lvl9_chk:
   lda chkpt_counter
   asl
@@ -3266,6 +3269,8 @@ b_9639:
   sta lvl9_clear
   inc chkpt_counter
   rts
+
+
 bkup_lvl_prog_for_side_lvl:
   lda y_scroll_lo
   sta bk_yScrlLo
@@ -3314,7 +3319,7 @@ load_lvl_prog_bkup:
   cpx #$0A        ; compare if level is stage 6
   bne b_96a0      ; go back to same y pos if current level is not 6
   sec
-  sbc #$08        ; go down 1 tile
+  sbc #$08        ; go down 1 tile if returning to stage 6
 b_96a0:
   sta plr_y_pos_hi
   lda bk_plrXPosLo
@@ -3347,28 +3352,30 @@ b_96b1:
 side_room_timer:
   lda room_timer_lo     ; load side room timer low byte
   clc
-  adc #$01        ; increment timer
+  adc #$01              ; increment timer
   sta room_timer_lo
   lda room_timer_hi
   adc #$00
   sta room_timer_hi     ; increment high byter with carry
   lda sub_state
   and #$20      ; 
-  bne b_96f2    ; branch if substate is 20? or has 5bit set, atleast
+  bne b_96f2            ; branch if substate is 20? or has 5bit set, atleast
   lda room_timer_hi
-  cmp #$05      ; once room timer has reached #$06
-  bcc b_96fc    ; branch out of this routine until room_timer_hi reaches 06
+  cmp #$05              ; once room timer has reached #$06
+  bcc b_96fc            ; branch out of this routine until room_timer_hi reaches 06
   lda #$A0      
-  sta sub_state ; load $A0 to substate once room_timer_lo reaches 06
+  sta sub_state         ; load $A0 to substate once room_timer_lo reaches 06
   rts
 b_96f2:
   lda room_timer_hi
   cmp #$06
-  bcc b_96fc    ; even if substate has 1bit set, loop back until room_timer_hi is 06
+  bcc b_96fc    ; branch to exit if room timer is less than 6
   lda #$10
-  sta state
+  sta state     ; load 10 to state to exit room
 b_96fc:
   rts
+
+; Player Weapon stuff
 wpn_misc_1:
   jsr wpn1_timer_rtn_1
   jsr wpn2_timer_rtn_1
@@ -3376,17 +3383,17 @@ wpn_misc_1:
 wpn1_timer_rtn_1:
   lda controller_current
   and #$02              ; check if B is pressed
-  bne dec_wpn1_timer
+  bne dec_wpn1_timer    ; branch if B is pressed
   lda #$00
-  sta wpn_timer
+  sta wpn_timer         ; reset weapon timer to 00
   rts
-dec_wpn1_timer:
+dec_wpn1_timer:         ; B is pressed
   lda wpn_timer
-  beq wpn1_timer_rtn_0
-  dec wpn_timer
+  beq wpn1_timer_rtn_0  ; branch if weapon timer is 00
+  dec wpn_timer         ; decrement weapon timer
   rts
 wpn1_timer_rtn_0:
-  lda #$18      ; start weapon1 timer
+  lda #$18              ; start weapon1 timer
   sta wpn_timer
   lda #max_bullets      ; number of max bullets on screen $04
   sta $00
@@ -3396,7 +3403,7 @@ wpn1_timer_rtn_0:
   beq b_9779
   jsr play_sound_wpn
   jsr fire_wpn
-  lda plr_sprite_status     ; check truck mode
+  lda plr_sprite_status ; check truck mode
   bmi b_975f            ; jump if truck weapon fire
   lda #$00
   sta wpn_y_inc_lo,X    ; load 0 vertical bullet speed
@@ -3636,8 +3643,8 @@ b_98e0:
   sta $0f
   txa
   pha
-  jsr lvl_misc_rtn_1a
-  jsr lvl_misc_rtn_2
+  jsr get_eny_bg_tile
+  jsr collision_chk_rtn
   pla
   tax
   bcc j_9907
@@ -4378,7 +4385,7 @@ b_a499:
   sta $00 
 lvl_misc_rtn_7:
   ldx #$00
-  jsr lvl_misc_rtn_6
+  jsr find_open_eny_ram_slot
   lda $00
   beq b_a4c9 
   lda ($09),Y
@@ -4434,7 +4441,7 @@ start_frm_cnt_96:
   lda unram_17
   sta $00
   ldx #$00
-  jsr lvl_misc_rtn_6
+  jsr find_open_eny_ram_slot
   lda $00
   beq b_a549
   jsr rng_rtn
@@ -4504,7 +4511,7 @@ b_a570:
   sec
   sbc unram_17
   sta $00
-  jsr lvl_misc_rtn_6
+  jsr find_open_eny_ram_slot
   lda $00
   beq b_a549
   lda $0B
@@ -4597,19 +4604,19 @@ b_a619:
   sta $05
   jsr lvl_misc_rtn_9
   bcs b_a632
-  jsr lvl_misc_rtn_10
+  jsr lvl_misc_rtn_a10
 b_a632:
   inc unram_7
   jmp b_a60f
 lvl_misc_rtn_3:
   lda #$04
   sta $08
-lvl_misc_rtn_11:
+lvl_misc_rtn_a11:
   jsr lvl_misc_rtn_8
   bne b_a647
   lda #$00
   sta unram_7
-  jmp lvl_misc_rtn_11
+  jmp lvl_misc_rtn_a11
 b_a647:
   lda plr_y_prog_hi
   sta $04
@@ -4622,7 +4629,7 @@ b_a647:
   sta $03
   jsr lvl_misc_rtn_9
   bcs b_a663
-  jsr lvl_misc_rtn_10
+  jsr lvl_misc_rtn_a10
   jmp b_a685
 b_a663:
   lda plr_y_prog_hi
@@ -4641,11 +4648,11 @@ b_a663:
   sta $05
   jsr lvl_misc_rtn_9
   bcs b_a685
-  jsr lvl_misc_rtn_10
+  jsr lvl_misc_rtn_a10
 b_a685:
   inc unram_7
   dec $08
-  bne lvl_misc_rtn_11
+  bne lvl_misc_rtn_a11
   rts
 lvl_misc_rtn_8:
   lda current_level
@@ -4691,7 +4698,7 @@ lvl_misc_rtn_9:
 b_a6cf:
   sec
   rts
-lvl_misc_rtn_10:
+lvl_misc_rtn_a10:
   ldy #$05
   lda ($00),Y
   asl
@@ -4723,26 +4730,26 @@ b_a6e0:
   lda ($00),Y
   sta eny_spr_type,X
   rts
-lvl_misc_rtn_6:
+find_open_eny_ram_slot:
   lda eny_spr_status,X
-  bpl b_a719
+  bpl :+                ; branch if we have an empty slot, use this x register
   txa
   clc
   adc #$10
   tax
   dec $00
-  bne lvl_misc_rtn_6
-b_a719:
+  bne find_open_eny_ram_slot
+:
   rts
 set_new_enemy:
   lda #$00
   sta eny_exp_timer,X
 set_new_enemy_no_reset_exp_timer:
   lda #$00
-  sta eny_x_inc_lo,X
-  sta eny_x_inc_hi,X
-  sta eny_y_inc_lo,X
-  sta eny_y_inc_hi,X
+  sta eny_x_spd_lo,X
+  sta eny_x_spd_hi,X
+  sta eny_y_spd_lo,X
+  sta eny_y_spd_hi,X
   sta eny_altmode,X
   sta eny_boss_wpn_timer,X
   sta eny_spr_substatus,X
@@ -4763,10 +4770,10 @@ b_a745:
   rts
 eny_spr_clear_data:
   lda #$00
-  sta eny_x_inc_lo,X
-  sta eny_x_inc_hi,X
-  sta eny_y_inc_lo,X
-  sta eny_y_inc_hi,X
+  sta eny_x_spd_lo,X
+  sta eny_x_spd_hi,X
+  sta eny_y_spd_lo,X
+  sta eny_y_spd_hi,X
   inc eny_exp_timer,x
   lda eny_exp_timer,x
   cmp #$20
@@ -4833,7 +4840,7 @@ enemy_sprite_rtn:
   lda #$0F
   sta $0C
 b_a7da:
-  stx $0D
+  stx current_enemy
   lda eny_spr_status,X
   bpl b_a820
   lda #$A8
@@ -4870,7 +4877,7 @@ b_a7f8:
   jmp ($0000)
 b_a820:
   nop
-  lda $0D
+  lda current_enemy
   clc
   adc #$10
   tax
@@ -4922,14 +4929,14 @@ j_a877:
   lda eny_spr_substatus,X
   and #$10
   bne b_a8fa
-  lda eny_x_inc_lo,X
+  lda eny_x_spd_lo,X
   sta $00
-  lda eny_x_inc_hi,X
+  lda eny_x_spd_hi,X
   sta $01
   jsr enemy_misc_rtn_15
-  lda eny_y_inc_lo,X
+  lda eny_y_spd_lo,X
   sta $00
-  lda eny_y_inc_hi,X
+  lda eny_y_spd_hi,X
   sta $01
   inx
   inx
@@ -5136,11 +5143,11 @@ b_aa02:
   sta $00
 b_aa0f:
   rts
-enemy_misc_rtn_4:
-  inc flash_counter
+boss_defeated:
+  inc flash_counter         ; increment flash counter
   lda flash_counter
   cmp #$C0
-  bcs b_aa69
+  bcs b_aa69                ; branch when clash counter reaches C0
   and #$0F
   bne b_aa68
   lda unram_27
@@ -5150,7 +5157,7 @@ enemy_misc_rtn_4:
   lda #$0F
   sta $00
   ldx #$00
-  jsr lvl_misc_rtn_6
+  jsr find_open_eny_ram_slot
   lda $00
   beq b_aa68
   jsr set_new_enemy
@@ -5221,13 +5228,13 @@ enemy_lookup_tbl:   ; @$aa72-ab27
   .word eny_1e  ;.byte $1D,$BB takara baby
   .word eny_1e  ;.byte $1D,$BB energon cube
   .word eny_none;.byte $3F,$AB explostion A
-  .word eny_21  ;.byte $3D,$BA
+  .word eny_21  ;.byte $3D,$BA Maara
   .word eny_none;.byte $3F,$AB explostion B
-  .word eny_23  ;.byte $82,$BA
-  .word eny_24  ;.byte $A6,$BA
-  .word eny_25  ;.byte $0F,$BC
-  .word eny_26  ;.byte $49,$BA
-  .word eny_27  ;.byte $5D,$BA
+  .word eny_23  ;.byte $82,$BA invisible floating ball spawner, not used? maybe from the volcanos...
+  .word eny_24  ;.byte $A6,$BA floating balls?
+  .word eny_25  ;.byte $0F,$BC unused platforms (level 9) you need to shoot them to get them to stop and stand on them. otherwise magnus gets hurt if he touches one and it explodes
+  .word eny_26  ;.byte $49,$BA rabu
+  .word eny_27  ;.byte $5D,$BA ganzo wall slug
   .word eny_28  ;.byte $8E,$BB megatron poster
   .word eny_none;.byte $3F,$AB
   .word eny_2a  ;.byte $DA,$BA
@@ -5259,20 +5266,20 @@ boss_lookup_tbl:    ; boss stuff
   .word bos_03  ;.byte $0E,$B4  platform
   .word bos_04  ;.byte $18,$B4  platform
   .word bos_05  ;.byte $2D,$B5  kabusu
-  .word bos_06  ;.byte $70,$B5  
-  .word bos_07  ;.byte $AB,$B4  
-  .word bos_08  ;.byte $C2,$B5  
-  .word bos_09  ;.byte $77,$B8  
+  .word bos_06  ;.byte $70,$B5  kabusu
+  .word bos_07  ;.byte $AB,$B4  Decepticon Red
+  .word bos_08  ;.byte $C2,$B5  Cymbal from red decepticon
+  .word bos_09  ;.byte $77,$B8  Nemesis
   .word bos_0a  ;.byte $C7,$B8  
-  .word bos_0b  ;.byte $3E,$B9  
-  .word bos_0c  ;.byte $49,$B9  firewheel
+  .word bos_0b  ;.byte $3E,$B9  Decepticon Blue
+  .word bos_0c  ;.byte $49,$B9  cymbal from blue decepticon (unused firewheel, nemesis palette/boss fight)
   .word bos_0d  ;.byte $5B,$B9  scary spider
   .word bos_0e  ;.byte $6E,$B9  decepticon boss
   .word bos_0f  ;.byte $79,$B9  nemesis boss
 	.word bos_10  ;.byte $D0,$B9  trypticon
-  .word eny_0d  ;.byte $78,$B6  explosion
+  .word eny_0d  ;.byte $78,$B6  trypticon blast explosion
   .word bos_12  ;.byte $E1,$B9  Menasor
-  .word eny_0d  ;.byte $78,$B6
+  .word eny_0d  ;.byte $78,$B6  Bruticus/Megatron bullet
   .word bos_14  ;.byte $FA,$B9  Bruticus
   .word bos_15  ;.byte $13,$BA  Megatron
   .word bos_16  ;.byte $2C,$BA
@@ -5283,31 +5290,31 @@ boss_lookup_tbl:    ; boss stuff
 
 
 move_enemy_vert:        ; b_ab28
-  lda eny_y_inc_lo,X
+  lda eny_y_spd_lo,X
   sta $06
-  lda eny_y_inc_hi,X
+  lda eny_y_spd_hi,X
   sta $07
-  jsr ram_misc_8
+  jsr enemy_move_rtn
   lda $06
-  sta eny_y_inc_lo,X
+  sta eny_y_spd_lo,X
   lda $07
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_hi,X
 eny_none:  ; ab1d
   rts
-enemy_kabasu_rtn:
-  lda eny_x_inc_lo,X
+ratbat_platform_x_rtn:
+  lda eny_x_spd_lo,X
   sta $06
-  lda eny_x_inc_hi,X
+  lda eny_x_spd_hi,X
   sta $07
-  jsr ram_misc_8
+  jsr enemy_move_rtn
   lda $06
   sta $00
   lda $07
   sta $01
   lda $00
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda $01
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X
   rts
 enemy_misc_rtn_16:
   lda #$00
@@ -5317,27 +5324,27 @@ enemy_misc_rtn_16:
   beq :+
   lsr $05
   jmp enemy_invert_direction
-ram_misc_8:
+enemy_move_rtn:
   lda #$00
   sta $01
   lda eny_spr_substatus,X
-  and #$01          ; 0th bit indicates y direction?
+  and #$01          ; 0th bit indicates y acceleration, 0 acellerate down, 1 acellerate up
   beq :+        ; skip flipping bits
 enemy_invert_direction:
-  jsr flip_bits_0
+  jsr flip_bits_0   ; flip bits to negative
   :
   lda $06           ; enemy y speed low
   clc
-  adc $00           ; #$06 from misc_ram_rtn_18
+  adc $00           ; add speed increment
   sta $00           ; store added speed
   sta $02
   lda $07           ; enemy y speed high
   adc $01           ; add the carry to the y speed high byte
   sta $01
   sta $03
-  jsr flip_bits_1
+  jsr flip_bits_1   ; flip bits if they're negative
   lda $01
-  cmp $05           ; 02 enemy max y speed
+  cmp $05           ; compare with enemy max speed
   bcc b_abac        ; store the new speed if its less than max speed
   lda eny_spr_substatus,X
   and #$01          ; check enemy substatus for 0th bit set
@@ -5347,44 +5354,44 @@ enemy_invert_direction:
 b_aba3:
   lda eny_spr_substatus,X
   eor #$01
-  sta eny_spr_substatus,X
+  sta eny_spr_substatus,X ; change vertical direction
   rts
 b_abac:
   lda $02
   sta $06
   lda $03
-  sta $07
+  sta $07           ; set new enemy vertical speed
   rts
-enemy_misc_rtn_3:
+enemy_vert_off_plr_rtn:
   lda eny_spr_substatus,X
-  sta $08
+  sta $08                   ; store enemy substatus to 08 ram
   jsr move_enemy_vert
   lda eny_spr_substatus,X
   eor $08
   and #$01
-  beq b_abf2
+  beq b_abf2                ; branch to exit if enemy hasnt changed y direction
   ldy #$00
   lda eny_spr_y_pos_hi,X
   clc
-  adc $09
+  adc $09                   ; add enemy y offset to enemy y position 
   sta $04
   lda eny_spr_y_pos_page,X
   adc #$00
-  sta $05
-  jsr plr_stage_y_loc
-  lda $04
+  sta $05                   ; store enemy location with offset
+  jsr plr_stage_y_loc       ; get player y coordinates
+  lda $04                   ; load enemy y location with offset
   sec
-  sbc $00
+  sbc $00                   ; enemy y pos(+offset) - player y pos
   lda $05
   sbc $01
-  bcc b_abe6
-  iny
+  bcc b_abe6                ; branch if player above enemy
+  iny                       ; increment Y if enemy is around or just above player y location
 b_abe6:
   sty $00
   lda eny_spr_substatus,X
-  and #$FE
+  and #$FE                  ; clear enemy substatus vertical acceleration
   ora $00
-  sta eny_spr_substatus,X
+  sta eny_spr_substatus,X   ; set vertical acceleration as needed
 b_abf2:
   rts
 
@@ -5401,13 +5408,13 @@ move_tosher:
   bcc b_ac1b                ; branch of Tosher is within C0 horizontal pixels or ~10(24?) tiles from player
 b_ac08:
   lda #$00                  ; stop Tosher vertical movement if farther than C0 from player
-  sta eny_y_inc_lo,X
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_lo,X
+  sta eny_y_spd_hi,X
 b_ac10:                     ; continue moving Tosher horizonal
   lda #$80
-  sta eny_x_inc_lo,X        ; store 80 to Tosher speed low byte
+  sta eny_x_spd_lo,X        ; store 80 to Tosher speed low byte
   lda #$FE
-  sta eny_x_inc_hi,X        ; store FE to Tosher speed high byte, moving left
+  sta eny_x_spd_hi,X        ; store FE to Tosher speed high byte, moving left
   rts
 b_ac1b:                     ; Tosher is within ~10 tiles from player
   jsr plr_stage_y_loc
@@ -5425,69 +5432,69 @@ b_ac1b:                     ; Tosher is within ~10 tiles from player
   sbc $01                   ; enemy y page - player y page
   bcs b_ac08                ; branch if player is above enemy, or if player position is higher
   lda #$00                  ; stop Tosher horizontal movement
-  sta eny_x_inc_lo,X
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_lo,X
+  sta eny_x_spd_hi,X
   lda #$80
-  sta eny_y_inc_lo,X        ; store 80 to Tosher y speed low byte
+  sta eny_y_spd_lo,X        ; store 80 to Tosher y speed low byte
   lda #$04
-  sta eny_y_inc_hi,X        ; store 04 to Tosher y speed high byte, speed of 4.5
+  sta eny_y_spd_hi,X        ; store 04 to Tosher y speed high byte, speed of 4.5
   rts   
 
-b_ac4b:
-  jsr lvl_misc_rtn_1a
-  jsr lvl_misc_rtn_2
-  ldx $0D
-  bcs b_ac66
+eny_ground_collision:
+  jsr get_eny_bg_tile
+  jsr collision_chk_rtn
+  ldx current_enemy
+  bcs b_ac66          ; branch if colided with ground
   lda #$00
-  sta eny_y_inc_lo,X
-  sta eny_x_inc_lo,X
-  sta eny_x_inc_hi,X
+  sta eny_y_spd_lo,X
+  sta eny_x_spd_lo,X
+  sta eny_x_spd_hi,X
   lda #$02
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_hi,X  ; add gravity to enemy by making 2.0 y speed
   rts
 b_ac66:
   lda #$00
-  sta eny_y_inc_lo,X
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_lo,X
+  sta eny_y_spd_hi,X
   rts
-chk_eny_substatus:        ; @$ac6f
+move_enemy_horiz:        ; @$ac6f
   lda #$00
   sta $01
-  lda eny_spr_substatus,X
+  lda eny_spr_substatus,X ; check substatus
   and #$02
-  beq b_ac7d
-  jsr flip_bits_0
+  beq b_ac7d              ; if substatus doesnt have 02 then skip flipping bits, enemy is moving left, time to move enemy right
+  jsr flip_bits_0         ; if enemy substatus has 1th bit enabled, then flip bits, enemy is moving right, lets make enemy move left
 b_ac7d:
-  lda eny_x_inc_lo,X
+  lda eny_x_spd_lo,X
   clc
   adc $00
   sta $00
-  sta $02
-  lda eny_x_inc_hi,X
+  sta $02                 ; add speed increment and store to 00 and 02 ram
+  lda eny_x_spd_hi,X
   adc $01
-  sta $01
+  sta $01                 ; add carry with enemy x speed high and store in 01 and 03 ram
   sta $03
-  bpl b_acaf
-  jsr flip_bits_1
+  bpl b_acaf              ; branch out and set enemy sprite status with 02 if enemy speed is positive
+  jsr flip_bits_1         ; flip bits to positive
   lda $01
-  cmp $05
-  bcc b_aca4
+  cmp $05                 ; compare new enemy x speed high with max speed
+  bcc b_aca4              ; branch out and increment enemy x speed if we havent reached max x speed
   lda eny_spr_substatus,X
   and #$FD
-  sta eny_spr_substatus,X
+  sta eny_spr_substatus,X ; clear bit for x direction in enemy sprite status if enemy reached max x speed
   rts
 b_aca4:
   lda $02
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda $03
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X      ; increment x speed
   rts
 b_acaf:
   lda eny_spr_substatus,X
   ora #$02
-  sta eny_spr_substatus,X
+  sta eny_spr_substatus,X   ; set enemy sprite status with 02 for positive x speed or 00 
   rts
-eny_pu_misc:        ; @$ acb8
+eny_wall_collision:        ; @$ acb8
   lda stage_boss
   asl
   tay
@@ -5499,12 +5506,12 @@ eny_pu_misc:        ; @$ acb8
   asl
   tay
   lda ($04),y
-  sta $0
+  sta $00                   ; get enemy x hitbox
   lda #$00
-  sta $01
-  lda eny_x_inc_hi,X
-  bpl b_acf5
-  jsr flip_bits_0
+  sta $01                   ; uh, did we not want to get the y hitbox dimension?
+  lda eny_x_spd_hi,X
+  bpl b_acf5                ; branch if enemy has a positive speed
+  jsr flip_bits_0           ; flip hitbox bits to negative
   lda $02
   sec
   sbc #$01
@@ -5512,16 +5519,16 @@ eny_pu_misc:        ; @$ acb8
   lda $03
   sbc #$00
   eor #$ff
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X
   lda $02
   eor #$ff
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X        ; set nevative direction
   jmp b_acff
 b_acf5:
   lda $02
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda $03
-  sta eny_x_inc_hi,x
+  sta eny_x_spd_hi,x        ; set positive directgion
 b_acff:
   lda eny_spr_x_pos_hi,X
   clc
@@ -5534,16 +5541,16 @@ b_acff:
   sta $0E
   lda eny_spr_y_pos_page,X
   sta $0F
-  jsr lvl_misc_rtn_1a
-  jsr lvl_misc_rtn_2
-  ldx $0D
+  jsr get_eny_bg_tile
+  jsr collision_chk_rtn
+  ldx current_enemy
   bcc b_ad32
-  lda eny_x_inc_lo,X
+  lda eny_x_spd_lo,X
   eor #$ff
-  sta eny_x_inc_lo,X
-  lda  eny_x_inc_hi,X
+  sta eny_x_spd_lo,X
+  lda  eny_x_spd_hi,X
   eor #$ff
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X
 b_ad32:
   rts
 ram_misc_35:
@@ -5562,7 +5569,7 @@ ram_misc_35:
   sta $00
   lda #$00
   sta $01
-  lda eny_y_inc_hi,X
+  lda eny_y_spd_hi,X
   bpl b_ad71
   jsr flip_bits_0
   lda $02
@@ -5572,16 +5579,16 @@ ram_misc_35:
   lda $03
   sbc #$00
   eor #$ff
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_hi,X
   lda $02
   eor #$ff
-  sta eny_y_inc_lo,X
+  sta eny_y_spd_lo,X
   jmp j_ad7b
 b_ad71:
   lda $02
-  sta eny_y_inc_lo,X
+  sta eny_y_spd_lo,X
   lda $03
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_hi,X
 j_ad7b:
   lda eny_spr_y_pos_hi,X
   clc
@@ -5594,19 +5601,19 @@ j_ad7b:
   sta $00
   lda eny_spr_x_pos_page,X
   sta $01
-  jsr lvl_misc_rtn_1a
-  jsr lvl_misc_rtn_2
-  ldx $0D
+  jsr get_eny_bg_tile
+  jsr collision_chk_rtn
+  ldx current_enemy
   bcc b_adae
-  lda eny_y_inc_lo,X
+  lda eny_y_spd_lo,X
   eor #$ff
-  sta eny_y_inc_lo,X
-  lda eny_y_inc_hi,X
+  sta eny_y_spd_lo,X
+  lda eny_y_spd_hi,X
   eor #$ff
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_hi,X
 b_adae:
   rts
-ramjet_nemesis_timer:
+ramjet_cymbalP_timer:
   lda eny_boss_wpn_timer,X
   beq :++                   ; branch if timer reached 00
   dec eny_boss_wpn_timer,X  ; decrement timer and rts
@@ -5699,7 +5706,7 @@ b_ae43:
   sta eny_wpn_timer,Y
   rts
 ram_misc_28:
-  jsr ram_misc_29
+  jsr plr_stage_x_y_loc
   lda $00
   sec
   sbc eny_spr_x_pos_hi,X
@@ -5826,7 +5833,7 @@ ram_misc_31:
   sta eny_boss_wpn_timer,X
 b_af5a:
   rts
-dec_boss_wpn_timer_5:     ; ******
+eny_18_wpn_timer:     ; ******
   lda eny_boss_wpn_timer,X
   beq b_af64
   dec eny_boss_wpn_timer,X
@@ -5839,7 +5846,7 @@ b_af64:
   lda $01
   sbc eny_spr_x_pos_page,X
   bcs b_af80
-  jmp j_af94
+  jmp fire_eny_wpn
 dec_boss_wpn_timer_6:     ; ******
   lda eny_boss_wpn_timer,X
   beq b_af80
@@ -5853,10 +5860,10 @@ b_af80:
   jmp j_af9c
 dec_boss_wpn_timer_7:     ; ******
   lda eny_boss_wpn_timer,X
-  beq j_af94
+  beq fire_eny_wpn
   dec eny_boss_wpn_timer,X
   rts
-j_af94:
+fire_eny_wpn:
   lda #$00
   sta $04
   lda #$fe
@@ -5937,7 +5944,7 @@ b_b017:
 b_b027:
   rts
 ram_misc_27:
-  jsr ram_misc_33
+  jsr eny_set_wpn_time
   lda eny_spr_status,X
   and #$20
   bne b_b0a8
@@ -6028,7 +6035,7 @@ plr_stage_y_loc:
   adc #$00
   sta $01
   rts
-ram_misc_29:
+plr_stage_x_y_loc:
   jsr plr_stage_y_loc
   lda $00
   sta $02
@@ -6036,10 +6043,10 @@ ram_misc_29:
   sta $03
   jsr plr_stage_x_loc
   rts
-ram_misc_33:
+eny_set_wpn_time:
   lda current_level   ; load current level
   sta level_backup    ; store into current level backup
-  lda eny_status_ram        ; load eny_status_ram
+  lda eny_status_ram  ; load eny_status_ram
   sec                 ; set carry
   sbc level_backup    ; subtract current level backup
   bcc b_b0ff          ; branch if eny_status_ram is less than current level backup
@@ -6092,9 +6099,9 @@ b_b139:
   bcc b_b173
 b_b143:
   lda $00
-  sta eny_y_inc_lo,X
+  sta eny_y_spd_lo,X
   lda $01
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_hi,X
   rts
 b_b14e:
   lda y_scroll_lo
@@ -6183,18 +6190,18 @@ eny_00:                   ; swooping Ramjet
   sta $05
   jsr move_enemy_vert     ; progress enemy y speed if needed
   lda #$80                ; load speed of -1.5
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda #$FE
-  sta eny_x_inc_hi,X      ; store speed of -1.5
+  sta eny_x_spd_hi,X      ; store speed of -1.5
   lda #$30
   sta eny_status_ram
-  jsr ramjet_nemesis_timer
+  jsr ramjet_cymbalP_timer
   rts
-eny_01: ; @$B279
+eny_01: ; @$B279  Blitzwing
   lda #$40
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda #$ff
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X
   lda eny_spr_x_pos_hi,X
   sta $00
   lda eny_spr_x_pos_page,X
@@ -6206,14 +6213,14 @@ eny_01: ; @$B279
   lda eny_spr_y_pos_page,X
   adc #$00
   sta $0F
-  jsr lvl_misc_rtn_1a
-  jsr lvl_misc_rtn_2
-  ldx $0D
+  jsr get_eny_bg_tile
+  jsr collision_chk_rtn
+  ldx current_enemy
   bcc b_b2b1
   lda #$00
-  sta eny_y_inc_lo,X
+  sta eny_y_spd_lo,X
   lda #$fe 
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_hi,X
   rts
 b_b2b1:
   lda eny_spr_x_pos_hi,X
@@ -6227,13 +6234,13 @@ b_b2b1:
   lda eny_spr_y_pos_page,X
   adc #$00
   sta $0F
-  jsr b_ac4b
+  jsr eny_ground_collision
   rts
-eny_02: ; @b2ce
+eny_02: ; @b2ce           bot
   lda #$00
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda #$ff
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X
   lda eny_spr_x_pos_hi,X
   sta $00
   lda eny_spr_x_pos_page,X
@@ -6245,14 +6252,14 @@ eny_02: ; @b2ce
   lda eny_spr_y_pos_page,X
   adc #$00
   sta $0f
-  jsr lvl_misc_rtn_1a
-  jsr lvl_misc_rtn_2
-  ldx $0d
+  jsr get_eny_bg_tile
+  jsr collision_chk_rtn
+  ldx current_enemy
   bcc b_b306
   lda #$00
-  sta eny_y_inc_lo,X
+  sta eny_y_spd_lo,X
   lda #$fe
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_hi,X
   rts
 b_b306:
   lda eny_spr_x_pos_hi,X
@@ -6266,14 +6273,14 @@ b_b306:
   lda eny_spr_y_pos_page,X
   adc #$00
   sta $0F
-  jsr b_ac4b
+  jsr eny_ground_collision
   rts
 eny_03:  ; @$B323
   lda #$20
   sta $00
   lda #$02
   sta $05
-  jsr chk_eny_substatus
+  jsr move_enemy_horiz
   lda #$18
   sta $00
   lda #$03
@@ -6285,27 +6292,27 @@ eny_03:  ; @$B323
   sta $0A
   jsr dec_boss_wpn_timer_2  ; same as the first ****
   rts
-eny_04:
+eny_04:                   ; Crack (lobster)
   lda #$40
-  sta $00
+  sta $00                 ; load speed increment
   lda #$04
-  sta $05
+  sta $05                 ; load max speed
   lda #$18
-  sta $09
-  jsr enemy_misc_rtn_3
+  sta $09                 ; load y offset
+  jsr enemy_vert_off_plr_rtn  ; set y speed depending on player y location or max speed change vertical acceration direction
   rts
-eny_05:
-  lda #$08
+eny_05:                   ; hammer (plumbus)
+  lda #$08                ; speed increment
   sta $00
   lda #$02
-  sta $05
+  sta $05                 ; max speed
   jsr move_enemy_vert
   lda #$00
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda #$ff
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X
   rts
-eny_06:                 ; Tosher routine (ufo)
+eny_06:                   ; Tosher routine (ufo)
   lda #$20
   sta $00
   lda #$02
@@ -6323,14 +6330,14 @@ eny_07: ; @$B377          Heru routine (mouse drone)
   sta $0E
   lda eny_spr_y_pos_page,X
   adc #$00
-  sta $0F
-  jsr b_ac4b
+  sta $0F                     ; get enemy x and y position and store to ram 00 01 and 0e 0f, but offset y by adding 06
+  jsr eny_ground_collision
   bcc b_b3ef
   lda #$04
   sta $00
   lda #$00
   sta $01
-  lda eny_x_inc_hi,X
+  lda eny_x_spd_hi,X
   bpl b_b3a5
   jsr flip_bits_0
 b_b3a5:
@@ -6348,38 +6355,38 @@ b_b3a5:
   lda eny_spr_y_pos_page,X
   adc #$00
   sta $0F
-  jsr lvl_misc_rtn_1a
-  jsr lvl_misc_rtn_2
-  ldx $0d
-  bcs b_b3dd
-  lda eny_x_inc_lo,X
+  jsr get_eny_bg_tile
+  jsr collision_chk_rtn
+  ldx current_enemy
+  bcs b_b3dd          
+  lda eny_x_spd_lo,X
   eor #$ff
-  sta eny_x_inc_lo,X
-  lda eny_x_inc_hi,X
+  sta eny_x_spd_lo,X
+  lda eny_x_spd_hi,X
   eor #$ff
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X  ; reverse direction if enemy is not colliding with floor/reached the edge of a platform
 b_b3dd:
   lda #$00
   sta $02
   lda #$02
   sta $03
-  jsr eny_pu_misc   ; @$ACB8
+  jsr eny_wall_collision   ; @$ACB8 if collided with a wall, reverse direction
   lda #$40
   sta eny_status_ram
   jsr dec_boss_wpn_timer_4
 b_b3ef:
   rts
-eny_08:   ; b3f0 also bos_01
+eny_08:   ; b3f0 platform, also bos_01  
   lda #$04
-  sta $00
+  sta $00                   ; y speed increment
   lda #$01
-  sta $05
+  sta $05                   ; max y speed
 b_b3f8:
   jsr move_enemy_vert
 j_b3fb:
   lda eny_spr_substatus,X
   ora #$08
-  sta eny_spr_substatus,X
+  sta eny_spr_substatus,X   ; set 3rd bit of enemy sprite status
   rts
 
 bos_02: ; b404
@@ -6407,11 +6414,11 @@ eny_0b:
   sta $05
   lda #$00
   sta $09
-  jsr enemy_misc_rtn_3
+  jsr enemy_vert_off_plr_rtn
   lda #$40
-  sta  eny_x_inc_lo,X
+  sta  eny_x_spd_lo,X
   lda #$ff
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X
   rts
 bos_00:
   jsr enemy_misc_rtn_6
@@ -6423,12 +6430,12 @@ spawn_kabusu:
   lda #$0F
   sta $00
   ldx #$00
-  jsr lvl_misc_rtn_6
+  jsr find_open_eny_ram_slot
   lda $00
   beq b_b4aa
   jsr set_new_enemy
   stx $00
-  ldx $0D
+  ldx current_enemy
   ldy $00
   lda eny_spr_x_pos_hi,X
   sta eny_spr_x_pos_hi,Y
@@ -6451,7 +6458,7 @@ spawn_boss_enemy:
   sta eny_spr_type,Y
   jsr rng_rtn
   lda rng_ram
-  sta eny_y_inc_lo,Y    ; randomly assign initial vertical speed
+  sta eny_y_spd_lo,Y    ; randomly assign initial vertical speed
   lda #$C0
   sta eny_status_ram
   lda num_bosses
@@ -6460,7 +6467,7 @@ spawn_boss_enemy:
   lda #$f0
   sta eny_status_ram          ; f0 to eny_status_ram for 2 bosses, c0 for 1
 :
-  jsr ram_misc_33
+  jsr eny_set_wpn_time
   lda eny_time_ram
   sta eny_boss_wpn_timer,X
 b_b4aa:
@@ -6486,13 +6493,13 @@ b_b4c7:
   lda #$0F
   sta $00
   ldx #$00
-  jsr lvl_misc_rtn_6
+  jsr find_open_eny_ram_slot
   lda $00
   beq b_b50f
   jsr play_boss_wpn_sound
   jsr set_new_enemy
   stx $00
-  ldx $0D
+  ldx current_enemy
   ldy $00
   lda eny_spr_x_pos_hi,X
   sec
@@ -6510,7 +6517,7 @@ b_b4c7:
   sta eny_spr_y_pos_page,Y
   lda $0B
   sta eny_spr_type,Y
-  jsr ram_misc_33
+  jsr eny_set_wpn_time
   lda eny_time_ram
   sta eny_boss_wpn_timer,X
 b_b50f:
@@ -6531,18 +6538,18 @@ enemy_misc_rtn_6:
 b_b52a:
   sty unram_12
   rts
-bos_05: ; b52d
+bos_05: ; b52d                Kabusu A
   lda eny_spr_substatus,X
   and #$04
   bne b_b560
   lda eny_spr_substatus,X
   ora #$04
-  sta eny_spr_substatus,X
-  jsr plr_stage_x_loc
+  sta eny_spr_substatus,X   ; set ememy sprite status 2nd bit, left right bit
+  jsr plr_stage_x_loc       ; get player x location to 00 and 01 ram
   lda #$C0
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda #$00
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X        ; set enemy speed 0.75 to the right
   lda eny_spr_x_pos_hi,X
   sec
   sbc $00
@@ -6550,9 +6557,9 @@ bos_05: ; b52d
   sbc $01
   bcc b_b560
   lda #$40
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda #$ff
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X
 b_b560:
   lda #$20
   sta $00
@@ -6560,33 +6567,33 @@ b_b560:
   sta $05
   lda #$00
   sta $09
-  jsr enemy_misc_rtn_3
+  jsr enemy_vert_off_plr_rtn
   rts
-bos_06:  ; b570
+bos_06:  ; b570         Kabusu B
   lda #$10
   sta $00
   lda #$02
   sta $05
-  lda eny_y_inc_lo,X
+  lda eny_y_spd_lo,X
   sta $06
-  lda eny_y_inc_hi,X
+  lda eny_y_spd_hi,X
   sta $07
   lda eny_spr_substatus,X
   sta $08
   jsr enemy_misc_rtn_16
   lda $06
-  sta eny_y_inc_lo,X
+  sta eny_y_spd_lo,X
   lda $07
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_hi,X
   lda eny_spr_substatus,X
   eor $08
   and #$01
   beq b_b5c1
   jsr plr_stage_x_loc
   lda #$80
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda #$00
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X
   lda eny_spr_x_pos_hi,X
   sec
   sbc $00
@@ -6594,26 +6601,26 @@ bos_06:  ; b570
   sbc $01
   bcc b_b5c1
   lda #$80
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda #$ff
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X
 b_b5c1:
   rts
 
 bos_08: ; b5c2
   lda #$C0
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda #$ff
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X
   lda eny_spr_substatus,X
   and #$04
   beq b_b5e4
   lda #$00
-  sta eny_y_inc_lo,X
-  sta eny_y_inc_hi,x
-  sta eny_x_inc_lo,X
+  sta eny_y_spd_lo,X
+  sta eny_y_spd_hi,x
+  sta eny_x_spd_lo,X
   lda #$fe
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X
   rts
 b_b5e4:
   lda #$0C
@@ -6675,60 +6682,60 @@ b_b64f:
   sta eny_spr_substatus,X
 b_b65b:
   rts
-eny_09: ; b65c
+eny_09: ; b65c platform X
   lda #$06
-  sta $00
+  sta $00               ; x speed increment
   lda #$01
-  sta $05
-  jsr enemy_kabasu_rtn
+  sta $05               ; x max speed
+  jsr ratbat_platform_x_rtn
   jmp j_b3fb
-eny_0c: ; b66a
+eny_0c: ; b66a        platform stationary
   lda #$80
   sta $02
   lda #$00
   sta $03
-  jsr eny_pu_misc
+  jsr eny_wall_collision
   jmp j_b3fb
-eny_0d: ;b678
+eny_0d: ;b678               laserbeak
   lda eny_spr_substatus,X
   and #$04
   bne b_b6b8
   lda #$00
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda #$FE
-  sta eny_x_inc_hi,X
-  jsr plr_stage_x_loc
+  sta eny_x_spd_hi,X          ; set speed of -2.0
+  jsr plr_stage_x_loc         ; get player x location
   lda eny_spr_x_pos_hi,X
   sec
-  sbc $00
+  sbc $00                     ; eny x loc - plr x loc
   lda eny_spr_x_pos_page,X
-  sbc $01
-  bne b_b6b8
+  sbc $01                     ; check page
+  bne b_b6b8                  ; branch out if different page
 j_b699:
   jsr ram_misc_28
   lda $04
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda $05
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X
   lda $00
-  sta eny_y_inc_lo,X
+  sta eny_y_spd_lo,X
   lda $01
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_hi,X
   lda eny_spr_substatus,X
   ora #$04
   sta eny_spr_substatus,X
 b_b6b8:
   rts
-eny_0a:   ; b6b9
+eny_0a:   ; b6b9 
   lda eny_spr_substatus,X
   and #$04
   bne b_b714
   lda #$00
-  sta eny_y_inc_lo,X
-  sta eny_x_inc_lo,X
-  sta eny_x_inc_hi,X
+  sta eny_y_spd_lo,X
+  sta eny_x_spd_lo,X
+  sta eny_x_spd_hi,X
   lda #$02
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_hi,X
   jsr plr_stage_y_loc
   lda $00
   sec
@@ -6751,9 +6758,9 @@ eny_0a:   ; b6b9
   sta $0E
   lda eny_spr_y_pos_page,X
   sta $0F
-  jsr lvl_misc_rtn_1a
-  jsr lvl_misc_rtn_2
-  ldx $0D
+  jsr get_eny_bg_tile
+  jsr collision_chk_rtn
+  ldx current_enemy
   bcs b_b713
   lda eny_spr_substatus,X
   ora #$04
@@ -6762,73 +6769,73 @@ b_b713:
   rts
 b_b714:
   lda #$80
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda #$ff
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X
   lda #$00
   sta $02
   lda #$01
   sta $03
   jsr ram_misc_35
   rts
-eny_0e: ; b72a
+eny_0e: ; b72a            condor
   lda #$00
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda #$ff
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X      ; store enemy speed of -1.0
   lda #$00
   sta $00
   sta $01
   lda eny_spr_y_pos_hi,X
   cmp #$28
-  beq b_b74e
+  beq b_b74e              ; branch to stop y velocity at y position 28
   lda #$20
   sta $00
   lda #$00
-  sta $01
+  sta $01                 ; ready vertical velocity of +0.125
   bcc b_b74e
   jsr flip_bits_0
 b_b74e:
   lda $00
-  sta eny_y_inc_lo,X
+  sta eny_y_spd_lo,X
   lda $01
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_hi,X      ; store new vertical velocity
   lda #$38
-  sta eny_status_ram
+  sta eny_status_ram      ; store 0x38 in enemy status ram for weapon timer
   lda #$40
   sta $0A
   jsr dec_boss_wpn_timer_2
   rts
-eny_0f:
-  jsr plr_stage_x_loc
+eny_0f:                     ; zunonbat closed
+  jsr plr_stage_x_loc       ; get player x location
   lda eny_spr_x_pos_hi,X
   sec
   sbc $00
   sta $00
   lda eny_spr_x_pos_page,X
   sbc $01
-  sta $01
-  jsr flip_bits_1
+  sta $01                   ; get the x difference between Zunonbat and player
+  jsr flip_bits_1           ; flip bits if player is coming from the right
   lda $01
-  bne b_b786
+  bne :+                    ; branch to exit if on different page
   lda $00
-  cmp #$40
-  bcs b_b786
-  inc eny_spr_type,X      ; increment enemy sprite type ***
-b_b786:
+  cmp #$40                  ; branch to exit if 0x40 or more pixels away
+  bcs :+
+  inc eny_spr_type,X        ; increment enemy sprite type to zunonbat flying
+:                           ; b_b786
   rts
-eny_10: ; b787
+eny_10: ; b787              ; zunonbat flying
   lda #$80
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda #$ff
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X        ; store -0.5 to Zunonbat speed
   lda #$20
-  sta $00
+  sta $00                   ; speed increment
   lda #$02
-  sta $05
+  sta $05                   ; max speed
   lda #$00
-  sta $09
-  jsr enemy_misc_rtn_3
+  sta $09                   ; 00 offset
+  jsr enemy_vert_off_plr_rtn
   lda #$A0
   sta eny_status_ram
   lda #$00
@@ -6866,9 +6873,9 @@ b_b7db:
   beq b_b7f5
   dec eny_boss_wpn_timer,X
   lda #$00
-  sta eny_y_inc_lo,X
+  sta eny_y_spd_lo,X
   lda #$01
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_hi,X
   rts
 b_b7f5:
   lda eny_spr_substatus,X
@@ -6881,9 +6888,9 @@ b_b7fe:
   bcs b_b813
   inc eny_boss_wpn_timer,X
   lda #$00
-  sta eny_y_inc_lo,X
+  sta eny_y_spd_lo,X
   lda #$ff
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_hi,X
   rts
 b_b813:
   lda eny_spr_substatus,X
@@ -6892,26 +6899,26 @@ b_b813:
   rts
 eny_13: ; b81c Azak
   lda eny_spr_substatus,X
-  and #$04
-  bne b_b84e
-  jsr plr_stage_x_loc
+  and #$04                  ; check enemy substatus to see if Azak has already popped up
+  bne b_b84e                ; branch out if it is
+  jsr plr_stage_x_loc       ; get player x location
   lda $00
   sec
-  sbc eny_spr_x_pos_hi,X
+  sbc eny_spr_x_pos_hi,X    ; player x location - enemy x location
   sta $00
   lda $01
-  sbc eny_spr_x_pos_page,X
+  sbc eny_spr_x_pos_page,X  ; player x page - enemy x page
   sta $01
-  jsr flip_bits_1
+  jsr flip_bits_1           ; flip bits to positive if negative, which it should be if we're approaching from the left, enemy would have a higher x value
   lda $01
-  bne b_b84d
+  bne b_b84d                ; branch if enemy is on a different page from player
   lda $00
-  cmp #$48
-  bcs b_b84d
+  cmp #$48                  ; check if player is 0x48 away from Azak
+  bcs b_b84d                ; branch out if player is 0x48 away or more
   lda eny_spr_substatus,X
   ora #$04
-  sta eny_spr_substatus,X
-  jsr play_azak_sound
+  sta eny_spr_substatus,X   ; set enemy sprite status to 04, active
+  jsr play_azak_sound       ; play Azak unique sound
 b_b84d:
   rts
 b_b84e:
@@ -6919,22 +6926,22 @@ b_b84e:
   cmp #$10
   bcs :+
   lda #$00
-  sta eny_y_inc_lo,X
+  sta eny_y_spd_lo,X
   lda #$fe
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_hi,X
   inc eny_exp_timer,X
   rts
 :               ; b_b863
   lda #$00
-  sta eny_y_inc_lo,X
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_lo,X
+  sta eny_y_spd_hi,X
   lda #$B0
   sta eny_status_ram
   lda #$40
   sta $0A
   jsr dec_boss_wpn_timer_2
   rts
-bos_09: ; b877
+bos_09: ; b877    nemesis
   jsr enemy_misc_rtn_6
   inc eny_exp_timer,X
   jsr enemy_misc_rtn_19
@@ -6979,54 +6986,54 @@ bos_0a: ; b8c7
   sta $0A
   jsr dec_boss_wpn_timer_2
   rts
-eny_14: ; b8d3
+eny_14: ; b8d3  ratbat
   lda #$10
   sta $00
   lda #$02    ; enemy max y speed
   sta $05
-  jsr enemy_kabasu_rtn
+  jsr ratbat_platform_x_rtn
   rts
-eny_15: ; b8df  
+eny_15: ; b8df  ratbat tape
   lda eny_spr_substatus,X
   ora #$08
-  sta eny_spr_substatus,X
+  sta eny_spr_substatus,X     ; load enemy with substatus of 08
   rts
-eny_16: ; b8e8
+eny_16: ; b8e8            snow commander (this guy sounds awesome, why has nobody made a character called snow commander?)
   lda #$00
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda #$fe
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X          ; set enemy x speed of -2.0
   lda eny_spr_x_pos_hi,x
   sta $00
   lda eny_spr_x_pos_page,X
-  sta $01
+  sta $01                     ; get enemy x position into ram
   lda eny_spr_y_pos_hi,X
   clc
   adc #$06
   sta $0E
   lda eny_spr_y_pos_page,X
   adc #$00
-  sta $0F
-  jsr b_ac4b
+  sta $0F                     ; get enemy y position but add 06 (offset) before storing to ram
+  jsr eny_ground_collision
   rts
-eny_17: ;b90f
+eny_17: ;b90f                 wasta, similar to crack lobster, the pattern is wavy but has a y offset of 0C, so stays closer to player's height
   lda #$20
   sta $00
   lda #$02
   sta $05
-  jsr chk_eny_substatus
+  jsr move_enemy_horiz
   lda #$20
   sta $00
   lda #$02
   sta $05
   lda #$0C
   sta $09
-  jsr enemy_misc_rtn_3
+  jsr enemy_vert_off_plr_rtn
   rts
-eny_18: ; b92a
-  lda #$60
+eny_18: ; b92a              zaffuru, just a turret, no movement, just shoot on a timer
+  lda #$60                  ; ready enemy timer with 60
   sta eny_status_ram
-  jsr dec_boss_wpn_timer_5
+  jsr eny_18_wpn_timer
   rts
 eny_19: ; b932 gau/bugs also eny_2f
   lda #$00
@@ -7068,11 +7075,11 @@ bos_0e: ; b96e
   lda #$0F
   sta $0B
   jmp b_b4b3
-bos_0f: ; b979
+bos_0f: ; b979  cymbal from purple decepticon
   lda #$00
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda #$FF
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X
   lda #$0C
   sta $00
   lda #$02
@@ -7080,24 +7087,24 @@ bos_0f: ; b979
   jsr enemy_misc_rtn_17
   lda #$90
   sta eny_status_ram
-  jsr ramjet_nemesis_timer
+  jsr ramjet_cymbalP_timer
   rts
-eny_1a: ; b996
+eny_1a: ; b996              Starscrem jetmode
   lda #$00
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda #$fe
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X        ; set x speed to -2.0
   rts
-eny_1b: ; b9a1  
+eny_1b: ; b9a1              Starscrem bot
   lda #$00
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda #$03
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X        ; set x speed to 3.0
   lda #$80
-  sta eny_spr_substatus,X
+  sta eny_spr_substatus,X   ; set substatus to active
   lda plr_x_prog_hi
   clc
-  adc #$40
+  adc #$40                  ; add 40 to player x progress because thats 1/4 of the screen, already player progress starts at the middle of the sceen which is 80, so the actual distance is C0 minimum
   sta $00
   lda plr_x_prog_pg
   adc #$01
@@ -7107,10 +7114,10 @@ eny_1b: ; b9a1
   sbc $00
   lda eny_spr_x_pos_page,X
   sbc $01
-  bcc b_b9cf
+  bcc :+
   lda #$00
-  sta eny_spr_status,X
-b_b9cf:
+  sta eny_spr_status,X      ; remove enemy once 3/4 of a screen away from player
+:                           ; b_b9cf
   rts
 bos_10:  ; b9d0
   inc eny_exp_timer,X
@@ -7165,12 +7172,12 @@ bos_16: ; ba2c
   sta $0E
   sta $0f
   jmp dec_boss_wpn_timer_11
-eny_21: ; ba3d
+eny_21: ; ba3d              Maara     just goes horizontally until it hits a wall then reverses direction
   lda #$00
   sta $02
   lda #$01
   sta $03
-  jsr eny_pu_misc
+  jsr eny_wall_collision
   rts
 eny_26: ; ba49
   lda #$60
@@ -7196,53 +7203,53 @@ eny_2b: ; ba69
   lda #$60
   sta eny_status_ram
   lda #$2C
-  sta $0B
+  sta $0B                   ; load which enemy to spawn
   lda #$00
   sta $0E
   sta $0F
   jmp dec_boss_wpn_timer_11
-eny_23: ; ba82
+eny_23: ; ba82              ball spawner
   lda eny_spr_substatus,X
   and #$20
   sta eny_spr_substatus,X
   lda #$80
   sta eny_status_ram
   lda #$24
-  sta $0B
+  sta $0B                   ; load which enemy to spawn
   lda #$00
   sta $0E
   sta $0F
   jmp dec_boss_wpn_timer_11
 eny_2c: ; ba9b
   lda #$00
-  sta eny_y_inc_lo,X
+  sta eny_y_spd_lo,X
   lda #$fe
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_hi,X
   rts
 eny_24: ; baa6
   lda eny_spr_substatus,X
   and #$04
   bne b_bac0
   lda #$80
-  sta eny_y_inc_lo,X
+  sta eny_y_spd_lo,X
   lda #$fe
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_hi,X
   lda eny_spr_substatus,X
   ora #$04
   sta eny_spr_substatus,X
   rts
 b_bac0:
   lda #$00
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda #$ff
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X
   lda #$10
   sta $00
   lda #$02
   sta $05
   lda #$00
   sta $09
-  jsr enemy_misc_rtn_3
+  jsr enemy_vert_off_plr_rtn
   rts
 eny_2a: ; bada
   lda #$60
@@ -7256,8 +7263,8 @@ eny_2d: ; bae6
   sta $02
   lda #$02
   sta $03
-  jsr eny_pu_misc
-  lda eny_x_inc_hi,X
+  jsr eny_wall_collision
+  lda eny_x_spd_hi,X
   and #$80
   sta eny_spr_substatus,X
   lda #$38
@@ -7271,11 +7278,11 @@ eny_2d: ; bae6
   jmp dec_boss_wpn_timer_11
 eny_2e: ; bb0c
   lda #$00
-  sta eny_x_inc_lo,X
-  sta eny_x_inc_hi,X
-  sta eny_y_inc_lo,X
+  sta eny_x_spd_lo,X
+  sta eny_x_spd_hi,X
+  sta eny_y_spd_lo,X
   lda #$03
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_hi,X
   rts                 ; hidden boss code end
 eny_1e: ; bb1d
   lda eny_spr_substatus,X
@@ -7321,29 +7328,29 @@ b_bb51:
   sta $01
   jsr flip_bits_0
   lda $00
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda $01
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X
   rts
 eny_powerup: ; bb72
   lda eny_spr_substatus,X
   ora #$20
   sta eny_spr_substatus,X
   rts
-eny_12: ; bb7b
-  lda #$00
+eny_12: ; bb7b      Guardian
+  lda #$00                    ; speed increment 
   sta $02
-  lda #$02
+  lda #$02                    ; max speed
   sta $03
-  jsr eny_pu_misc
-  lda #$40
+  jsr eny_wall_collision
+  lda #$40                    ; weapon time
   sta eny_status_ram
   jsr dec_boss_wpn_timer_3
   rts
-eny_28: ; bb8e
+eny_28: ; bb8e              Megatron poster
   lda eny_spr_substatus,X
   ora #$20
-  sta eny_spr_substatus,X
+  sta eny_spr_substatus,X   ; or the substatus with 20
   rts
 bos_18: ; bb97
   lda eny_spr_substatus,X
@@ -7397,12 +7404,12 @@ bos_17: ; bbe5
   rts
 bos_19: ; bbfc
   lda #$80
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda #$FD
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X
   lda #$00
-  sta eny_y_inc_lo,X
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_lo,X
+  sta eny_y_spd_hi,X
   rts
 eny_25: ; bc0f
   lda #$80
@@ -7433,13 +7440,13 @@ b_bc32:
   sta eny_spr_substatus,X
   jsr ram_misc_28
   lda $04
-  sta eny_x_inc_lo,X
+  sta eny_x_spd_lo,X
   lda $05
-  sta eny_x_inc_hi,X
+  sta eny_x_spd_hi,X
   lda $00
-  sta eny_y_inc_lo,X
+  sta eny_y_spd_lo,X
   lda $01
-  sta eny_y_inc_hi,X
+  sta eny_y_spd_hi,X
 b_bc58:
   lda eny_spr_y_pos_hi,X
   cmp plr_y_pos_hi
@@ -7825,10 +7832,10 @@ eny_has_altmode:
   beq show_powerup
 enemy_stop:
   lda #$00
-  sta eny_x_inc_lo,Y
-  sta eny_x_inc_hi,Y
-  sta eny_y_inc_lo,Y
-  sta eny_y_inc_hi,Y
+  sta eny_x_spd_lo,Y
+  sta eny_x_spd_hi,Y
+  sta eny_y_spd_lo,Y
+  sta eny_y_spd_hi,Y
   sta eny_exp_timer,Y
   rts
 freeze_enemy:
@@ -7973,20 +7980,20 @@ j_c494:
   jmp j_c406
 :
   rts
-plr_collide_pu_jet:
+plr_collide_eny_wpn:
   lda power_up
-  and #$20
-  beq plr_died
+  and #$20              ; player was hit, check for powerup
+  beq plr_died          ; no powerup, you died
   lda eny_spr_type,X
-  jsr get_eny_score
+  jsr get_eny_score     ; still get the points for a suicide kill
   lda #$00
-  sta eny_exp_timer,X
+  sta eny_exp_timer,X   ; set 0 to enemy explosion timer
   lda eny_spr_status,X
   ora #$40
-  sta eny_spr_status,X
-  inc hits_taken
+  sta eny_spr_status,X  ; or 40 with enemy sprite status
+  inc hits_taken        ; increment hits taken
   lda #$00
-  sta eny_wpn_status,X
+  sta eny_wpn_status,X  ; disable enemy bullet
   lda hits_taken
   cmp #$04              ; check if we've recieved max hits taken
   bcc j_c494            ; branch if we still have hits left
@@ -8013,7 +8020,7 @@ get_powerup:
   cmp #$23          ; 23 is blank space?
   beq j_c494
   cmp #$34          ; 33 is jet w/powerup
-  bcc plr_collide_pu_jet
+  bcc plr_collide_eny_wpn
   ldy #$40          ; dbl shot powerup is 40
   cmp #$35          ; 34 is P powerup
   bcc get_x_powerup
@@ -8035,7 +8042,7 @@ get_powerup:
   dec $00
   bpl :-
   ora rodimus_ram
-  sta rodimus_ram
+  sta rodimus_ram   ; add letter to rodimus ram
 clear_powerup_sprite:
   lda #$00
   sta eny_spr_status,X
@@ -8045,7 +8052,7 @@ clear_powerup_sprite:
   jmp j_c494
 get_energon_cube:
   lda #$64
-  sta incScoreLo          ; raise points increment
+  sta incScoreLo          ; add 1000 points 
   lda #$00
   sta incScoreHi
   jsr increment_score
@@ -8158,16 +8165,16 @@ b_c5fb:
   ldy #$10
 b_c605:
   sty $00
-  lda eny_y_inc_lo,X
+  lda eny_y_spd_lo,X
   sec
   sbc $00
   sta plr_y_speed_lo
-  lda eny_y_inc_hi,X
+  lda eny_y_spd_hi,X
   sbc #$00
   sta plr_y_speed_hi
-  lda eny_x_inc_lo,X
+  lda eny_x_spd_lo,X
   sta enemy_speed_lo
-  lda eny_x_inc_hi,X
+  lda eny_x_spd_hi,X
   sta enemy_speed_hi
   lda plr_sprite_status
   ora #$08              ; crouching?
@@ -8333,10 +8340,10 @@ eny_hitbox_table:         ; @c79c enemy hitbox stuff
   .byte $04,$04,$04,$04,$04,$04,$04,$04 ; 3C I,M,U,S
 bos_hitbox_table:  ; @c81c boss stuff
   .byte $06,$06,$0C,$04,$0C,$04,$0C,$04 ; 00 planet,platform,platform,platform
-  .byte $0C,$04,$04,$05,$04,$05,$04,$06 ; 04 platform,Kabusu,Kabusu
-  .byte $04,$04,$04,$06,$06,$06,$04,$06 ; 08
-  .byte $04,$04,$08,$08,$04,$06,$04,$04 ; 0C Unused firewheel(Nemesis palette),Scary Spider,Decepticon,Nemesis
-  .byte $04,$08,$08,$08,$04,$06,$04,$04 ; 10 Trypticon,Explosion A,Menasor,Bruticus Bullet
+  .byte $0C,$04,$04,$05,$04,$05,$04,$06 ; 04 platform,Kabusu,Kabusu,Decepticon-red
+  .byte $04,$04,$04,$06,$06,$06,$04,$06 ; 08 cymbals-Dred,Nemesis,,Decepticon-Blue
+  .byte $04,$04,$08,$08,$04,$06,$04,$04 ; 0C Unused firewheel(Nemesis palette)cymbals-Dblue,Scary Spider,Decepticon-Purp,cymbals-Purp
+  .byte $04,$08,$08,$08,$04,$06,$04,$04 ; 10 Trypticon,Trypticonblast/Explosion A,Menasor,Bruticus/Megatron Bullet
   .byte $04,$06,$04,$06,$0C,$04,$06,$06 ; 14 Bruticus,Megatron,,Bumblebee(Bot)
   .byte $06,$06,$08,$02                 ; 18 Bumblebee,Menasor Laser
 
@@ -8423,7 +8430,7 @@ player_acceleration_tbl:     ; @$CA11-CA1A
   .byte $20,$20,$20,$20,$20,$20,$20,$20,$20,$20
 	.byte $20,$20,$0C,$20,$20,$20,$20,$20,$20,$20   ; stage 7 has low acceleration because of the ice
   .byte $20,$20,$20,$20,$20,$20,$20,$20,$20 ; @$CA1B-CA2CCC76
-stage_tbl_3:          ; @$CA2D-CBC2
+bg_column_table:          ; @$CA2D-CBC2
   ; jump table
   .byte $69,$CA,$9A,$CA ; stage 1
   .byte $9E,$CA,$CF,$CA ; stage 2
@@ -8440,97 +8447,97 @@ stage_tbl_3:          ; @$CA2D-CBC2
   .byte $BB,$CB,$BF,$CB ; guardian room,
   .byte $BB,$CB,$BF,$CB ;
   .byte $BF,$CB,$00,$00 ;
-  ; @ca69
+  ; @ca69 Stage 1
   .byte $01,$02,$03,$06,$07,$01,$02,$03,$04,$05,$00,$05,$00
 	.byte $01,$02,$03,$1A,$06,$07,$05,$00,$01,$02,$03,$04,$05
   .byte $06,$07,$05,$06,$07,$01,$02,$03,$1A,$1A,$06,$07,$01,$02,$03,$04,$05,$04,$05,$1A,$1A,$1A
-  ; @ca9a
+  ; @ca9a Boss 1
   .byte $50,$51,$52,$16
-  ; @ca9e 
+  ; @ca9e Stage 2
   .byte $0A,$0A,$0B,$0D,$0E,$0B,$0D
 	.byte $0E,$11,$0F,$10,$11,$0B,$0D,$0E,$08,$08,$0A,$0A,$0B,$0D,$0E,$0A,$0B,$0F,$10,$0B,$0C,$0C,$0C,$12,$0C,$12,$13,$13,$12,$0C,$08,$0F,$10,$10,$11,$0C,$0C,$0C,$08,$0A,$0A,$0A
-  ; @cacf 
+  ; @cacf Boss 2
   .byte $50,$51,$52,$53
-  ; @cad3
+  ; @cad3 Stage 3 and 6
 	.byte $14,$15,$1C,$1D
-  ; @cad7
+  ; @cad7 Boss 3 and 6 and 8
   .byte $4E,$4E,$1E,$1F
-  ; @cadb
+  ; @cadb Stage 4
   .byte $17,$18,$19,$1B,$17,$18,$19,$1B,$19,$18,$17,$19,$17,$18,$19,$1B,$24,$25,$20,$21,$22,$23,$22,$23,$24,$25,$26,$27,$20,$21,$22,$23,$24,$25,$26,$27,$24,$25
 	.byte $26,$27,$17,$18,$19,$1B,$26,$27,$20,$21,$21
-  ; @cb0c
+  ; @cb0c Boss 4
   .byte $4E,$4E,$44,$45
-  ; @bc10
+  ; @bc10 Stage 5
   .byte $37,$36,$38,$37,$38,$38,$2D,$2E,$38,$36,$38,$2F,$30,$31,$32,$33,$34,$36,$38,$37,$2B,$2C,$38,$38,$37,$38,$36,$38,$38,$2D,$2E
 	.byte $36,$38,$2F,$30,$31,$32,$33,$34,$36,$38,$2D,$2E,$38,$36,$37,$2B,$2C,$2C
-  ; @cb41
+  ; @cb41 Boss 5
   .byte $4E,$4E,$2A,$3F
-  ; @cb45
+  ; @cb45 Stage 7
   .byte $00,$01,$02,$03,$04,$05,$06,$07,$05,$00,$01,$02,$03,$04,$05,$06,$07,$05,$1A,$04,$05,$1A,$04,$05
 	.byte $04,$05,$1A,$04,$05,$00,$01,$02,$03,$1A,$04,$05,$00,$05,$04,$05,$00,$01,$02,$03,$1A,$09,$1A,$1A,$1A
-  ; @cb76
+  ; @cb76 Boss 7
   .byte $4E,$4E,$42,$43
-  ; @cb7a
+  ; @cb7a Stage 8 and 10
   .byte $3B,$3C,$3D,$3E
-  ; @cb7e
+  ; @cb7e Stage 9
   .byte $47,$48,$49,$4F,$54,$55,$4F,$54,$55,$4F,$54,$55,$4F
 	.byte $4B,$4C,$4D,$4F,$46,$47,$48,$49,$4A,$48,$49,$49,$48,$4F,$54,$55,$55,$55,$55,$4F,$49,$48,$49,$4A,$48,$4F,$54,$55,$4F,$54,$55,$4F,$54,$55,$55,$55
-  ; @cbaf
+  ; @cbaf Boss 9
   .byte $4E,$4E,$40,$41
-  ; @cbb3
+  ; @cbb3 Boss 10
   .byte $4E,$4E,$28,$29
-  ; @cbb7
+  ; @cbb7 pickaxe
   .byte $39,$56,$56,$3A
-  ; @cbbb
+  ; @cbbb guardian room
   .byte $57,$58,$58,$59
-  ; @cbbf
+  ; @cbbf other
   .byte $1A,$1A,$1A,$1A
 bg_tile_table:          ; @$CBC3-CC76
-  .byte $C6,$E0,$12,$E1
+  .byte $C6,$E0,$12,$E1 ; section 00,01
   .byte $5E,$E1,$AA,$E1
   .byte $F6,$E1,$42,$E2
   .byte $8E,$E2,$DA,$E2
-  .byte $26,$E3,$C6,$F3
+  .byte $26,$E3,$C6,$F3 ; section 08,09
   .byte $72,$E3,$BE,$E3
   .byte $0A,$E4,$56,$E4
   .byte $A2,$E4,$EE,$E4
-  .byte $3A,$E5,$86,$E5
+  .byte $3A,$E5,$86,$E5 ; section 10,11
 	.byte $D2,$E5,$1E,$E6
   .byte $12,$F4,$5E,$F4
   .byte $D2,$F8,$4E,$E7
-  .byte $9A,$E7,$E6,$E7
+  .byte $9A,$E7,$E6,$E7 ; section 18,19
   .byte $7E,$E8,$32,$E8
   .byte $AA,$F4,$F6,$F4
   .byte $42,$F5,$8E,$F5
-  .byte $CA,$E8,$16,$E9
+  .byte $CA,$E8,$16,$E9 ; section 20,21
   .byte $62,$E9,$AE,$E9
   .byte $FA,$E9,$46,$EA
   .byte $92,$EA,$DE,$EA
-  .byte $DA,$F5,$26,$F6
+  .byte $DA,$F5,$26,$F6 ; section 28,29
   .byte $72,$F6,$2A,$EB
   .byte $76,$EB,$C2,$EB
   .byte $0E,$EC,$5A,$EC
-  .byte $A6,$EC,$F2,$EC
+  .byte $A6,$EC,$F2,$EC ; section 30,31
   .byte $3E,$ED,$8A,$ED
   .byte $D6,$ED,$D6,$ED
   .byte $22,$EE,$6E,$EE
-  .byte $BA,$EE,$6A,$E6
+  .byte $BA,$EE,$6A,$E6 ; section 38,39
   .byte $B6,$E6,$06,$EF
   .byte $52,$EF,$9E,$EF
   .byte $EA,$EF,$BE,$F6
-	.byte $0A,$F7,$56,$F7
+	.byte $0A,$F7,$56,$F7 ; section 40,41
   .byte $A2,$F7,$EE,$F7
   .byte $3A,$F8,$86,$F8
   .byte $36,$F0,$82,$F0
-  .byte $CE,$F0,$1A,$F1
+  .byte $CE,$F0,$1A,$F1 ; section 48,49
   .byte $66,$F1,$B2,$F1
   .byte $FE,$F1,$4A,$F2
   .byte $E2,$F2,$96,$F2
-  .byte $1E,$F9,$6A,$F9
+  .byte $1E,$F9,$6A,$F9 ; section 50,51
   .byte $B6,$F9,$02,$FA
   .byte $2E,$F3,$7A,$F3
   .byte $02,$E7,$4E,$FA
-  .byte $9A,$FA,$E6,$FA
+  .byte $9A,$FA,$E6,$FA ; section 58,59
 stage_orientation_table:  ; @$CC77
   ; Stage orientation table
   ; First byte is the orientation
@@ -8554,21 +8561,22 @@ stage_orientation_table:  ; @$CC77
   .byte $00,$00           ; Level guardian room
   .byte $00,$00           ; Level ? probably pickaxe battle from stage 10 thats blocked
   .byte $00               ; Extra Byte?
-lvl_misc_jmp_tbl:   ; @$CC94
+collision_jmp_tbl:   ; @$CC94
   .byte $9E,$CC,$A6,$CC,$AE,$CC,$B6,$CC,$BE,$CC
-  ; level 1,2,4,6(vert_down),7,8(vert_down),9
-    ; @cc9e
+  ; level 1,2,4,6(vert_down),7,8(vert_down),9.... no this is depending on the tile number
+  ; 53-7C, 7D-95, 96-A5, A6-AB, AC+
+  ; each byte is the x pixel each bit of every byte is the y pixel
+    ; @cc9e Tile 53-7C
 	.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
-    ; level 5
-    ; @cca6
+    ; level 5? wrong
+    ; @cca6 tiles 7C-95
   .byte $F0,$F0,$F0,$F0,$F0,$F0,$F0,$F0
-    ; level 10
-    ; @ccae
+    ; @ccae tiles 96-A5
   .byte $0F,$0F,$0F,$0F,$0F,$0F,$0F,$0F
     ; level 3(vert_up)
-    ; @ccb6
+    ; @ccb6 tiles A6-AB
 	.byte $00,$00,$00,$00,$FF,$FF,$FF,$FF
-    ; @ccbe
+    ; @ccbe tiles AC and up
   .byte $FF,$FF,$FF,$FF,$00,$00,$00,$00
 
 
@@ -9345,13 +9353,13 @@ brain_wave:
   ldy #$02
 :
   lda #$00
-  sta eny_x_inc_lo,x
+  sta eny_x_spd_lo,x
   lda $00
-  sta eny_x_inc_hi,x
+  sta eny_x_spd_hi,x
   lda #$00
-  sta eny_y_inc_lo,x
+  sta eny_y_spd_lo,x
   lda $01
-  sta eny_y_inc_hi,x
+  sta eny_y_spd_hi,x
   lda $00
   clc
   adc #$02
@@ -10639,6 +10647,7 @@ magnus_jump_sound_1:  ; magnus jump sound. @daa8
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$20,$32,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+; section 50-54 boss 2 (and 1 but the last section is 16 instead of 53)
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$08,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$09,$55,$00,$00,$00,$00,$00,$00,$00,$00,$00
@@ -10659,6 +10668,7 @@ magnus_jump_sound_1:  ; magnus jump sound. @daa8
 .byte $00,$00,$00,$00,$00,$01,$00,$00,$00,$80,$00,$00,$00,$80,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$80,$00,$00,$00,$80,$00
 .byte $00,$00,$00,$F0,$00,$00,$00,$00,$00,$00,$00,$00,$F0,$00,$F0,$00
+
 .byte $00,$00,$00,$00,$00,$00,$01,$00,$00,$00,$01,$00,$00,$80,$00
 .byte $00,$00,$01,$00,$00,$00,$00,$80,$00,$00,$00,$00,$00,$80,$00
 .byte $00,$00,$00,$00,$01,$00,$00,$00,$00,$00,$00,$77,$00,$80,$00
