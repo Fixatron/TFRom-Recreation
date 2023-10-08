@@ -159,8 +159,8 @@ rng_counter             = $FE
 audio_ram_start         = $0300
 audio_ram_0             = $0300
 audio_ram_1             = $0301
-audio_ram_2             = $0302
-audio_ram_3             = $0303
+aud_addr_lo             = $0302
+aud_addr_hi             = $0303
 audio_ram_4             = $0304
 audio_ram_5             = $0305
 audio_ram_6             = $0306
@@ -170,17 +170,17 @@ audio_ram_9             = $0309
 audio_ram_A             = $030A
 audio_ram_B             = $030B
 audio_ram_C             = $030C
-audio_ram_D             = $030D
+audio_ram_timer             = $030D
 audio_ram_E             = $030E
 audio_ram_F             = $030F
 
 jump_sound_ram          = $0350
 
-apu_status_ram_0        = $0380
-apu_status_ram_1        = $0381
-apu_status_ram_2        = $0382
-apu_status_ram_3        = $0383
-apu_status_ram_4        = $0384
+apu_status_ch0          = $0380
+apu_status_ch1          = $0381
+apu_status_ch2          = $0382
+apu_status_ch3          = $0383
+apu_current_ch_ram      = $0384
 apu_status_ram_5        = $0385
 apu_status_ram_6        = $0386
 apu_status_ram_7        = $0387
@@ -429,9 +429,9 @@ pre_stage_prep_a:
   sta plr_x_prog_pg
   sta plr_x_pos_lo
   sta plr_y_pos_lo
-  sta chkpt_counter
+  sta chkpt_counter             ; counts hit checkpoints in level 9
   lda #$1F
-  sta lvl9_clear
+  sta lvl9_clear                ; this value gets reduced with each checkpoint and needs to be cleared to 0 to complete the level
   ldy current_level
   lda stage_boss_table,Y        ; use a lookup table to find the odd levels @$C92F
   sta stage_boss                ; store 1 for boss or 0 for stage
@@ -1541,8 +1541,8 @@ load_scrolling_bg_tiles:
   sta $0E
   lda stage_tbl_2+1,Y
   sta $0F                           ; get address from jump table ->$FB32 or $FDF2 if we're on a boss
-  lda $00
-  and #$30                          ; and @$00 with %00110000
+  lda $00                           ; player x prog low byte
+  and #$30                          ; and @$00 with %00110000, divide player x prog on screen width by 4
   lsr
   lsr
   lsr
@@ -1552,11 +1552,11 @@ load_scrolling_bg_tiles:
   and #$30
   sec
   sbc $04
-  sta $04                         ; 00,0f,1e,2d
+  sta $04                         ; 00,0f,1e,2d which column of tiles
   clc
-  lda $04
+  lda $04                         ; redundant line
   adc $02
-  sta $02                         ; address low byte?
+  sta $02                         ; address low byte of section of tile columns
   lda #$00
   adc $03
   sta $03                         ; add carry to high byte
@@ -1564,23 +1564,23 @@ load_scrolling_bg_tiles:
 :
   ldy #$00
   lda ($02),Y
-  sta $04
-  lda #$00                          ; get the address for the column of tiles data
+  sta $04                         ; (50 for boss 1)
+  lda #$00                        ; get the address for the column of tiles data
   sta $05
-  asl $04
-  rol $05
-  asl $04
-  rol $05
-  lda $0E
+  asl $04                         ; %1010 0000
+  rol $05                         ; (0)
+  asl $04                         ; 0100 0000 + c
+  rol $05                         ; 0000 0001 (0140)
+  lda $0E                         ; stage table start fdf2
   clc
-  adc $04
+  adc $04                         ; add 40 at address low byte
   sta $04
   lda $0F
   adc $05
-  sta $05
+  sta $05                         ; add high byte and carry
   ldy #$00
-  lda $00
-  and #$08
+  lda $00                         ; player x progress low byte
+  and #$08                        ; if player is more than half way into a tile, increment y
   beq :+
   iny
 :
@@ -1597,35 +1597,35 @@ load_scrolling_bg_tiles:
   bcc :--
   lda #$3C
   clc
-  adc $07
+  adc $07                   ; add 3C to the address location of the section of tiles for the 5th line start
   sta $07
   lda #$00
   adc $08
   sta $08
-  lda $00
-  and #$20
+  lda $00                   ; load x offset/current position
+  and #$20                  ; and %0010 0000
   lsr
   lsr
   clc
-  adc $07
+  adc $07                   ; add 08 for the pallette bytes for columns 3 and 4, or dont add anything for columns 1 and 2
   sta $07
   lda #$00
   adc $08
   sta $08
   ldy #$00
 :
-  lda ($07),y             ; Load level palette data to RAM
+  lda ($07),y               ; Load column palette data to RAM
   sta nextSpriteDataLoadStart,Y
   iny
-  cpy #$08
+  cpy #$08                  ; load all 8 bytes of palette stuff for the 2 columns
   bcc :-
-  ldy #$23
-  ldx #$20
-  lda $01
+  ldy #$23                  ; palette table 0
+  ldx #$20                  ; nametable 0
+  lda $01                   ; check which page we're on
   and #$01
   beq :+
-  ldy #$27
-  ldx #$24
+  ldy #$27                  ; palette table 1
+  ldx #$24                  ; nametable 1
 :
   sty palette_addr_hi
   stx nametable_addr_hi
@@ -1657,7 +1657,7 @@ get_bg_tile_tbl_addr:
   sta $09
   lda bg_column_table+1,X
   sta $0A                   ; stage 7 is CB45
-  lda $00                   ; load enemy x position hi (06for example)
+  lda $00                   ; load player/enemy x position hi (06for example)
   and #$C0                  ; and %1100 0000
   sta $07
   lda $01                   ; (01)
@@ -1673,7 +1673,7 @@ get_bg_tile_tbl_addr:
   lda bg_tile_table,X
   sta $02
   sta $07
-  lda bg_tile_table+1,X
+  lda bg_tile_table+1,X     ; get the address for the section of columns
   sta $03
   sta $08
   rts
@@ -1682,17 +1682,17 @@ write_new_tile_column:
   lda ram_PPU_CTRL
   ora #$04
   sta PPU_CTRL
-  lda nametable_addr_hi    ; load nametable address high byte
+  lda nametable_addr_hi     ; load nametable address high byte
   sta PPU_ADDR
-  lda nametable_addr_lo    ; load nametable address low byte
+  lda nametable_addr_lo     ; load nametable/palette address low byte
   sta PPU_ADDR
   ldx #$00
 :
-  lda newTileColumnStart,X
+  lda newTileColumnStart,X  ; load tile from ram
   sta PPU_VRAM_IO
   inx
   cpx #$1E
-  bcc :-
+  bcc :-                    ; loop back and store all tiles to PPU_DATA
   lda palette_addr_hi
   sta $08
   lda palette_addr_lo
@@ -1735,7 +1735,7 @@ ready_level:
   adc #$00
   sta $01
   dec $06
-  bpl :-              ; loop 64 times 3f to ff in $06 as the counter
+  bpl :-              ; loop 64 times 3e to ff in $06 as the counter
   lda current_level
   asl
   tax
@@ -1779,7 +1779,7 @@ update_palette_a:
   cpx #$10        ; store all palette data in ram
   bcc :-
   rts
-not_called_subroutine_1:
+not_called_subroutine_1:  ;*****************************
   ldy #$00
   lda ($05),Y
   sta $00
@@ -2038,19 +2038,19 @@ player_pose_1:
   lda plr_sprite_status
   and #$10
   bne :++++
-  jsr scroll_misc_1
+  jsr plr_col_rtn
   lda plr_sprite_status
   and #$08
   bne :+++++
   lda plr_y_speed_hi
   bmi :+
-  jsr ram_misc_4     
+  jsr plr_grnd_col_rtn     
   bcs :+++
 :
   jsr ram_misc_5
 ram_misc_12:
   jsr ram_misc_6
-  jsr plr_pos_rtn_0
+  jsr plr_vert_col_rtn
   bcc ram_misc_14
   lda plr_y_speed_lo
   sta $00
@@ -2100,19 +2100,19 @@ ram_misc_10:
 ram_misc_13:
   jsr plr_y_nrml_speed_rtn
   jsr plr_y_speed_rtn
-  jsr scroll_misc_1
+  jsr plr_col_rtn
   lda plr_y_speed_hi
-  bmi :+
+  bmi :+                ; branch if player is falling
   ora plr_y_speed_lo
-  bne :++
-  jmp chk_A_release   ;*************@8e92
-:
-  jsr plr_pos_rtn_0
-  bcs reset_plr_y_inc
+  bne :++               ; branch if player is moving vertically at all
+  jmp chk_A_release     ;*************@8e92
+:                       ; player is falling
+  jsr plr_vert_col_rtn
+  bcs stop_plr_y_speed
   jmp chk_A_release
 :
-  jsr ram_misc_4
-  bcs reset_plr_y_inc
+  jsr plr_grnd_col_rtn
+  bcs stop_plr_y_speed
 chk_A_release:
   lda controller_last
   lsr
@@ -2124,7 +2124,7 @@ chk_A_release:
   sta plr_sprite_status
 :
   rts
-reset_plr_y_inc:
+stop_plr_y_speed:
   lda #$00
   sta plr_y_speed_lo
   sta plr_y_speed_hi
@@ -2135,9 +2135,9 @@ ram_misc_9:
   bmi b_8f0b            ; branch for truck mode
   lda plr_sprite_status
   and #$10
-  bne b_8f1e
+  bne b_8f1e            ; branch if flying
   lda jump_hold
-  bmi b_8f14
+  bmi b_8f14            ; branch if jumping
   lda plr_sprite_status
   and #$08
   bne b_8ec6
@@ -2195,13 +2195,13 @@ b_8f0b:
   and #$C0                ; check if left or right is pressed
   beq b_8ef2              ; branch if neither left or right is pressed
   jmp b_8ee0              ; jump if left or right is pressed
-b_8f14:
+b_8f14:                   ; player is jumping
   ldx #$09
   lda plr_y_speed_hi
   bmi b_8ef4
   dex
   jmp b_8ef4
-b_8f1e:
+b_8f1e:                   ; player is flying
   ldx #$01
   jmp b_8ef4
 b_8f23:
@@ -2261,8 +2261,8 @@ transform_up_input_check:
   lda controller_current
   and #$20                        ; 20 is down, we should be holding 10 = up to transform up to a bot
   bne reset_transform_input_timer
-  jsr plr_pos_rtn_0
-  bcs reset_transform_input_timer
+  jsr plr_vert_col_rtn
+  bcs reset_transform_input_timer ; reset timer if theres top collision
 j_8f8d:
   inc transform_input_timer
   lda transform_input_timer       ; increment and check transform controller input timer, up or down to transform
@@ -2278,13 +2278,13 @@ j_8f8d:
   ora plr_sprite_status           ; truck = 80, bot = 00
   sta plr_sprite_status           ; bot to truck = 40, truck to bot = C0 
   lda #$00
-  sta trnsfrmng_frame_counter  ; reset transformation frame counter to 0
-  sta plr_x_speed_lo                ; stop player movement when transforming
-  sta plr_x_speed_hi                ; movement still stops even when removing these two lines
+  sta trnsfrmng_frame_counter     ; reset transformation frame counter to 0
+  sta plr_x_speed_lo              ; stop player movement when transforming
+  sta plr_x_speed_hi              ; movement still stops even when removing these two lines
   lda player_sprite
-  sta player_sprite_holder                    ; hold player sprite in ram, bot=4, truck=0
+  sta player_sprite_holder        ; hold player sprite in ram, bot=4, truck=0
   jsr play_transform_sound
-toransufoom:                           ; transform has been initiated, increment timer
+toransufoom:                      ; transform has been initiated, increment timer
   inc trnsfrmng_frame_counter
   lda trnsfrmng_frame_counter
   cmp #$08
@@ -2293,21 +2293,21 @@ toransufoom:                           ; transform has been initiated, increment
 :
   lda trnsfrmng_frame_counter
   cmp #$18
-  bcc a_exit      ; rts if transform frame counter is less than 18
+  bcc a_exit                      ; rts if transform frame counter is less than 18
   lda #$00
-  sta transform_input_timer ; reset input timer
+  sta transform_input_timer       ; reset input timer
   lda plr_sprite_status
   bmi truck_to_bot          
-  lda #$80                  ; bot to truck
-  sta plr_sprite_status     ; store truck status
+  lda #$80                        ; bot to truck
+  sta plr_sprite_status           ; store truck status
   lda #$04
-  sta player_sprite         ; set sprite status to 04
-  ora plr_spr_aftr_trnsfrm  ; set the 3rd bit (04), useless*****
+  sta player_sprite               ; set sprite status to 04
+  ora plr_spr_aftr_trnsfrm        ; set the 3rd bit (04), useless*****
   sta plr_spr_aftr_trnsfrm
-  lda plr_y_pos_hi          ; load player y position
+  lda plr_y_pos_hi                ; load player y position
   clc
   adc #08
-  sta plr_y_pos_hi          ; add 08 to player sprite y position, which lowers by 1 tile
+  sta plr_y_pos_hi                ; add 08 to player sprite y position, which lowers by 1 tile
   rts
 reset_transform_input_timer:
   lda #$00
@@ -2333,51 +2333,51 @@ transform_y_pos_adjust:       ; this is done separate because its done earlier i
 d_exit:
   clc
   rts
-scroll_misc_1:
+plr_col_rtn:
   lda state
-  lsr
+  lsr                     ; exit if 0 bit is set in state
   bcs d_exit
   lda #$00
   sta plr_grnd_col_state
   lda plr_sprite_status
-  bpl b_9011            ; branch if bot mode
+  bpl b_9011              ; branch if bot mode
   lda #$02
-  sta plr_grnd_col_state     ; store 02 to plr_grnd_col_state if truck
+  sta plr_grnd_col_state  ; store 02 to plr_grnd_col_state if truck
 b_9011:
   lda plr_x_speed_hi
-  bpl b_901b
+  bpl b_901b              ; branch if player is moving right or standing still
   lda plr_grnd_col_state
   ora #$01
-  sta plr_grnd_col_state
+  sta plr_grnd_col_state  ; set 0 bit if player if moving left?
 b_901b:
   lda plr_grnd_col_state
   asl
   asl
   asl
   sta plr_grnd_col_state
-  jsr plr_grnd_col_chk
+  jsr plr_col_chk
   bcc b_902a
 b_9027:
   jmp stop_plr_x_speed
 b_902a:
   inc plr_grnd_col_state
   inc plr_grnd_col_state
-  jsr plr_grnd_col_chk
+  jsr plr_col_chk
   bcs b_9027
   lda plr_sprite_status
-  bmi b_9049            ; rts if truck
+  bmi b_9049                  ; rts if truck
   inc plr_grnd_col_state
   inc plr_grnd_col_state
-  jsr plr_grnd_col_chk
+  jsr plr_col_chk
   bcs b_9027
   inc plr_grnd_col_state
   inc plr_grnd_col_state
-  jsr plr_grnd_col_chk
+  jsr plr_col_chk
   bcs b_9027
 b_9049:
   rts
-plr_grnd_col_chk:
-   ldx plr_grnd_col_state          ; load player ground collision state
+plr_col_chk:
+   ldx plr_grnd_col_state     ; load player ground collision state
    lda plr_y_pos_hi
    clc
    adc plr_pos_tbl,X
@@ -2405,12 +2405,13 @@ plr_pos_tbl:    ; @$9063
 	.byte $00,$00
 	.byte $05,$EF
 	.byte $FB,$EF
-plr_pos_rtn_0:
+
+plr_vert_col_rtn:
   lda #$0D
   sta plr_y_pos_hi_diff     ; load 0d to y diff
   lda plr_sprite_status     ; check if truck mode or transforing to bot 80/c0
-  bmi b_9095    ; branch if truck mode/transforming from truck mode
-  jsr plr_pos_rtn_1
+  bmi b_9095                ; branch if truck mode/transforming from truck mode
+  jsr get_plr_top_bg_tile
   jsr collision_chk_rtn
   bcc :+
   rts
@@ -2421,40 +2422,40 @@ plr_pos_rtn_0:
 b_9095:       ; truck/truck to bot routine
   lda #$0A
   sta plr_y_pos_hi_diff
-  jsr plr_pos_rtn_1
+  jsr get_plr_top_bg_tile
   lda current_level
   lsr
-  bcs b_90a6
-  lda $00
-  cmp #$53
+  bcs b_90a6                ; branch if on a boss
+  lda $00                   ; load bg tile
+  cmp #$53                  ; set carry if tile has full collision
   rts
 b_90a6:
   lda $00
-  cmp #$77
+  cmp #$77                  ; set carry if tile has top collision
   rts
-plr_pos_rtn_1:
+get_plr_top_bg_tile:
   lda plr_y_pos_hi
   sec
-  sbc plr_y_pos_hi_diff     ; subtrack 0a or 0d from plr_y_pos_hi
+  sbc plr_y_pos_hi_diff     ; subtrack 0a or 0d from plr_y_pos_hi, to get top hit point?
   sta plr_y_pos_hi_diff
   lda plr_x_pos_hi
   sta plr_x_pos_hi_diff
   jsr get_plr_bg_tile
   rts
-ram_misc_4:
+plr_grnd_col_rtn:
   lda #$00
   sta plr_grnd_col_state
   lda plr_sprite_status
-  bpl :+                ; branch if truck
+  bpl :+                    ; branch if truck
   lda #$01
-  sta plr_grnd_col_state     ; load plr_grnd_col_state with 01 if bot
+  sta plr_grnd_col_state    ; load plr_grnd_col_state with 01 if bot
 :
-  asl plr_grnd_col_state     ; shift  01 left to 02 *****redundant
-  asl plr_grnd_col_state     ; shift 02 left to 04 **** redundant, just store a 0 or 4 if bot or truck
+  asl plr_grnd_col_state    ; shift  01 left to 02 *****redundant
+  asl plr_grnd_col_state    ; shift 02 left to 04 **** redundant, just store a 0 or 4 if bot or truck
   jsr grav_rtn_1
-  bcc grav_rtn_0        ; in c plr_grnd_col_state if carry is cleared
+  bcc grav_rtn_0            ; branch if player isnt touching the ground
   rts
-grav_rtn_0:
+grav_rtn_0:                 ; player isnt colliding with the ground
   inc plr_grnd_col_state
   inc plr_grnd_col_state
 grav_rtn_1:
@@ -2471,10 +2472,11 @@ grav_rtn_1:
   jsr collision_chk_rtn
   rts
 grav_tbl_1:
+        ; Y, X
   .byte $11,$05 ; bot
-  .byte $11,$FB
+  .byte $11,$FB ; bot falling
   .byte $09,$08 ; truck
-  .byte $09,$F7 
+  .byte $09,$F7 ; truck falling
 ram_misc_6:
   lda jump_hold
   bmi b_9120
@@ -3779,9 +3781,9 @@ next_wpn_ram:
   bpl wpn_misc_4a
   rts
 wpn_misc_6:
-  lda #$B2 ; lda #<wpn_addr_tbl_2  ??; #$B2
+  lda #<wpn_spr_tbl ; lda #  ??; #$B2
   sta $09
-  lda #$9D ; lda #>wpn_addr_tbl_2  ??; #$9D ***** some code address lookup table
+  lda #>wpn_spr_tbl ; lda #>wpn_spr_tbl  ??; #$9D 
   sta $0A
   jmp j_9a7a
 wpn_lookup_rtn:
@@ -3805,8 +3807,8 @@ b_9a19:
 b_9a28:
   rts
 stage_boss_table_2:
-  .word stage_boss_table_2a   ; @$9df2 ****
-  .word stage_boss_table_2b   ; @$9ef2 ****
+  .word stage_eny_spr_tbl   ; @$9df2 ****
+  .word boss_eny_spr_tbl   ; @$9ef2 ****
 player_bullet_enemy_routine:
   ldx #$00
   stx $0F
@@ -3937,15 +3939,15 @@ b_9af1:
 plr_sprite_tbl:           ; @$9B00-9DB1
 	.byte $24,$9B,$49,$9B,$62,$9B,$83,$9B,$A8,$9B,$CD,$9B,$F2,$9B,$0B,$9C,$30,$9C ; addressing region
   .byte $51,$9C,$6E,$9C,$6F,$9C,$98,$9C,$C1,$9C,$EA,$9C,$03,$9D,$44,$9D,$85,$9D ; addressing region
-  ;      Y ,  X,spr,att
+  ;       X,  Y,spr,att
   ; @9b24 00 running
-  .byte $09,$F0,$10,$00
+  .byte $09,$F0,$10,$00 ; top left
   .byte $F8,$F0,$11,$00
   .byte $00,$F8,$14,$00
   .byte $F8,$F8,$15,$00
   .byte $00,$00,$12,$00
   .byte $F8,$00,$13,$00
-  .byte $00,$08,$16,$00
+  .byte $00,$08,$16,$00 ; bottom
   .byte $F8,$08,$17,$00
   .byte $00,$05,$18,$00,$F0
   ; @9b49 01 flying
@@ -4116,15 +4118,31 @@ plr_sprite_tbl:           ; @$9B00-9DB1
   .byte $FD,$00,$67,$00
   .byte $05,$08,$68,$00
   .byte $F8,$08,$69,$00,$00
-wpn_addr_tbl_2:         ; @$9DB2-9DF1
-	.byte $BC,$9D,$C1,$9D,$C6,$9D,$D7,$9D,$ED,$9D,$01,$FC,$F3,$01,$FC,$01,$FC,$84,$01,$FC
-  ; @9dc6
-  .byte $04,$F8,$8C,$C0,$F8,$00,$8B,$00,$F8,$F8,$8B,$C0,$00,$00,$8C,$00,$00
-  ; @9dd7
-  .byte $04,$F8,$87,$00,$F8,$00,$89,$00,$F8,$F8,$88,$00,$00,$00,$8A,$00,$00
+wpn_spr_tbl:         ; @$9DB2-9DF1
+	.byte $BC,$9D
+  .byte $C1,$9D
+  .byte $C6,$9D
+  .byte $D7,$9D
+  .byte $ED,$9D
+  ; @d9bc bullet
+  .byte $01,$FC,$F3,$01,$FC
+  ; @d9c1 missile
+  .byte $01,$FC,$84,$01,$FC
+  ; @9dc6 Explosion A
+  .byte $04,$F8,$8C,$C0
+  .byte $F8,$00,$8B,$00
+  .byte $F8,$F8,$8B,$C0
+  .byte $00,$00,$8C,$00,$00
+  ; @9dd7 Explosion B
+  .byte $04,$F8,$87,$00
+  .byte $F8,$00,$89,$00
+  .byte $F8,$F8,$88,$00
+  .byte $00,$00,$8A,$00,$00
   ; @9de8
-  .byte $01,$FC,$81,$00,$FC,$01,$FC,$54,$00,$FC
-stage_boss_table_2a:    ; @$9DF2-9EF1 a jump table
+  .byte $01,$FC,$81,$00,$FC
+  ; @9ded enemy bullet
+  .byte $01,$FC,$54,$00,$FC
+stage_eny_spr_tbl:    ; @$9DF2-9EF1 a jump table
 	.byte $7E,$9F,$7E,$9F,$8B,$9F,$8B,$9F
   .byte $A0,$9F,$B9,$9F,$D2,$9F,$D2,$9F
   .byte $DF,$9F,$E8,$9F,$F1,$9F,$F1,$9F
@@ -4157,7 +4175,7 @@ stage_boss_table_2a:    ; @$9DF2-9EF1 a jump table
   .byte $E2,$A2,$E2,$A2,$EF,$A2,$EF,$A2
   .byte $FC,$A2,$FC,$A2,$09,$A3,$09,$A3
   .byte $16,$A3,$16,$A3,$23,$A3,$23,$A3
-stage_boss_table_2b:    ; @$9EF2-9FF1
+boss_eny_spr_tbl:    ; @$9EF2-9FF1
 	.byte $1D,$A0,$1D,$A0,$10,$A0,$10,$A0,$10,$A0,$10,$A0,$10,$A0,$10,$A0,$10,$A0,$10,$A0,$2E,$A0,$33,$A0,$2E,$A0,$33,$A0,$38,$A0,$38,$A0
 	.byte $3D,$A0,$42,$A0,$D1,$A0,$D1,$A0,$D6,$A0,$E7,$A0,$38,$A0,$38,$A0,$3D,$A0,$42,$A0,$4F,$A1,$4F,$A1,$38,$A0,$38,$A0,$3D,$A0,$42,$A0
 	.byte $60,$A1,$60,$A1,$71,$A1,$82,$A1,$93,$A1,$93,$A1,$98,$A1,$9D,$A1,$A2,$A1,$A2,$A1,$A7,$A1,$A7,$A1
@@ -4166,31 +4184,59 @@ stage_boss_table_2b:    ; @$9EF2-9FF1
   .byte $C6,$9D,$D7,$9D,$C6,$9D,$D7,$9D,$C6,$9D,$D7,$9D,$C6,$9D,$D7,$9D
   .byte $C6,$9D,$D7,$9D,$C6,$9D,$D7,$9D,$C6,$9D,$E8,$9D,$C6,$9D,$E8,$9D
   ; @9f7e
-  .byte $03,$FC,$C0,$41,$04,$FC,$C1,$41,$FC,$FC,$C2,$41,$F4
+  .byte $03,$FC,$C0,$41
+  .byte $04,$FC,$C1,$41
+  .byte $FC,$FC,$C2,$41,$F4
   ; @9f8b
-  .byte $05,$F4,$C4,$41,$FC,$F4,$C3,$41,$04,$FC,$C5,$01,$F4,$FC,$C6,$41,$FC,$FC,$C5,$41,$04
+  .byte $05,$F4,$C4,$41
+  .byte $FC,$F4,$C3,$41
+  .byte $04,$FC,$C5,$01
+  .byte $F4,$FC,$C6,$41
+  .byte $FC,$FC,$C5,$41,$04
   ; @9fa0
-  .byte $06,$F4,$C8,$41,$00,$FC,$CC,$41,$00,$04,$D0,$41,$00,$F4,$C9,$41,$F8,$FC,$CD,$41,$F8,$04,$D1,$41,$F8
+  .byte $06,$F4,$C8,$41
+  .byte $00,$FC,$CC,$41
+  .byte $00,$04,$D0,$41
+  .byte $00,$F4,$C9,$41
+  .byte $F8,$FC,$CD,$41
+  .byte $F8,$04,$D1,$41,$F8
   ; @9fb9 
-  .byte $06,$F4,$CA,$41,$00,$FC,$CE,$41,$00,$04,$D2,$41,$00,$F4,$CB,$41,$F8,$FC,$CF,$41,$F8,$04,$D3,$41,$F8
+  .byte $06,$F4,$CA,$41
+  .byte $00,$FC,$CE,$41
+  .byte $00,$04,$D2,$41
+  .byte $00,$F4,$CB,$41
+  .byte $F8,$FC,$CF,$41
+  .byte $F8,$04,$D3,$41,$F8
   ; @9fd2
-	.byte $03,$FC,$FA,$42,$F4,$FC,$F9,$42,$FC,$FC,$F8,$42,$04
+	.byte $03,$FC,$FA,$42
+  .byte $F4,$FC,$F9,$42
+  .byte $FC,$FC,$F8,$42,$04
   ; @9fdf
-  .byte $02,$F8,$F7,$01,$FC,$00,$E9,$01,$FC
+  .byte $02,$F8,$F7,$01
+  .byte $FC,$00,$E9,$01,$FC
   ; @9fe8
-  .byte $02,$F8,$F7,$01,$FC,$00,$E8,$01,$FC
-  ; @9ff1
-  .byte $02
-  ; @9ff2
-	.byte $F8,$E0,$02,$FC,$00,$E1,$02,$FC
+  .byte $02,$F8,$F7,$01
+  .byte $FC,$00,$E8,$01,$FC
+  ; @9ff1 hammer
+  .byte $02,$F8,$E0,$02
+  .byte $FC,$00,$E1,$02,$FC
   ; @9ffa
-  .byte $02,$FC,$E2,$01,$F8,$FC,$E3,$01,$00
+  .byte $02,$FC,$E2,$01
+  .byte $F8,$FC,$E3,$01,$00
   ; @a003
-  .byte $03,$F6,$F0,$01,$FC,$FE,$F1,$01,$F8,$FE,$F2,$01,$00
+  .byte $03,$F6,$F0,$01
+  .byte $FC,$FE,$F1,$01
+  .byte $F8,$FE,$F2,$01,$00
   ; @a010
-  .byte $03,$FC,$82,$01,$F4,$FC,$83,$01,$FC,$FC,$82,$41,$04
-  ; @a01d boss?
-  .byte $04,$F8,$BC,$03,$F8,$F8,$BD,$03,$00,$00,$BE,$03,$F8,$00,$BF,$03,$00
+  .byte $03,$FC,$82,$01
+  .byte $F4,$FC,$83,$01
+  .byte $FC,$FC,$82,$41,$04
+  ; Boss enemies
+  ; @a01d
+  .byte $04,$F8,$BC,$03
+  .byte $F8,$F8,$BD,$03
+  .byte $00,$00,$BE,$03
+  .byte $F8,$00,$BF,$03,$00
   ; @a02e 
   .byte $01,$FC,$EA,$21,$FC
   ; @a033
@@ -4208,47 +4254,99 @@ stage_boss_table_2b:    ; @$9EF2-9FF1
   ; @a051
   .byte $01,$FC,$E8,$22,$FC
   ; @a056
-  .byte $03,$FC,$EB,$41,$F4,$FC,$EA,$41,$FC,$FC,$E9,$41,$04
-  .byte $06,$F0,$E0,$01,$F8,$F0,$E0,$41,$00,$F8,$E2,$01,$F8,$F8,$E2,$41,$00,$00,$E1,$01,$FC,$08,$E3,$01,$FC
+  .byte $03,$FC,$EB,$41
+  .byte $F4,$FC,$EA,$41
+  .byte $FC,$FC,$E9,$41
+  .byte $04,$06,$F0,$E0
+  .byte $01,$F8,$F0,$E0
+  .byte $41,$00,$F8,$E2
+  .byte $01,$F8,$F8,$E2
+  .byte $41,$00,$00,$E1
+  .byte $01,$FC,$08,$E3,$01,$FC
   ; @a07c
-  .byte $03,$FC,$EB,$42,$F4,$FC,$EA,$42,$FC,$FC,$E9,$42,$04
+  .byte $03,$FC,$EB,$42
+  .byte $F4,$FC,$EA,$42
+  .byte $FC,$FC,$E9,$42,$04
   ; @a089
-  .byte $02,$FC,$FC,$02,$FC,$04,$FD,$02,$FC
+  .byte $02,$FC,$FC,$02
+  .byte $FC,$04,$FD,$02,$FC
   ; @a092
-	.byte $02,$FC,$FE,$02,$F8,$FC,$FE,$42,$00
+	.byte $02,$FC,$FE,$02
+  .byte $F8,$FC,$FE,$42,$00
   ; @a09b
-  .byte $03,$F4,$E7,$22,$FC,$FC,$E5,$22,$FC,$04,$E6,$22,$FC
+  .byte $03,$F4,$E7,$22
+  .byte $FC,$FC,$E5,$22
+  .byte $FC,$04,$E6,$22,$FC
   ; @a0a8
-  .byte $0A,$F0,$D6,$62,$00,$F0,$D7,$62,$F8,$F8,$D8,$62,$00,$F8,$D9,$62,$F8,$00,$DA,$62
-  .byte $00,$00,$DB,$62,$F8,$08,$DC,$62,$00,$08,$DD,$62,$F8,$00,$DE,$62,$08,$08,$DF,$62,$08
+  .byte $0A,$F0,$D6,$62
+  .byte $00,$F0,$D7,$62
+  .byte $F8,$F8,$D8,$62
+  .byte $00,$F8,$D9,$62
+  .byte $F8,$00,$DA,$62
+  .byte $00,$00,$DB,$62
+  .byte $F8,$08,$DC,$62
+  .byte $00,$08,$DD,$62
+  .byte $F8,$00,$DE,$62
+  .byte $08,$08,$DF,$62,$08
   ; @a0d1
   .byte $01,$FC,$C7,$03,$FC
   ; @a0d6
-  .byte $04,$F8,$C3,$02,$F8,$F8,$C4,$02,$00,$00,$C5,$02,$F8,$00,$C6,$02,$00
+  .byte $04,$F8,$C3,$02
+  .byte $F8,$F8,$C4,$02
+  .byte $00,$00,$C5,$02
+  .byte $F8,$00,$C6,$02,$00
   ; @a0e7
-  .byte $04,$F8,$C6,$C2,$F8,$F8,$C5,$C2,$00,$00,$C4,$C2,$F8,$00,$C3,$C2,$00
+  .byte $04,$F8,$C6,$C2
+  .byte $F8,$F8,$C5,$C2
+  .byte $00,$00,$C4,$C2
+  .byte $F8,$00,$C3,$C2,$00
   ; @a0f8
-  .byte $04,$FC,$9F,$02,$F4,$FC,$9D,$02,$FC,$FC,$9F,$42,$04,$04,$9E,$02,$FC
+  .byte $04,$FC,$9F,$02
+  .byte $F4,$FC,$9D,$02
+  .byte $FC,$FC,$9F,$42
+  .byte $04,$04,$9E,$02,$FC
   ; @a109
-  .byte $04,$FC,$9C,$02,$F4,$FC,$9D,$02,$FC,$FC,$9C,$42,$04,$04,$9E,$02,$FC
+  .byte $04,$FC,$9C,$02
+  .byte $F4,$FC,$9D,$02
+  .byte $FC,$FC,$9C,$42
+  .byte $04,$04,$9E,$02,$FC
   ; @a11a
-  .byte $02,$FC,$9A,$02,$F8,$FC,$9B,$02,$00
+  .byte $02,$FC,$9A,$02
+  .byte $F8,$FC,$9B,$02,$00
   ; @a123
-  .byte $04,$F5,$B1,$43,$F8,$F5,$B0,$43,$00,$FD,$B3,$43,$F8,$FD,$B2,$43,$00
+  .byte $04,$F5,$B1,$43
+  .byte $F8,$F5,$B0,$43
+  .byte $00,$FD,$B3,$43
+  .byte $F8,$FD,$B2,$43,$00
   ; @a134
-  .byte $02,$FC,$B8,$02,$F8,$FC,$B9,$02,$00
+  .byte $02,$FC,$B8,$02
+  .byte $F8,$FC,$B9,$02,$00
   ; @a13d
-  .byte $03,$F8,$F4,$02,$F8,$F8,$F5,$02,$00,$00,$F6,$02,$FC
+  .byte $03,$F8,$F4,$02
+  .byte $F8,$F8,$F5,$02
+  .byte $00,$00,$F6,$02,$FC
   ; @a14a
   .byte $01,$FC,$BF,$02,$FC
   ; @a14f
-  .byte $04,$F8,$EE,$02,$F8,$F8,$EE,$42,$00,$00,$EF,$02,$F8,$00,$EF,$42,$00
+  .byte $04,$F8,$EE,$02
+  .byte $F8,$F8,$EE,$42
+  .byte $00,$00,$EF,$02
+  .byte $F8,$00,$EF,$42,$00
   ; @a160
-  .byte $04,$04,$FA,$03,$F8,$FC,$F8,$03,$F8,$FC,$F9,$03,$00,$F4,$F7,$03,$00
+  .byte $04,$04,$FA,$03
+  .byte $F8,$FC,$F8,$03
+  .byte $F8,$FC,$F9,$03
+  .byte $00,$F4,$F7,$03,$00
   ; @a171
-  .byte $04,$F8,$B7,$02,$F8,$F8,$B8,$02,$00,$00,$B9,$02,$F8,$00,$BA,$02,$00
+  .byte $04,$F8,$B7,$02
+  .byte $F8,$F8,$B8,$02
+  .byte $00,$00,$B9,$02
+  .byte $F8,$00,$BA,$02,$00
   ; @a182
-  .byte $04,$F8,$BB,$02,$F8,$F8,$BC,$02,$00,$00,$BD,$02,$F8,$00,$BE,$02,$00
+  .byte $04,$F8,$BB,$02
+  .byte $F8,$F8,$BC,$02
+  .byte $00,$00,$BD,$02
+  .byte $F8,$00,$BE,$02,$00
   ; @a193
   .byte $01,$FD,$E5,$03,$FD
   ; @a198
@@ -4260,82 +4358,201 @@ stage_boss_table_2b:    ; @$9EF2-9FF1
   ; @a1a7
   .byte $01,$FC,$E7,$03,$FC
   ; @a1ac
-  .byte $03,$FC,$C0,$42,$04,$FC,$C1,$42,$FC,$FC,$C2,$42,$F4
+  .byte $03,$FC,$C0,$42
+  .byte $04,$FC,$C1,$42
+  .byte $FC,$FC,$C2,$42,$F4
   ; @a1b9
-  .byte $05,$FC,$8E,$02,$F8,$04,$8F,$02,$F8,$FC,$8D,$02,$00,$FC,$86,$02,$08,$F4,$85,$02,$00
+  .byte $05,$FC,$8E,$02
+  .byte $F8,$04,$8F,$02
+  .byte $F8,$FC,$8D,$02
+  .byte $00,$FC,$86,$02
+  .byte $08,$F4,$85,$02,$00
   ; @a1ce
-  .byte $04,$F8,$68,$02,$F8,$00,$69,$02,$F8,$F8,$68,$42,$00,$00,$69,$42,$00
-  .byte $04,$FC,$F1,$02,$F0,$FC,$F2,$02,$F8,$FC,$F2,$42,$00,$FC,$F1,$42,$08
-  .byte $03,$FC,$F5,$02,$F4,$FC,$F6,$02,$FC,$FC,$F5,$02,$04
+  .byte $04,$F8,$68,$02
+  .byte $F8,$00,$69,$02
+  .byte $F8,$F8,$68,$42
+  .byte $00,$00,$69,$42,$00
+  ; ************@a1df not called
+  .byte $04,$FC,$F1,$02
+  .byte $F0,$FC,$F2,$02
+  .byte $F8,$FC,$F2,$42
+  .byte $00,$FC,$F1,$42,$08
+  ; ************@a1f0 not called
+  .byte $03,$FC,$F5,$02
+  .byte $F4,$FC,$F6,$02
+  .byte $FC,$FC,$F5,$02,$04
   ; @a1fd
-  .byte $02,$F8,$B4,$02,$FC,$00,$B5,$02,$FC
+  .byte $02,$F8,$B4,$02
+  .byte $FC,$00,$B5,$02,$FC
   ; @a206
-  .byte $02,$F8,$B6,$02,$FC,$00,$B7,$02,$FC
+  .byte $02,$F8,$B6,$02
+  .byte $FC,$00,$B7,$02,$FC
   ; @a20f
-  .byte $04,$F8,$B0,$02,$F8,$F8,$B1,$02,$00,$00,$B2,$02,$F8,$00,$B3,$02,$00
+  .byte $04,$F8,$B0,$02
+  .byte $F8,$F8,$B1,$02
+  .byte $00,$00,$B2,$02
+  .byte $F8,$00,$B3,$02,$00
   ; @a220
   .byte $00
   ; @a221
-  .byte $04,$F8,$D4,$02,$F8,$F8,$D5,$02,$00,$00,$D8,$02,$F8,$00,$D9,$02,$00
+  .byte $04,$F8,$D4,$02
+  .byte $F8,$F8,$D5,$02
+  .byte $00,$00,$D8,$02
+  .byte $F8,$00,$D9,$02,$00
   ; @a232
-	.byte $04,$F8,$D4,$02,$F8,$F8,$D5,$02,$00,$00,$D6,$02,$F8,$00,$D7,$02,$00
+	.byte $04,$F8,$D4,$02
+  .byte $F8,$F8,$D5,$02
+  .byte $00,$00,$D6,$02
+  .byte $F8,$00,$D7,$02,$00
   ; @a243
-  .byte $05,$F8,$90,$02,$F0,$F8,$91,$02,$F8,$F8,$92,$02,$00,$00,$93,$02,$F8,$00,$94,$02,$00
+  .byte $05,$F8,$90,$02
+  .byte $F0,$F8,$91,$02
+  .byte $F8,$F8,$92,$02
+  .byte $00,$00,$93,$02
+  .byte $F8,$00,$94,$02,$00
   ; @a258
-  .byte $05,$F8,$91,$02,$F8,$F8,$92,$02,$00,$00,$97,$02,$F0,$00,$98,$02,$F8,$00,$94,$02,$00
+  .byte $05,$F8,$91,$02
+  .byte $F8,$F8,$92,$02
+  .byte $00,$00,$97,$02
+  .byte $F0,$00,$98,$02
+  .byte $F8,$00,$94,$02,$00
   ; @a26d
-  .byte $02,$F8,$9B,$03,$FC,$00,$9C,$03,$FC
+  .byte $02,$F8,$9B,$03
+  .byte $FC,$00,$9C,$03,$FC
   ; @a276
-  .byte $04,$F8,$DC,$43,$F8,$F8,$DB,$43,$00,$00,$DE,$43,$F8,$00,$DD,$43,$00
+  .byte $04,$F8,$DC,$43
+  .byte $F8,$F8,$DB,$43
+  .byte $00,$00,$DE,$43
+  .byte $F8,$00,$DD,$43,$00
   ; @a287
-  .byte $03,$FC,$A1,$41,$F4,$FC,$A7,$41,$FC,$FC,$A0,$41,$04
+  .byte $03,$FC,$A1,$41
+  .byte $F4,$FC,$A7,$41
+  .byte $FC,$FC,$A0,$41,$04
   ; @a294 
-  .byte $03,$FC,$A1,$41,$F4,$FC,$A2,$41,$FC,$FC,$A0,$41,$04
+  .byte $03,$FC,$A1,$41
+  .byte $F4,$FC,$A2,$41
+  .byte $FC,$FC,$A0,$41,$04
   ; @a2a1
-  .byte $03,$FC,$A1,$41,$F4,$FC,$A3,$41,$FC,$FC,$A0,$41,$04
+  .byte $03,$FC,$A1,$41
+  .byte $F4,$FC,$A3,$41
+  .byte $FC,$FC,$A0,$41,$04
   ; @a2ae 
-  .byte $03,$FC,$A1,$41,$F4,$FC,$A4,$41,$FC,$FC,$A0,$41,$04
+  .byte $03,$FC,$A1,$41
+  .byte $F4,$FC,$A4,$41
+  .byte $FC,$FC,$A0,$41,$04
   ; @a2bb
-  .byte $03,$FC,$A1,$41,$F4,$FC,$A5,$41,$FC,$FC,$A0,$41,$04
+  .byte $03,$FC,$A1,$41
+  .byte $F4,$FC,$A5,$41
+  .byte $FC,$FC,$A0,$41,$04
   ; @a2c8
-  .byte $03,$FC,$A1,$41,$F4,$FC,$A6,$41,$FC,$FC,$A0,$41,$04
+  .byte $03,$FC,$A1,$41
+  .byte $F4,$FC,$A6,$41
+  .byte $FC,$FC,$A0,$41,$04
   ; @a2d5
-  .byte $03,$FC,$A8,$01,$F4,$FC,$A9,$41,$FC,$FC,$A8,$41,$04
+  .byte $03,$FC,$A8,$01
+  .byte $F4,$FC,$A9,$41
+  .byte $FC,$FC,$A8,$41,$04
   ; @a2e2
-  .byte $03,$FC,$A8,$01,$F4,$FC,$AA,$41,$FC,$FC,$A8,$41,$04
+  .byte $03,$FC,$A8,$01
+  .byte $F4,$FC,$AA,$41
+  .byte $FC,$FC,$A8,$41,$04
   ; @a2ef
-  .byte $03,$FC,$A8,$01,$F4,$FC,$A9,$41,$FC,$FC,$A8,$41,$04
+  .byte $03,$FC,$A8,$01
+  .byte $F4,$FC,$A9,$41
+  .byte $FC,$FC,$A8,$41,$04
   ; @a2fc
-  .byte $03,$FC,$A8,$01,$F4,$FC,$AB,$41,$FC,$FC,$A8,$41,$04
+  .byte $03,$FC,$A8,$01
+  .byte $F4,$FC,$AB,$41
+  .byte $FC,$FC,$A8,$41,$04
   ; @a309
-  .byte $03,$FC,$A8,$01,$F4,$FC,$AC,$41,$FC,$FC,$A8,$41,$04
+  .byte $03,$FC,$A8,$01
+  .byte $F4,$FC,$AC,$41
+  .byte $FC,$FC,$A8,$41,$04
   ; @a316
-  .byte $03,$FC,$A8,$01,$F4,$FC,$A9,$41,$FC,$FC,$A8,$41,$04
+  .byte $03,$FC,$A8,$01
+  .byte $F4,$FC,$A9,$41
+  .byte $FC,$FC,$A8,$41,$04
   ; @a323
-  .byte $03,$FC,$A8,$01,$F4,$FC,$A9,$41,$FC,$FC,$A8,$41,$04
-  ; @a330
-  .byte $03,$FC,$D0,$02,$F4,$FC,$D1,$02,$FC,$FC,$D0,$42,$04
-  .byte $30,$E8,$DF,$42,$E0,$E8,$DE,$42,$E8,$E8,$DD,$42,$F0,$E8,$DC,$42,$F8,$E8,$DB,$42,$00
-	.byte $E8,$DA,$42,$08,$E8,$D9,$42,$10,$E8,$D8,$42,$18,$F0,$FF,$42,$E0,$F0,$FE,$42,$E8,$F0,$FD,$42,$F0,$F0,$FC,$42,$F8,$F0,$FB,$42,$00
-	.byte $F0,$FA,$42,$08,$F0,$F9,$42,$10,$F0,$F8,$42,$18,$F8,$B7,$42,$E0,$F8,$B6,$42,$E8,$F8,$B5,$42,$F0,$F8,$B4,$42,$F8,$F8,$B3,$42,$00
-	.byte $F8,$B2,$42,$08,$F8,$B1,$42,$10,$F8,$B0,$42,$18,$00,$BF,$42,$E0,$00,$BE,$42,$E8,$00,$BD,$42,$F0,$00,$BC,$42,$F8,$00,$BB,$42,$00
-	.byte $00,$BA,$42,$08,$00,$B9,$42,$10,$00,$B8,$42,$18,$08,$C7,$42,$E0,$08,$C6,$42,$E8,$08,$C5,$42,$F0,$08,$C4,$42,$F8,$08,$C3,$42,$00
-	.byte $08
-  ; @a3d3
-  .byte $C2,$42,$08,$08,$C1,$42,$10,$08,$C0,$42,$18,$10,$CF,$42,$E0,$10,$CE,$42,$E8,$10,$CD,$42,$F0,$10,$CC,$42,$F8,$10,$CB,$42,$00
-	.byte $10,$CA,$42,$08,$10,$C9,$42,$10,$10,$C8,$42,$18
+  .byte $03,$FC,$A8,$01
+  .byte $F4,$FC,$A9,$41
+  .byte $FC,$FC,$A8,$41,$04
+  ; @a330 guardian
+  .byte $03,$FC,$D0,$02
+  .byte $F4,$FC,$D1,$02
+  .byte $FC,$FC,$D0,$42,$04
+  ; Megatron Poster
+  .byte $30,$E8,$DF,$42
+  .byte $E0,$E8,$DE,$42
+  .byte $E8,$E8,$DD,$42
+  .byte $F0,$E8,$DC,$42
+  .byte $F8,$E8,$DB,$42
+  .byte $00,$E8,$DA,$42
+  .byte $08,$E8,$D9,$42
+  .byte $10,$E8,$D8,$42
+  .byte $18,$F0,$FF,$42
+  .byte $E0,$F0,$FE,$42
+  .byte $E8,$F0,$FD,$42
+  .byte $F0,$F0,$FC,$42
+  .byte $F8,$F0,$FB,$42
+  .byte $00,$F0,$FA,$42
+  .byte $08,$F0,$F9,$42
+  .byte $10,$F0,$F8,$42
+  .byte $18,$F8,$B7,$42
+  .byte $E0,$F8,$B6,$42
+  .byte $E8,$F8,$B5,$42
+  .byte $F0,$F8,$B4,$42
+  .byte $F8,$F8,$B3,$42
+  .byte $00,$F8,$B2,$42
+  .byte $08,$F8,$B1,$42
+  .byte $10,$F8,$B0,$42
+  .byte $18,$00,$BF,$42
+  .byte $E0,$00,$BE,$42
+  .byte $E8,$00,$BD,$42
+  .byte $F0,$00,$BC,$42
+  .byte $F8,$00,$BB,$42
+  .byte $00,$00,$BA,$42
+  .byte $08,$00,$B9,$42
+  .byte $10,$00,$B8,$42
+  .byte $18,$08,$C7,$42
+  .byte $E0,$08,$C6,$42
+  .byte $E8,$08,$C5,$42
+  .byte $F0,$08,$C4,$42
+  .byte $F8,$08,$C3,$42
+  .byte $00,$08,$C2,$42
+  .byte $08,$08,$C1,$42
+  .byte $10,$08,$C0,$42
+  .byte $18,$10,$CF,$42
+  .byte $E0,$10,$CE,$42
+  .byte $E8,$10,$CD,$42
+  .byte $F0,$10,$CC,$42
+  .byte $F8,$10,$CB,$42
+  .byte $00,$10,$CA,$42
+  .byte $08,$10,$C9,$42
+  .byte $10,$10,$C8,$42,$18
   ; @a3fe
-  .byte $04,$F8,$90,$01,$F8,$F8,$91,$01,$00,$00,$92,$01,$F8,$00,$93,$01,$00
+  .byte $04,$F8,$90,$01
+  .byte $F8,$F8,$91,$01
+  .byte $00,$00,$92,$01
+  .byte $F8,$00,$93,$01,$00
   ; @a40f
-  .byte $02,$F8,$94,$01,$FC,$00,$95,$01,$FC
+  .byte $02,$F8,$94,$01
+  .byte $FC,$00,$95,$01,$FC
   ; @a418
-  .byte $04,$F8,$96,$01,$F8,$F8,$97,$01,$00,$00,$98,$01,$F8,$00,$99,$01,$00
+  .byte $04,$F8,$96,$01
+  .byte $F8,$F8,$97,$01
+  .byte $00,$00,$98,$01
+  .byte $F8,$00,$99,$01,$00
   ; @a429 
-  .byte $02,$FC,$BA,$02,$F8,$FC,$BA,$02,$00
+  .byte $02,$FC,$BA,$02
+  .byte $F8,$FC,$BA,$02,$00
   ; @a432
-	.byte $02,$FC,$BB,$01,$F8,$FC,$BB,$01,$00
+	.byte $02,$FC,$BB,$01
+  .byte $F8,$FC,$BB,$01,$00
   ; @a43b
-  .byte $04,$FC,$F2,$01,$F4,$FC,$FF,$01,$FC,$FC,$F2,$41,$04,$04,$FB,$01,$FC
+  .byte $04,$FC,$F2,$01
+  .byte $F4,$FC,$FF,$01
+  .byte $FC,$FC,$F2,$41
+  .byte $04,$04,$FB,$01,$FC
   ; @a44c
   .byte $01,$FC,$EA,$01,$FC
   ; @a451
@@ -9377,91 +9594,91 @@ disable_audio_channels:
   txa
   pha
   tya
-  pha
-  ldx #$00
-  stx APU_CHANCTRL
-  stx apu_status_ram_6
+  pha                     ; store x and y to stack
+  ldx #$00                ; reset x to 0
+  stx APU_CHANCTRL        ; disable all channels %---D NT21
+  stx apu_status_ram_6    ; store to apu_status_ram_6
 :                         ; d49a
   lda #$FF                ; Load $FF to all channel_status in RAM
-  sta audio_ram_0,X
+  sta audio_ram_0,X       ; Store ff to audio status
   txa
   clc
-  adc #$10
+  adc #$10                ; load next line in x by adding 10
   tax
-  cmp #$80
+  cmp #$80                ; disable first 8 rows in ram from $300
   bne :-
   pla
   tay
   pla
-  tax
+  tax                     ; restore x and y from stack and rts
   rts
 clear_audio_channels:
   lda #$00
-  sta apu_status_ram_0
-  sta apu_status_ram_1
-  sta apu_status_ram_2
-  sta apu_status_ram_3
-b_d4bb:
+  sta apu_status_ch0      ; store 0 to apu_status_ch0
+  sta apu_status_ch1      ; store 0 to apu_status_ch1
+  sta apu_status_ch2      ; store 0 to apu_status_ch2
+  sta apu_status_ch3      ; store 0 to apu_status_ch3
+chk_audio_ram:            ; b_d4bb
   tax
-  lda audio_ram_1,X
-  sta apu_status_ram_4
+  lda audio_ram_1,X       ; load which audio channel from audio_ram_1
+  sta apu_current_ch_ram  ; store channel to apu_current_ch_ram
   tay
   cmp #$02
-  bcc :++
-  beq :+
-  ora #$40
-  bne :++
+  bcc :++                 ; branch if its channel 00 or 01, pulse 1 and pulse 2
+  beq :+                  ; branch if its a triangle
+  ora #$40                ; or with 40 if more than 02
+  bne :++                 ; branch if more than 02
 :
-  ora #$80
+  ora #$80                ; or with 80
 :
-  sta apu_status_ram_5
-  lda audio_ram_0,X
-  cmp #$FF
-  beq b_d512
-  lda apu_status_ram_0,Y
+  sta apu_status_ram_5    ; store channel to status_ram_5
+  lda audio_ram_0,X       ; load audio status
+  cmp #$FF                ; check if its disabled
+  beq next_aud_ram_track  ; branch to next track if this track is disabled
+  lda apu_status_ch0,Y    ; load the status of channel from ram
   clc
-  adc #$01
-  sta apu_status_ram_0,Y
-  lda audio_ram_0,X
-  beq b_d51b
-  inc audio_ram_C,X
+  adc #$01                ; increment channel status ram
+  sta apu_status_ch0,Y    ; store in channel status ram
+  lda audio_ram_0,X       ; load audio track status
+  beq b_d51b              ; branch if status is 0
+  inc audio_ram_C,X       ; increment audio_ram_C
   lda audio_ram_C,X
   sec
-  sbc audio_ram_B,X
-  bcc :+
-  sta audio_ram_C,X
+  sbc audio_ram_B,X       ; subtract audio_ram_C - audio_ram_B
+  bcc :+                  ; branch if carry is cleared
+  sta audio_ram_C,X       ; store difference in audio_ram_C if no carry
 :
-  dec audio_ram_5,X
-  bpl :+
-  lda audio_ram_4,X
-  sta audio_ram_5,X
+  dec audio_ram_5,X       ; decrement audio_ram_5
+  bpl :+                  ; branch if positive or 00
+  lda audio_ram_4,X       ; load max length
+  sta audio_ram_5,X       ; store to counter
   jsr inc_audio_ram_6
-  dec audio_ram_7,X
+  dec audio_ram_7,X       ; decrement 
   beq b_d50f
-:                       ; b_d509
+:                         ; b_d509
   jsr set_sq1_vol_b
-  jmp b_d512
+  jmp next_aud_ram_track
 b_d50f:
-  jsr check_audio_ram
-b_d512:
-  txa
+  jsr misc_audio_ram
+next_aud_ram_track:
+  txa                     ; transfer x to a
   clc
-  adc #$10
+  adc #$10                ; add 10 to index
   cmp #$80
-  bne b_d4bb
-  rts
-b_d51b:
-  lda audio_ram_2,X
+  bne chk_audio_ram              ; loop back until we've covered all ram tracks
+  rts                     ; rts when we've dont all tracks
+b_d51b:                   ; branch here if track status is 00
+  lda aud_addr_lo,X
   sta $10
-  lda audio_ram_3,X
-  sta $11
+  lda aud_addr_hi,X
+  sta $11                 ; get audio sound address from track
   ldy #$00
-  lda ($10),y
-  and #$0f
-  sta audio_ram_4,X
+  lda ($10),y             ; get the first byte, which is the length
+  and #$0f                ; and with 0f
+  sta audio_ram_4,X       ; store length 
   sta audio_ram_5,X
   iny
-  jsr apu_status_rtn
+  jsr get_sample_ch
   iny
   lda ($10),Y
   ora apu_status_ram_7
@@ -9472,10 +9689,10 @@ b_d51b:
   lda #$00
   sta audio_ram_9,X
   sta audio_ram_A,X
-  sta audio_ram_D,X
+  sta audio_ram_timer,X
   lda #$02
   sta audio_ram_0,X
-  bne b_d50f
+  bne b_d50f              ; why bne instead of jmp? less cycles? less bytes in program?
 b_d556:
   and #$0f
   bpl :+
@@ -9487,23 +9704,23 @@ b_d55a:
 :
   bit apu_status_ram_5
   bmi :+
-  sta audio_ram_D,X
+  sta audio_ram_timer,X
   lda ($10),Y
   sta audio_ram_E,X
   sta audio_ram_F,X
 :
   jmp apu_status_rtn_2
-check_audio_ram:
+misc_audio_ram:
   lda audio_ram_0,X
   sta $10
   ldy #$00
   sty $11
   asl $10
   rol $11
-  lda audio_ram_2,X
+  lda aud_addr_lo,X
   adc $10
   sta $10
-  lda audio_ram_3,X
+  lda aud_addr_hi,X
   adc $11
   sta $11
   lda ($10),Y
@@ -9545,7 +9762,7 @@ b_d5ce:
   sta audio_ram_8,X
   jmp apu_status_rtn_2
 :
-  jsr apu_status_rtn
+  jsr get_sample_ch
   bcs apu_status_rtn_2a
   lda audio_ram_6,X
   and #$1F
@@ -9554,7 +9771,7 @@ apu_status_rtn_2a:
   sta audio_ram_6,X
 apu_status_rtn_2:
   inc audio_ram_0,X
-  jmp check_audio_ram
+  jmp misc_audio_ram
 b_d5f0:
   and #$0f
   cmp #$0F
@@ -9568,7 +9785,7 @@ b_d600:
   clc
   adc audio_ram_0,X
   sta audio_ram_0,X
-  jmp check_audio_ram
+  jmp misc_audio_ram
 b_d60c:
   and #$0f
   sta apu_status_ram_7
@@ -9582,15 +9799,15 @@ b_d60c:
   lda apu_status_ram_7
   sta audio_ram_A,X
   bpl apu_status_rtn_2
-apu_status_rtn:
+get_sample_ch:
   bit apu_status_ram_5 
   bmi b_d63a
-  lda ($10),Y
-  and #$03
-  ror
-  ror
-  ror
-  sta apu_status_ram_7
+  lda ($10),Y               ; get channel for this sound from sound sample table
+  and #$03                  ; and %0000 0011
+  ror                       ; ror = 0000 0001 +c
+  ror                       ; ror = 1000 0000 +c
+  ror                       ; ror = 1100 0000
+  sta apu_status_ram_7      ; store channel with 0=0, 1=40, 2=80, 3=C0
   rts
 b_d63a:
   lda ($10),Y
@@ -9630,7 +9847,7 @@ sq1_apu_rtn:
   sta audio_ram_7,X
   lda #$00
   sta audio_ram_C,X
-  jsr audio_status_rtn
+  jsr chk_aud_ch_status
   lda apu_status_ram_8
   pha
   lda apu_status_ram_7
@@ -9662,12 +9879,12 @@ set_sq1_vol_d:
   lda ($10),Y
   sta audio_ram_7,X
 set_sq1_vol_c:
-  jsr audio_status_rtn
+  jsr chk_aud_ch_status
   lda audio_tbl_1a,y      ; @$D7E7
   and apu_status_ram_6
   jmp send_apu_status
 set_sq1_vol_b:
-  jsr audio_status_rtn
+  jsr chk_aud_ch_status
 set_sq1_vol_a:
   cpy #$02
   beq :+
@@ -9744,7 +9961,7 @@ set_sq1_vol_a:
 :
   dey
   bne :--
-  lda apu_status_ram_4
+  lda apu_current_ch_ram
   asl
   asl
   tay
@@ -9758,20 +9975,20 @@ set_sq1_vol_a:
   ora apu_status_ram_8
   sta APU_PULSE1CTRL,Y        ; send to sq1 vol
   rts
-audio_status_rtn:
-  ldy apu_status_ram_4
-  lda apu_status_ram_0,Y
-  cmp #$01
-  beq :+
+chk_aud_ch_status:
+  ldy apu_current_ch_ram
+  lda apu_status_ch0,Y        ; load channel status
+  cmp #$01                    ; compare 01  
+  beq :+                      ; branch if channel status is 01
   pla
-  pla
+  pla                         ; pull twice from stack because the channel is disabled and we're done
 :
   rts
 inc_audio_ram_6:
   bit apu_status_ram_5
-  bmi :+
-  lda audio_ram_D,X
-  beq :+
+  bmi :+                      ; branch out if negative
+  lda audio_ram_timer,X
+  beq :+                      ; branch out if track timer is 0
   dec audio_ram_F,X
   bne :+
   lda audio_ram_E,X
@@ -9780,10 +9997,10 @@ inc_audio_ram_6:
   and #$1F
   sta apu_status_ram_7
   and #$10
-  beq :+
-  lda audio_ram_D,X
-  bmi :++
-  dec audio_ram_D,X
+  beq :+                      ; branch out if audio_ram_6 doesnt have 4bit set
+  lda audio_ram_timer,X
+  bmi :++                     ; branch if audio_ram_timer is negative and increment up to 00
+  dec audio_ram_timer,X
   lda apu_status_ram_7
   cmp #$1F
   beq :+
@@ -9791,12 +10008,14 @@ inc_audio_ram_6:
 :
   rts
 :
-  inc audio_ram_D,X
+  inc audio_ram_timer,X       ; iincrement audio_ram_timer
   lda apu_status_ram_7
   cmp #$10
   beq :--
   dec audio_ram_6,x
   rts
+
+
 audio_tbl_0:                ; @$D7C0-D7D7
   .byte $AE,$06,$4E,$06,$F4,$05,$9E,$05,$4D,$05,$01,$05,$B9,$04,$75,$04,$35,$04,$F9,$03,$C0,$03,$8A,$03
 send_apu_status:
@@ -10209,8 +10428,12 @@ magnus_jump_sound_1:  ; magnus jump sound. @daa8
 .byte $05,$01,$01,$00,$39,$01,$1F,$01,$39,$01,$1F,$01,$39,$01,$1F,$01,$34,$01,$37,$01,$39,$01,$37,$01,$34,$01,$39,$01,$1F,$01,$37,$01,$1F,$01,$34,$01,$B2,$F0,$39
 .byte $01,$1F,$01,$39,$01,$1F,$01,$39,$01,$1F,$01,$34,$01,$37,$01,$39,$01,$37,$01,$34,$01,$40,$01,$1F,$01,$3B,$01,$1F,$01,$37,$01,$BF,$DF
 ; barrier powerup music.2 @e002
-.byte $25,$18,$00,$00,$19,$02,$29,$02,$20,$02,$30,$02,$22
-.byte $02,$32,$02,$20,$02,$30,$02,$15,$02,$25,$02,$14,$02,$24,$02,$15,$02,$25,$02,$17,$02,$27,$02,$BF,$F0,$BF,$F0
+.byte $25,$18,$00,$00,$19,$02,$29,$02,$20,$02,$30,$02,$22,$02,$32,$02,$20,$02,$30,$02,$15,$02,$25,$02,$14,$02,$24,$02,$15,$02,$25,$02,$17,$02,$27,$02,$BF,$F0,$BF,$F0
+
+
+
+; looks like there room for more music, here
+; sound composer was told to make the sounds within a certain memory space, saw the challenge and said "hold my stong lemon"
 
 ; padding
 .byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
@@ -10228,529 +10451,853 @@ magnus_jump_sound_1:  ; magnus jump sound. @daa8
 
 ; stage metatile tables, each of the 4 first rows are 4 columns of metatiles. each screen is made up of 4 sets of 4 metatiles
 ; first 4 sections is the first screen of the first stage
-; @e0c6
+; fifth row is the palette table, split into 2 sets of 8. first 8 are the left side (line/column one and line/column 2), second set of 8 are the right side, going downwards
+; 00 @e0c6
 .byte $00,$00,$03,$00,$00,$00,$00,$00,$03,$00,$00,$00,$08,$56,$56
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$09,$56,$56
 .byte $00,$03,$00,$00,$00,$02,$00,$00,$00,$00,$00,$0B,$0A,$56,$56
 .byte $00,$00,$00,$00,$03,$00,$00,$00,$00,$00,$00,$0D,$0C,$56,$56
 .byte $00,$00,$00,$00,$03,$00,$50,$55,$30,$00,$3C,$00,$00,$00,$50,$55
-; @e112
+; 01 @e112
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$0F,$08,$0E,$56,$36
 .byte $03,$00,$00,$00,$00,$00,$03,$00,$00,$00,$10,$09,$11,$56,$25
 .byte $00,$00,$02,$00,$00,$00,$00,$00,$00,$00,$14,$13,$12,$56,$25
 .byte $00,$00,$00,$00,$03,$00,$00,$03,$00,$16,$15,$0E,$11,$56,$37
 .byte $00,$00,$00,$00,$00,$00,$50,$55,$00,$03,$0C,$C0,$00,$00,$50,$55
-; @e15e
+; 02 @e15e
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$16,$1A,$19,$18,$17,$56,$56
 .byte $00,$03,$00,$00,$00,$03,$00,$00,$0D,$1E,$1D,$1C,$1B,$56,$56
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$22,$21,$20,$1F,$56,$56
 .byte $00,$00,$03,$00,$00,$00,$00,$03,$00,$00,$25,$24,$23,$56,$56
 .byte $00,$00,$C0,$00,$00,$00,$50,$55,$00,$00,$00,$00,$00,$08,$50,$55
-; @e1aa
+; 03 @e1aa
 .byte $00,$00,$00,$00,$03,$00,$00,$00,$00,$00,$22,$27,$26,$56,$56
 .byte $03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$0F,$28,$27,$56,$56
 .byte $00,$00,$03,$00,$00,$00,$00,$00,$03,$00,$10,$00,$29,$56,$56
 .byte $00,$00,$00,$00,$00,$03,$00,$00,$00,$00,$00,$00,$2A,$56,$56
 .byte $00,$00,$03,$00,$00,$00,$50,$55,$00,$00,$00,$00,$00,$00,$50,$55
-; @e1f6
+; 04 @e1f6
 .byte $00,$00,$00,$00,$00,$00,$00,$03,$00,$00,$00,$00,$14,$56,$56
 .byte $00,$00,$04,$06,$00,$00,$00,$00,$00,$00,$00,$16,$18,$56,$56
 .byte $00,$00,$05,$07,$00,$03,$00,$00,$03,$00,$00,$0D,$2B,$56,$56
 .byte $00,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$2C,$56,$56
 .byte $F0,$FF,$FF,$FF,$FF,$0F,$50,$55,$F0,$FF,$FF,$FF,$FF,$0F,$50,$55
-; @e242
+; 05 @e242
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$2E,$2D,$56,$56
 .byte $03,$00,$00,$00,$00,$03,$00,$00,$00,$00,$00,$00,$2C,$56,$56
 .byte $00,$00,$00,$00,$00,$00,$00,$03,$00,$00,$00,$30,$2F,$56,$56
 .byte $00,$00,$03,$00,$03,$00,$00,$00,$00,$00,$00,$00,$28,$56,$56
 .byte $F0,$FF,$FF,$FF,$FF,$0F,$50,$55,$F0,$FF,$FF,$FF,$FF,$0F,$50,$55
-; @e28e
+; 06 @e28e
 .byte $03,$00,$00,$00,$00,$00,$03,$00,$00,$00,$00,$00,$08,$56,$56
 .byte $00,$00,$00,$03,$00,$00,$00,$00,$00,$00,$00,$00,$09,$56,$36
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$03,$00,$00,$14,$31,$56,$25
 .byte $03,$00,$00,$00,$00,$03,$00,$00,$00,$00,$16,$33,$32,$56,$37
 .byte $F0,$FF,$FF,$FF,$FF,$0F,$50,$55,$F0,$FF,$FF,$FF,$FF,$03,$50,$55
-; @e2da
+; 07 @e2da
 .byte $00,$00,$00,$03,$00,$00,$00,$00,$00,$03,$0D,$1E,$1D,$56,$56
 .byte $00,$00,$00,$00,$00,$03,$00,$03,$00,$00,$00,$22,$21,$56,$56
 .byte $00,$03,$00,$00,$03,$00,$00,$00,$00,$00,$00,$0B,$34,$56,$56
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$0D,$0C,$56,$56
 .byte $F0,$FF,$FF,$FF,$FF,$00,$50,$55,$F0,$FF,$FF,$FF,$FF,$00,$50,$55
-; @e326
+; 08 @e326
 .byte $00,$03,$00,$00,$03,$80,$00,$00,$00,$00,$00,$00,$55,$55,$55
 .byte $00,$00,$00,$00,$00,$80,$00,$00,$00,$00,$00,$00,$55,$55,$55
 .byte $00,$00,$03,$00,$00,$03,$00,$00,$00,$80,$01,$01,$55,$55,$55
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$80,$00,$00,$55,$55,$55
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$11,$00,$00
-; @e372
+; 09 @e372
 .byte $00,$00,$00,$03,$00,$00,$00,$00,$03,$00,$80,$01,$01,$55,$55
 .byte $00,$00,$00,$00,$00,$03,$00,$00,$00,$00,$80,$01,$01,$55,$55
 .byte $00,$00,$00,$00,$00,$00,$00,$03,$00,$00,$80,$01,$01,$55,$55
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$80,$01,$01,$55,$55
 .byte $00,$00,$00,$00,$00,$50,$05,$00,$00,$00,$00,$00,$00,$50,$05,$00
-; @e2be
+; 0A @e2be
 .byte $00,$00,$00,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$55,$55
 .byte $00,$04,$06,$00,$00,$00,$00,$00,$03,$00,$00,$00,$00,$55,$55
 .byte $00,$05,$07,$00,$03,$00,$00,$00,$00,$00,$00,$55,$55,$55,$55
 .byte $00,$03,$00,$00,$00,$00,$00,$03,$00,$00,$00,$55,$55,$55,$55
 .byte $80,$08,$00,$00,$00,$00,$00,$00,$20,$02,$00,$00,$00,$00,$00,$00
-; @e40a
+; 0B @e40a
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$80,$01,$01,$01,$55,$55,$55
 .byte $00,$00,$00,$03,$00,$00,$00,$00,$80,$01,$01,$01,$55,$80,$55
 .byte $03,$00,$00,$00,$03,$00,$00,$00,$80,$01,$01,$01,$55,$55,$55
 .byte $00,$03,$00,$00,$00,$00,$00,$00,$80,$01,$01,$01,$55,$80,$55
 .byte $00,$00,$00,$00,$50,$55,$00,$00,$00,$00,$00,$00,$50,$55,$00,$00
-; @e456
+; 0C @e456
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$80,$01,$01,$55,$55,$80,$55
 .byte $00,$00,$00,$03,$80,$00,$00,$00,$80,$01,$01,$55,$55,$55,$55
 .byte $00,$00,$00,$00,$80,$01,$01,$00,$80,$00,$00,$55,$55,$55,$55
 .byte $03,$00,$00,$00,$00,$00,$00,$00,$80,$01,$01,$55,$55,$80,$55
 .byte $00,$00,$00,$00,$50,$05,$00,$00,$00,$00,$10,$01,$40,$04,$00,$00
-; @e4a2
+; 0D @e4a2
 .byte $00,$00,$00,$00,$00,$03,$00,$00,$00,$00,$00,$55,$55,$55,$55
 .byte $00,$00,$03,$02,$00,$00,$00,$80,$01,$01,$01,$55,$55,$55,$55
 .byte $03,$00,$00,$00,$03,$00,$00,$80,$00,$00,$00,$00,$00,$55,$55
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$55,$55
 .byte $00,$4C,$00,$00,$44,$04,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-; @e4ee
+; 0F @e4ee
 .byte $00,$00,$00,$80,$00,$00,$00,$00,$00,$00,$00,$00,$00,$55,$55
 .byte $00,$00,$00,$80,$01,$00,$00,$00,$00,$7A,$00,$00,$00,$55,$55
 .byte $00,$00,$00,$80,$00,$03,$00,$00,$7A,$7A,$00,$00,$00,$55,$55
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$7A,$7A,$00,$00,$00,$55,$55
 .byte $00,$00,$04,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-; @e53a
+; 10 @e53a
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$7A,$7A,$00,$00,$00,$55,$55
 .byte $00,$00,$03,$80,$01,$00,$00,$00,$7A,$7A,$00,$00,$00,$55,$55
 .byte $00,$03,$00,$80,$00,$03,$00,$00,$7A,$7A,$00,$00,$00,$55,$55
 .byte $00,$00,$00,$03,$00,$00,$00,$00,$7A,$00,$00,$00,$00,$55,$55
 .byte $00,$00,$04,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-; @e586
+; 11 @e586
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$03,$00,$00,$00,$55,$55
 .byte $00,$00,$03,$00,$03,$80,$00,$00,$00,$00,$00,$00,$55,$55,$55
 .byte $00,$02,$00,$00,$00,$80,$00,$03,$00,$00,$00,$55,$55,$55,$55
 .byte $03,$00,$00,$03,$00,$80,$00,$00,$03,$00,$00,$55,$55,$55,$55
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$10,$00,$00,$00,$00,$00,$00,$00
-; @e5d2
+; 12 @e5d2
 .byte $00,$03,$00,$00,$00,$80,$01,$01,$01,$01,$01,$01,$55,$55,$55
 .byte $00,$00,$00,$00,$00,$80,$01,$01,$01,$01,$01,$01,$55,$80,$55
 .byte $00,$00,$02,$00,$00,$80,$01,$01,$01,$01,$01,$01,$55,$55,$55
 .byte $03,$00,$00,$00,$00,$80,$01,$01,$01,$01,$01,$01,$55,$80,$55
 .byte $20,$00,$02,$55,$55,$55,$00,$00,$00,$00,$00,$55,$55,$55,$00,$00
-; @e61e
+; 13 @e61e
 .byte $00,$7A,$01,$01,$01,$01,$01,$01,$7A,$01,$01,$01,$55,$55,$55
 .byte $00,$7A,$01,$01,$01,$01,$01,$01,$7A,$01,$01,$01,$55,$80,$55
 .byte $00,$7A,$01,$01,$01,$01,$01,$01,$7A,$01,$01,$01,$55,$55,$55
 .byte $00,$7A,$01,$01,$01,$01,$01,$01,$7A,$01,$01,$01,$55,$80,$55
 .byte $00,$55,$55,$55,$50,$55,$00,$00,$00,$55,$55,$55,$50,$55,$00,$00
-; @e66a
+; 14 @e66a
 .byte $00,$00,$00,$54,$53,$00,$00,$00,$00,$00,$00,$00,$00,$56,$56
 .byte $00,$00,$00,$00,$53,$00,$00,$00,$00,$00,$00,$00,$00,$56,$56
 .byte $00,$00,$00,$00,$53,$00,$00,$00,$00,$00,$00,$00,$00,$56,$56
 .byte $00,$00,$00,$00,$53,$00,$00,$00,$00,$00,$00,$00,$00,$56,$56
 .byte $00,$00,$00,$00,$00,$00,$50,$55,$00,$00,$00,$00,$00,$00,$50,$55
-; @e6b6
+; 15 @e6b6
 .byte $00,$00,$00,$00,$53,$00,$00,$00,$00,$00,$00,$00,$00,$56,$56
 .byte $00,$00,$00,$00,$53,$00,$00,$00,$00,$00,$00,$00,$00,$56,$56
 .byte $00,$00,$00,$00,$53,$00,$00,$00,$00,$00,$00,$00,$00,$56,$56
 .byte $00,$00,$00,$54,$53,$00,$00,$00,$00,$00,$00,$00,$00,$56,$56
 .byte $00,$00,$00,$00,$00,$00,$50,$55,$00,$00,$00,$00,$00,$00,$50,$55
-; @e702
+; 16 @e702
 .byte $00,$00,$00,$00,$53,$00,$00,$00,$00,$00,$00,$00,$00,$56,$56
 .byte $00,$00,$00,$00,$53,$00,$00,$00,$00,$00,$00,$00,$00,$56,$56
 .byte $00,$00,$00,$00,$53,$00,$00,$00,$00,$00,$00,$00,$00,$56,$56
 .byte $00,$00,$00,$00,$53,$00,$00,$00,$00,$00,$00,$00,$00,$56,$56
 .byte $00,$00,$00,$00,$00,$00,$50,$55,$00,$00,$00,$00,$00,$00,$50,$55
-; @e74e
+; 17 @e74e
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$3A,$00,$00,$00
 .byte $00,$00,$3B,$00,$00,$3A,$00,$57,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$57,$00,$3A,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$57,$00,$00,$00,$00,$00,$3A,$00
 .byte $00,$05,$00,$0A,$50,$00,$0F,$00,$00,$05,$00,$02,$00,$00,$0F,$00
-; @e79a
+; 18 @e79a
 .byte $00,$3A,$00,$57,$3A,$00,$3A,$00,$57,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$57,$00,$00,$00,$00,$57,$3A,$00,$00,$57,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$57,$00,$00,$00,$57,$00,$00
 .byte $00,$00,$00,$00,$00,$3A,$00,$00,$00,$00,$00,$3A,$57,$00,$00
 .byte $00,$05,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  ; 19
 .byte $00,$00,$3A,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$3A,$00,$00,$57,$00,$00,$3A,$00,$00
 .byte $3A,$00,$00,$00,$3A,$00,$00,$00,$00,$57,$3A,$00,$00,$00,$3A
 .byte $00,$00,$00,$00,$00,$00,$00,$3A,$00,$57,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  ; 1A
 .byte $00,$3A,$00,$00,$00,$00,$57,$00,$00,$00,$00,$00,$00,$3A,$00
 .byte $00,$00,$00,$57,$00,$00,$57,$00,$3A,$00,$00,$3A,$00,$00,$00
 .byte $00,$00,$00,$57,$00,$3A,$57,$00,$00,$00,$00,$00,$00,$3B,$00
 .byte $3A,$00,$00,$57,$00,$00,$57,$00,$00,$00,$3A,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$80,$00,$00,$00,$00,$00,$00,$40,$A0,$00,$00
+  ; 1B
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$56,$56
 .byte $00,$00,$00,$00,$00,$00,$00,$03,$00,$00,$00,$00,$00,$56,$56
 .byte $00,$00,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$56,$56
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$56,$56
 .byte $00,$00,$00,$00,$00,$00,$50,$55,$00,$00,$00,$00,$00,$00,$50,$55
+  ; 1C
 .byte $00,$00,$57,$59,$57,$00,$00,$00,$00,$00,$00,$59,$58,$A6,$00
 .byte $3A,$00,$57,$5A,$57,$00,$00,$00,$00,$00,$00,$5A,$58,$00,$00
 .byte $00,$00,$57,$5A,$57,$A6,$A6,$A6,$00,$00,$00,$58,$00,$3A,$00
 .byte $00,$3A,$57,$5A,$57,$00,$00,$00,$00,$00,$00,$58,$A6,$A6,$00
 .byte $00,$A0,$00,$00,$00,$A0,$10,$00,$40,$A0,$10,$11,$00,$00,$44,$00
+  ; 1D
 .byte $00,$00,$00,$5A,$57,$00,$00,$00,$00,$00,$00,$59,$00,$00,$00
 .byte $3A,$00,$00,$5A,$57,$00,$00,$00,$00,$00,$00,$5A,$A6,$A6,$00
 .byte $00,$00,$00,$5A,$57,$00,$A6,$A6,$A6,$00,$00,$58,$00,$00,$00
 .byte $00,$00,$57,$58,$57,$00,$00,$00,$00,$00,$00,$59,$58,$00,$00
 .byte $00,$A0,$00,$00,$00,$A0,$44,$00,$00,$20,$00,$11,$01,$80,$00,$00
+  ; 1E
 .byte $00,$00,$57,$5A,$57,$00,$00,$00,$00,$00,$58,$58,$58,$00,$00
 .byte $00,$00,$57,$5A,$57,$00,$00,$00,$00,$00,$58,$59,$A6,$A6,$00
 .byte $00,$00,$00,$5A,$57,$00,$00,$00,$00,$00,$58,$5A,$00,$3A,$00
 .byte $00,$3A,$00,$58,$57,$00,$00,$00,$00,$00,$59,$58,$00,$00,$00
 .byte $00,$A0,$00,$00,$44,$80,$44,$00,$80,$20,$00,$00,$00,$28,$00,$00
+  ; 1F
 .byte $00,$00,$00,$59,$57,$00,$00,$00,$00,$00,$5A,$59,$58,$A6,$A6
 .byte $00,$00,$00,$5A,$57,$A6,$A6,$A6,$00,$00,$58,$5A,$58,$00,$00
 .byte $3A,$00,$57,$5A,$57,$00,$00,$00,$00,$00,$58,$58,$00,$3A,$00
 .byte $00,$00,$57,$5A,$57,$00,$00,$00,$00,$00,$59,$58,$A6,$A6,$00
 .byte $00,$A0,$40,$44,$00,$A2,$10,$00,$00,$A0,$00,$00,$00,$08,$44,$00
+  ; 20
 .byte $57,$57,$59,$57,$57,$00,$00,$00,$58,$58,$5A,$59,$00,$00,$00
 .byte $00,$57,$58,$57,$57,$00,$00,$00,$59,$59,$58,$5A,$58,$00,$00
 .byte $00,$00,$59,$57,$57,$00,$00,$00,$5A,$5A,$58,$5A,$A6,$A6,$00
 .byte $00,$00,$5A,$57,$57,$A6,$00,$00,$58,$59,$58,$5A,$00,$3A,$00
 .byte $00,$02,$00,$00,$88,$A2,$00,$00,$00,$0A,$40,$04,$A2,$A0,$51,$00
+  ; 21
 .byte $00,$00,$5A,$59,$57,$00,$00,$00,$58,$58,$58,$59,$58,$00,$00
 .byte $00,$00,$58,$5A,$57,$00,$00,$00,$59,$58,$58,$5A,$58,$00,$00
 .byte $57,$57,$57,$58,$57,$00,$00,$00,$5A,$58,$58,$5A,$A6,$A6,$00
 .byte $00,$57,$57,$58,$00,$00,$00,$00,$58,$58,$59,$58,$00,$00,$00
 .byte $00,$A2,$00,$00,$08,$A0,$00,$00,$00,$00,$00,$00,$02,$28,$11,$00
+  ; 22
 .byte $00,$00,$57,$00,$00,$00,$00,$00,$00,$00,$5A,$A6,$A6,$A6,$00
 .byte $00,$00,$57,$00,$00,$00,$00,$00,$00,$00,$58,$00,$00,$00,$3A
 .byte $00,$00,$57,$57,$00,$00,$00,$00,$00,$00,$58,$58,$58,$00,$00
 .byte $00,$00,$58,$57,$00,$00,$00,$00,$00,$00,$58,$58,$58,$00,$00
 .byte $00,$00,$00,$00,$00,$12,$11,$00,$00,$00,$00,$00,$11,$00,$00,$00
+  ; 23
 .byte $00,$00,$58,$57,$57,$00,$00,$00,$00,$00,$59,$58,$59,$00,$00
 .byte $00,$00,$59,$59,$57,$A6,$A6,$A6,$00,$00,$5A,$58,$5A,$A6,$A6
 .byte $00,$00,$5A,$5A,$57,$00,$00,$00,$00,$00,$58,$59,$5A,$00,$00
 .byte $00,$00,$58,$58,$57,$00,$00,$00,$00,$00,$58,$5A,$58,$00,$00
 .byte $00,$88,$40,$44,$04,$8A,$4A,$00,$00,$22,$00,$00,$00,$A0,$02,$00
+  ; 24
 .byte $00,$00,$00,$00,$00,$40,$00,$00,$00,$00,$82,$00,$00,$00,$00
 .byte $00,$3A,$00,$00,$00,$00,$00,$00,$00,$00,$89,$9B,$00,$3A,$00
 .byte $00,$00,$00,$00,$00,$00,$3A,$00,$00,$00,$89,$9E,$A6,$00,$00
 .byte $00,$00,$00,$00,$40,$00,$00,$00,$00,$00,$83,$5E,$00,$00,$00
 .byte $40,$00,$30,$00,$00,$05,$40,$00,$00,$00,$0C,$01,$00,$05,$02,$00
+  ; 25
 .byte $00,$00,$3A,$00,$00,$00,$00,$00,$00,$00,$83,$5E,$A6,$A6,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$3A,$00,$89,$9E,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$3A,$00,$40,$00,$00,$89,$9F,$00,$3A,$00
 .byte $3A,$00,$00,$00,$00,$00,$00,$00,$00,$00,$88,$00,$00,$00,$00
 .byte $00,$02,$00,$00,$04,$05,$22,$00,$00,$00,$20,$30,$00,$05,$20,$00
+  ; 26
 .byte $00,$00,$00,$00,$00,$00,$00,$82,$00,$00,$00,$00,$3A,$00,$00
 .byte $00,$00,$00,$3A,$00,$00,$00,$89,$9B,$00,$40,$00,$00,$00,$00
 .byte $00,$3A,$00,$00,$00,$00,$00,$89,$9E,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$3E,$7D,$5E,$00,$00,$3A,$00,$00,$00
 .byte $00,$00,$00,$50,$01,$0D,$01,$00,$20,$00,$00,$54,$00,$40,$00,$00
+  ; 27
 .byte $00,$00,$00,$00,$00,$3C,$4C,$7E,$5E,$3A,$00,$00,$00,$3A,$00
 .byte $00,$00,$00,$00,$00,$3D,$4D,$7F,$5E,$00,$00,$00,$40,$00,$00
 .byte $00,$3A,$00,$00,$00,$00,$3F,$95,$9E,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$88,$9F,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$50,$55,$00,$00,$1C,$00,$10,$00,$50,$55,$00,$00,$00,$00
+  ; 28
 .byte $00,$00,$00,$00,$00,$3A,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$82,$00,$84,$00,$00,$00
 .byte $00,$00,$3B,$00,$82,$00,$00,$00,$00,$83,$00,$85,$00,$3A,$00
 .byte $00,$00,$00,$00,$89,$9B,$00,$3A,$00,$83,$99,$86,$9A,$00,$00
 .byte $00,$00,$04,$00,$50,$00,$F0,$00,$00,$02,$05,$40,$50,$0C,$FC,$00
+  ; 29
 .byte $00,$00,$00,$00,$89,$5E,$00,$00,$00,$89,$99,$85,$99,$00,$00
 .byte $00,$00,$3A,$00,$89,$5E,$00,$00,$00,$89,$99,$86,$00,$3B,$00
 .byte $00,$00,$00,$00,$89,$9F,$00,$00,$00,$89,$9B,$85,$99,$00,$00
 .byte $3A,$00,$00,$00,$88,$00,$00,$00,$00,$83,$9C,$86,$9A,$00,$00
 .byte $00,$00,$05,$00,$50,$0F,$3F,$00,$00,$00,$05,$00,$50,$00,$FF,$00
+  ; 2A
 .byte $00,$00,$00,$3A,$00,$3A,$00,$00,$00,$5D,$9E,$85,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$5F,$9C,$86,$99,$00,$3A
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$4E,$60,$9D,$85,$5B,$00,$00
 .byte $00,$00,$3A,$00,$00,$00,$00,$00,$50,$5F,$9C,$85,$99,$00,$00
 .byte $00,$20,$11,$00,$50,$00,$FF,$00,$00,$04,$00,$00,$55,$00,$FF,$00
+  ; 2B
 .byte $00,$00,$00,$00,$00,$00,$3A,$00,$4F,$60,$9D,$85,$5C,$9A,$00
 .byte $00,$00,$00,$00,$3A,$00,$00,$00,$3E,$5F,$9D,$85,$5C,$9A,$00
 .byte $00,$3A,$00,$00,$00,$00,$00,$3C,$4C,$5F,$9C,$85,$99,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$3D,$4D,$5F,$9D,$85,$5B,$00,$00
 .byte $00,$00,$08,$01,$55,$00,$FF,$00,$20,$00,$00,$50,$55,$00,$FF,$00
+  ; 2C
 .byte $00,$00,$00,$00,$00,$3A,$00,$00,$3F,$60,$9D,$86,$5C,$9A,$00
 .byte $00,$00,$3A,$00,$00,$00,$00,$00,$00,$5F,$9E,$86,$5B,$00,$00
 .byte $00,$00,$00,$00,$00,$82,$9B,$00,$00,$60,$9D,$85,$99,$00,$00
 .byte $00,$00,$00,$00,$00,$89,$9C,$00,$00,$61,$9C,$86,$9A,$3A,$00
 .byte $00,$08,$10,$00,$51,$00,$FF,$00,$00,$00,$50,$00,$50,$00,$BF,$00
+  ; 2D
 .byte $3A,$00,$00,$3A,$00,$89,$9E,$00,$00,$89,$9F,$85,$99,$00,$00
 .byte $00,$00,$00,$00,$00,$88,$9F,$00,$00,$89,$99,$86,$9A,$00,$00
 .byte $00,$3B,$00,$00,$00,$00,$00,$00,$00,$89,$9A,$85,$9A,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$3A,$00,$88,$99,$87,$00,$00,$00
 .byte $00,$00,$50,$00,$50,$0C,$FF,$00,$00,$00,$00,$80,$50,$0F,$FF,$00
+  ; 2E
 .byte $00,$3A,$00,$3A,$00,$00,$00,$00,$00,$00,$00,$8A,$A0,$00,$00
 .byte $00,$00,$00,$00,$00,$3A,$00,$40,$00,$00,$00,$8B,$A7,$00,$00
 .byte $00,$3A,$00,$40,$40,$00,$00,$00,$3A,$00,$00,$8C,$68,$41,$00
 .byte $00,$40,$00,$00,$00,$00,$00,$00,$00,$40,$00,$8D,$A1,$00,$00
 .byte $10,$00,$80,$C0,$00,$F0,$3F,$00,$C0,$34,$03,$04,$C1,$F0,$FF,$00
+  ; 2F
 .byte $00,$00,$00,$00,$00,$00,$00,$8A,$A0,$00,$00,$00,$00,$40,$00
 .byte $3A,$00,$00,$00,$3A,$40,$00,$8B,$A7,$00,$00,$3A,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$3A,$8C,$68,$41,$00,$00,$00,$00,$00
 .byte $00,$00,$3A,$00,$40,$00,$00,$8D,$A1,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$C8,$F0,$0F,$FF,$30,$00,$00,$08,$0C,$F1,$3F,$FF,$00,$00
+  ; 30
 .byte $00,$00,$40,$00,$00,$00,$00,$3A,$00,$00,$00,$00,$00,$40,$00
 .byte $00,$3A,$00,$00,$3A,$00,$00,$00,$40,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$3A,$00,$00,$3A,$00
 .byte $00,$00,$3A,$00,$00,$40,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $40,$03,$04,$10,$0C,$00,$34,$00,$00,$00,$C0,$00,$00,$01,$10,$00
+  ; 31
 .byte $00,$00,$8E,$44,$71,$72,$72,$6C,$69,$6A,$6B,$6B,$69,$00,$94
 .byte $00,$00,$8E,$6A,$6B,$6D,$00,$6C,$69,$45,$00,$00,$69,$00,$93
 .byte $00,$00,$93,$45,$00,$6C,$71,$6C,$43,$00,$00,$00,$69,$00,$00
 .byte $00,$00,$00,$00,$00,$6C,$72,$6C,$00,$00,$00,$00,$AC,$00,$00
 .byte $40,$05,$03,$00,$05,$00,$05,$00,$50,$45,$00,$03,$45,$04,$05,$00
+  ; 32
 .byte $00,$A4,$00,$00,$00,$6F,$6B,$6E,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$A2,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$94,$00
 .byte $00,$A3,$00,$00,$00,$00,$00,$00,$00,$00,$A4,$00,$00,$8E,$00
 .byte $00,$00,$00,$00,$00,$94,$00,$00,$00,$00,$A2,$00,$00,$8E,$00
 .byte $50,$55,$44,$44,$55,$55,$05,$00,$50,$55,$05,$55,$55,$55,$05,$00
+  ; 33
 .byte $00,$00,$00,$00,$00,$8E,$00,$00,$00,$00,$A3,$00,$00,$93,$00
 .byte $00,$A9,$00,$00,$00,$8E,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$69,$00,$00,$00,$93,$00,$00,$00,$00,$00,$00,$A9,$00,$00
 .byte $00,$69,$44,$00,$00,$00,$00,$00,$00,$00,$00,$00,$69,$00,$00
 .byte $50,$55,$05,$55,$55,$55,$05,$00,$50,$00,$05,$55,$55,$55,$05,$00
+  ; 34
 .byte $00,$69,$6A,$6D,$00,$00,$00,$70,$6B,$6B,$6B,$6D,$69,$00,$00
 .byte $00,$69,$45,$6C,$00,$00,$00,$6C,$42,$71,$72,$6C,$69,$00,$00
 .byte $00,$AC,$A9,$6F,$6B,$6B,$6B,$6E,$69,$00,$71,$6C,$69,$00,$00
 .byte $00,$00,$69,$72,$71,$71,$72,$72,$69,$A9,$00,$6C,$69,$00,$00
 .byte $50,$00,$11,$01,$C4,$00,$05,$00,$10,$05,$CC,$00,$45,$03,$05,$00
+  ; 35
 .byte $73,$00,$00,$00,$00,$73,$00,$00,$73,$00,$00,$00,$77,$77,$00
 .byte $74,$00,$00,$00,$00,$74,$00,$00,$74,$00,$00,$00,$77,$77,$00
 .byte $74,$00,$00,$00,$00,$74,$00,$00,$74,$00,$00,$00,$77,$77,$00
 .byte $75,$00,$00,$00,$00,$75,$00,$00,$75,$00,$00,$00,$77,$77,$77
 .byte $10,$00,$10,$00,$01,$00,$00,$00,$00,$00,$40,$00,$04,$00,$00,$00
+  ; 36
 .byte $73,$00,$00,$00,$73,$00,$00,$00,$73,$00,$00,$00,$77,$78,$00
 .byte $74,$00,$00,$00,$74,$00,$00,$00,$74,$00,$00,$00,$77,$79,$00
 .byte $74,$00,$00,$00,$74,$00,$00,$00,$75,$00,$00,$00,$77,$78,$00
 .byte $75,$00,$00,$00,$75,$00,$00,$00,$00,$00,$00,$00,$77,$79,$00
 .byte $00,$00,$01,$00,$01,$00,$00,$00,$00,$00,$04,$00,$01,$00,$00,$00
+  ; 37
 .byte $73,$00,$00,$00,$73,$00,$00,$00,$00,$00,$00,$77,$78,$78,$78
 .byte $74,$00,$00,$00,$74,$00,$00,$00,$00,$00,$00,$77,$79,$79,$79
 .byte $74,$00,$00,$00,$74,$00,$00,$00,$00,$00,$00,$77,$78,$78,$78
 .byte $75,$00,$00,$00,$75,$00,$00,$00,$00,$00,$00,$77,$79,$79,$79
 .byte $00,$00,$01,$00,$00,$00,$00,$00,$00,$00,$04,$00,$00,$00,$00,$00
+  ; 38
 .byte $73,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$77,$78,$78,$78
 .byte $74,$00,$00,$00,$00,$00,$00,$00,$73,$00,$00,$77,$79,$79,$79
 .byte $74,$00,$00,$00,$00,$73,$00,$00,$74,$00,$00,$77,$90,$46,$96
 .byte $75,$00,$00,$00,$00,$73,$00,$00,$75,$00,$00,$77,$77,$77,$77
 .byte $00,$00,$00,$00,$04,$00,$00,$00,$00,$00,$50,$00,$04,$00,$11,$00
+  ; 39
 .byte $73,$00,$00,$00,$73,$00,$00,$00,$00,$73,$00,$77,$77,$77,$77
 .byte $74,$00,$00,$00,$74,$00,$00,$00,$00,$74,$00,$77,$90,$46,$96
 .byte $74,$00,$00,$00,$74,$00,$00,$00,$00,$74,$00,$77,$77,$77,$77
 .byte $75,$00,$00,$00,$75,$00,$00,$00,$00,$75,$00,$77,$77,$77,$77
 .byte $00,$00,$01,$00,$10,$00,$44,$00,$00,$00,$04,$00,$40,$00,$00,$00
+  ; 3A
 .byte $78,$00,$00,$00,$00,$00,$00,$00,$00,$00,$77,$77,$77,$77,$77
 .byte $79,$00,$00,$00,$00,$00,$00,$00,$00,$00,$77,$90,$46,$96,$77
 .byte $78,$00,$00,$00,$78,$00,$00,$00,$00,$00,$77,$76,$76,$76,$77
 .byte $79,$00,$00,$00,$79,$77,$00,$00,$00,$00,$77,$90,$46,$96,$77
 .byte $00,$00,$00,$00,$00,$40,$44,$00,$00,$00,$00,$00,$00,$40,$44,$00
+  ; 3B
 .byte $78,$73,$00,$00,$77,$77,$00,$00,$00,$00,$77,$76,$76,$76,$77
 .byte $79,$74,$00,$00,$77,$77,$00,$00,$00,$77,$77,$77,$77,$77,$77
 .byte $78,$74,$00,$00,$77,$77,$00,$00,$00,$77,$00,$00,$00,$77,$77
 .byte $79,$75,$00,$00,$77,$77,$00,$00,$00,$77,$00,$00,$00,$77,$77
 .byte $10,$00,$00,$00,$00,$00,$00,$00,$40,$00,$00,$00,$00,$00,$00,$00
+  ; 3C
 .byte $78,$73,$00,$00,$77,$77,$00,$00,$00,$77,$00,$00,$00,$77,$77
 .byte $79,$74,$00,$00,$77,$77,$00,$00,$00,$77,$78,$00,$00,$77,$77
 .byte $78,$74,$00,$00,$77,$77,$00,$00,$00,$77,$79,$00,$00,$77,$77
 .byte $79,$75,$00,$00,$77,$77,$00,$00,$00,$00,$77,$00,$00,$77,$77
 .byte $10,$00,$00,$00,$00,$00,$00,$00,$40,$00,$00,$00,$00,$00,$00,$00
+  ; 3D
 .byte $78,$73,$00,$00,$00,$77,$77,$00,$00,$00,$00,$00,$00,$77,$77
 .byte $79,$74,$00,$00,$00,$77,$77,$00,$00,$00,$00,$00,$00,$77,$77
 .byte $78,$74,$00,$00,$00,$77,$77,$00,$00,$00,$00,$00,$00,$77,$77
 .byte $79,$75,$00,$00,$00,$77,$77,$00,$00,$00,$00,$00,$00,$77,$77
 .byte $10,$00,$00,$00,$00,$00,$00,$00,$40,$00,$00,$00,$00,$00,$00,$00
+  ; 3E
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  ; 3F
 .byte $78,$73,$00,$00,$00,$00,$00,$00,$00,$00,$78,$76,$00,$76,$77
 .byte $79,$74,$00,$00,$00,$00,$00,$00,$00,$00,$79,$90,$46,$96,$77
 .byte $78,$74,$00,$00,$00,$00,$76,$00,$00,$00,$78,$76,$00,$76,$77
 .byte $79,$75,$00,$00,$00,$00,$76,$00,$00,$00,$79,$77,$00,$77,$77
 .byte $10,$00,$00,$00,$00,$40,$44,$00,$40,$00,$00,$00,$00,$00,$00,$00
+  ; 40
 .byte $78,$73,$00,$00,$00,$77,$78,$00,$00,$00,$78,$76,$00,$76,$77
 .byte $79,$74,$00,$00,$00,$77,$79,$00,$00,$00,$79,$90,$46,$96,$77
 .byte $78,$75,$00,$00,$00,$77,$78,$00,$00,$00,$78,$76,$00,$76,$77
 .byte $79,$00,$00,$00,$00,$77,$79,$00,$00,$00,$79,$77,$00,$77,$77
 .byte $10,$00,$00,$00,$00,$40,$44,$00,$10,$00,$00,$00,$00,$00,$00,$00
+  ; 41
 .byte $00,$00,$00,$00,$00,$00,$03,$00,$00,$00,$00,$00,$00,$56,$56
 .byte $00,$03,$00,$00,$00,$00,$00,$00,$48,$49,$00,$00,$00,$56,$56
 .byte $00,$00,$00,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$56,$56
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$56,$56
 .byte $00,$00,$00,$00,$FF,$00,$50,$55,$00,$00,$00,$00,$33,$00,$50,$55
+  ; 42
 .byte $00,$00,$7B,$00,$7B,$00,$7B,$00,$00,$7B,$7B,$00,$7B,$00,$00
 .byte $00,$00,$7B,$00,$7B,$00,$7B,$00,$00,$7B,$00,$00,$7B,$00,$00
 .byte $00,$00,$7B,$00,$00,$00,$7B,$00,$00,$00,$00,$00,$7B,$00,$00
 .byte $00,$00,$7B,$00,$00,$00,$00,$00,$00,$AA,$00,$00,$7B,$00,$00
 .byte $00,$05,$00,$0A,$50,$00,$0F,$00,$00,$05,$00,$02,$00,$00,$0F,$00
+  ; 43
 .byte $00,$00,$7B,$00,$00,$00,$00,$00,$00,$7C,$00,$00,$00,$00,$00
 .byte $00,$00,$7B,$00,$00,$AA,$00,$00,$00,$64,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$7C,$00,$00,$00,$64,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$64,$00,$00,$00,$7C,$00,$00,$00,$AA,$00
 .byte $00,$05,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  ; 44
 .byte $00,$00,$00,$00,$00,$7C,$00,$00,$00,$AD,$00,$00,$00,$7C,$00
 .byte $00,$00,$00,$00,$00,$AD,$00,$00,$00,$00,$00,$00,$00,$7C,$00
 .byte $00,$00,$7B,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$7C,$00
 .byte $00,$00,$7B,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$7C,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  ; 45
 .byte $00,$00,$7B,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$AD,$00
 .byte $00,$00,$7B,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$7B,$00,$00,$00,$7B,$00,$00,$00,$00,$7B,$00,$00,$7B
 .byte $00,$00,$7B,$00,$00,$00,$7B,$00,$00,$7B,$00,$7B,$00,$00,$7B
 .byte $00,$00,$00,$00,$00,$80,$00,$00,$00,$00,$00,$08,$40,$A0,$00,$00
+  ; 46
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$12,$17,$1C,$21,$26,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$13,$18,$1D,$22,$27,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$04,$00,$00,$00,$00
+  ; 47
 .byte $00,$00,$00,$00,$14,$19,$1E,$23,$28,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$15,$1A,$1F,$24,$29,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$16,$1B,$20,$25,$2A,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$04,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  ; 48
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$3F,$42,$44,$46,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$40,$70,$5C,$5D,$48,$4C,$50,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$44,$00,$00,$00,$00,$00
+  ; 49
 .byte $00,$00,$00,$00,$41,$71,$72,$73,$74,$75,$76,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$43,$45,$47,$49,$4D,$51,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$4A,$4E,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$4B,$4F,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$02,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  ; 4A
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$35,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$33,$34,$5A,$36,$37,$38,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$48,$05,$C4,$00,$00,$00
+  ; 4B
 .byte $00,$00,$00,$00,$53,$67,$68,$69,$6A,$65,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$10,$01,$22,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  ; 4C
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$2D,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$52,$57,$00,$00,$31,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$20,$00,$00,$00,$00,$00
+  ; 4D
 .byte $00,$00,$00,$00,$2B,$60,$61,$62,$63,$64,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$2C,$2E,$2F,$00,$00,$32,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$02,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  ; 4E
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$3A,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$39,$3B,$5B,$3C,$3D,$3E,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$01,$C8,$0C,$00,$00
+  ; 4F
 .byte $00,$00,$00,$00,$00,$54,$6B,$6C,$6D,$6E,$6F,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$20,$32,$03,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-; section 50-54 boss 2 (and 1 but the last section is 16 instead of 53)
+  ; 50 ,section 50-54 boss 2 (and 1 but the last section is 16 instead of 53)
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$08,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$09,$55,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$0A,$58,$56,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  ; 51
 .byte $00,$00,$00,$04,$0B,$59,$03,$07,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$06,$05,$02,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  ; 52
 .byte $00,$00,$00,$00,$00,$00,$01,$00,$00,$00,$00,$00,$00,$80,$00
 .byte $00,$01,$00,$00,$00,$00,$00,$00,$00,$01,$00,$00,$00,$80,$00
 .byte $00,$00,$00,$00,$01,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$01,$00,$00,$00,$00,$11,$00,$00,$00,$00,$00,$00,$00
 .byte $40,$00,$00,$01,$40,$00,$F0,$00,$00,$04,$01,$80,$00,$00,$F0,$00
+  ; 53
 .byte $00,$00,$00,$00,$00,$00,$00,$80,$00,$01,$00,$00,$00,$00,$00
 .byte $00,$00,$01,$00,$00,$00,$00,$80,$00,$00,$00,$01,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$01,$00,$00,$00,$80,$00,$00,$00,$80,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$80,$00,$00,$00,$80,$00
 .byte $00,$00,$00,$F0,$00,$00,$00,$00,$00,$00,$00,$00,$F0,$00,$F0,$00
-
+  ; 54
 .byte $00,$00,$00,$00,$00,$00,$01,$00,$00,$00,$01,$00,$00,$80,$00
 .byte $00,$00,$01,$00,$00,$00,$00,$80,$00,$00,$00,$00,$00,$80,$00
 .byte $00,$00,$00,$00,$01,$00,$00,$00,$00,$00,$00,$77,$00,$80,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$01,$00,$00,$79,$00,$00,$00
 .byte $00,$00,$00,$C0,$00,$00,$F0,$00,$00,$00,$00,$00,$00,$40,$30,$00
+  ; 55
 .byte $00,$00,$00,$00,$0C,$0E,$00,$00,$00,$00,$00,$78,$00,$00,$00
 .byte $00,$00,$00,$01,$0D,$0F,$00,$00,$00,$80,$00,$7A,$00,$80,$00
 .byte $00,$11,$00,$00,$00,$00,$00,$00,$00,$00,$00,$7B,$00,$80,$00
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$80,$00
 .byte $00,$00,$00,$00,$C0,$40,$C0,$00,$20,$00,$00,$00,$00,$00,$F0,$00
+  ; 56
 .byte $00,$00,$00,$00,$00,$00,$0C,$0E,$00,$00,$00,$00,$00,$80,$00
 .byte $00,$01,$00,$00,$00,$00,$0D,$0F,$00,$01,$00,$00,$00,$80,$00
 .byte $00,$00,$00,$00,$01,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$01,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 .byte $00,$00,$00,$00,$00,$00,$F0,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  ; 57
 .byte $00,$00,$00,$55,$55,$55,$55,$55,$00,$00,$00,$00,$00,$7A,$7A
 .byte $00,$00,$00,$55,$55,$55,$55,$00,$00,$00,$00,$00,$00,$7A,$7A
 .byte $00,$00,$00,$55,$55,$55,$55,$00,$00,$00,$00,$00,$00,$7A,$7A
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$7A,$7A
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  ; 58
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$7A,$7A
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$7A,$7A
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$7A,$7A
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$7A,$7A
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  ; 59
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$7A,$7A
 .byte $00,$00,$00,$55,$55,$55,$55,$00,$00,$00,$00,$00,$00,$7A,$7A
 .byte $00,$00,$00,$55,$55,$55,$55,$00,$00,$00,$00,$00,$00,$7A,$7A
 .byte $00,$00,$00,$55,$55,$55,$55,$55,$00,$00,$00,$00,$00,$7A,$7A
 .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 
-stage_table_start:
-.byte $20,$20,$20,$20,$20,$2A,$20,$03,$04,$05,$06,$07,$20,$08,$20
-.byte $20,$0D,$0E,$0F,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$1A
-.byte $1B,$1C,$20,$20,$2B,$2C,$2B,$2C,$21,$2D,$21,$2F,$21,$30,$20
-.byte $31,$35,$36,$37,$38,$39,$21,$3A,$20,$3E,$3A,$21,$21,$21,$21
-.byte $20,$32,$40,$42,$3C,$20,$44,$45,$21,$21,$43,$47,$33,$48,$22
-.byte $39,$21,$49,$21,$4A,$20,$35,$31,$21,$2D,$21,$21,$21,$20,$31
-.byte $35,$21,$4E,$4B,$4B,$2E,$21,$36,$21,$2F,$4A,$21,$36,$21,$2D
-.byte $21,$49,$21,$4D,$2E,$21,$21,$4F,$22,$4E,$50,$2F,$37,$30,$39
-.byte $37,$22,$36,$3E,$21,$38,$21,$51,$4B,$3D,$21,$3F,$22,$22,$52,$53,$55
-.byte $20,$53,$3B,$54,$23,$23,$23,$22,$22,$56,$57,$4C,$4C,$21,$21,$3D,$22,$58,$3D,$53,$22,$22,$22,$3C,$20,$59,$3C,$5A,$5B,$53,$22,$20,$20,$5A,$5B,$21,$3E,$21,$37,$55,$35,$22,$5C,$21,$3E,$21
-.byte $37,$20,$20,$31,$3A,$36,$37,$2F,$4D,$5E,$5F,$60,$61,$21,$33,$41,$42,$48,$21,$39,$21,$49,$21,$4A,$21,$62,$2F,$63,$30,$0F,$10,$0F,$10,$22,$50,$50,$21,$34,$22,$21,$3D,$20,$68,$20,$69,$6A
-.byte $20,$6B,$20,$20,$15,$20,$20,$11,$12,$13,$14,$20,$20,$80,$81,$20,$20,$82,$83,$20,$20,$20,$84,$20,$20,$8D,$20,$20,$7F,$20,$20,$20,$B3,$20,$20,$20,$3E,$20,$40,$42,$20,$43,$20,$20,$47,$20
-.byte $20,$48,$20,$20,$20,$0F,$10,$0F,$10,$20,$20,$42,$20,$20,$20,$DB,$DC,$DF,$E0,$E3,$E4,$20,$F3,$20,$F4,$F5,$20,$F6,$20,$85,$86,$87,$88,$89,$8A,$8B,$8C,$20,$20,$78,$79,$20,$20,$7C,$7D,$20
-.byte $20,$7E,$7E,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$CE,$CE,$CF,$CF,$20,$20,$20,$20,$00,$00,$00,$00,$22,$22,$22,$22,$00,$01,$02,$03,$04,$05,$06,$07,$08,$09,$0A,$0B,$0C,$0D,$0E,$0F,$65,$66,$67
-.byte $68,$69,$6A,$6B,$6C,$6F,$70,$71,$71,$75,$73,$7B,$7B,$70,$70,$71,$71,$70,$70,$74,$71,$70,$77,$71,$71,$85,$86,$87,$88,$89,$8A,$8B,$8C,$FB,$FB,$FC,$FC,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
-.byte $FF,$FF,$FF
-.byte $AB,$AC,$B0,$B1,$3F,$3F,$41,$41,$44,$44,$45,$46,$45,$46,$45,$46,$49,$4A,$4B,$4C,$4D,$4E,$50,$51,$52,$53,$54,$55,$56,$57,$58,$59,$5A,$5B,$5C,$5D,$5E,$5F,$60,$61,$62,$62,$63,$63
-.byte $00,$01,$02,$03,$08,$08,$09,$09,$04,$05,$06,$07,$0A,$0B,$0C,$0D,$DF,$E0,$E1,$E2,$1F,$24,$25,$26,$13,$14,$27,$12,$02,$01,$01,$02,$F0,$F1,$F2,$F2,$F7,$F8,$F9,$FA
-.byte $8E,$8F,$90,$90,$91,$92,$90,$90,$93,$94,$90,$90
-.byte $20,$20,$01,$02,$20,$20,$00,$00,$20,$20,$78,$79,$20,$20,$71,$71,$20,$20,$72,$73
-.byte $20,$20,$73,$73,$20,$20,$75,$73,$20,$20,$73,$76,$20,$20,$7C,$7D,$20,$20,$7E,$7E
-.byte $97,$98,$9F,$A0,$99,$9A,$A1,$A2,$9B,$9C,$A3,$A4,$9D,$9E,$A5,$A6
-.byte $20,$20,$3F,$3F,$20,$20,$1B,$1C,$11,$0E,$0F,$10,$20,$20,$17,$18,$20,$20,$19,$1A
-.byte $20,$20,$3F,$42,$20,$20,$3E,$3F,$95,$96,$90,$90,$0F,$10,$15,$16,$1D,$1E,$20,$20
-.byte $00,$00,$20,$20,$64,$64,$20,$20,$6D,$6E,$20,$20,$72,$73,$20,$20,$73,$73,$20,$20
-.byte $7A,$7A,$20,$20,$75,$73,$20,$20,$73,$76,$20,$20,$A7,$A8,$20,$20,$AD,$AE,$B2,$20
-.byte $41,$41,$20,$20,$41,$43,$20,$20,$40,$41,$20,$20,$FF,$FF,$FF,$FF,$20,$10,$20,$10
-.byte $A9,$AA,$20,$AF,$0F,$10,$0F,$10,$20,$3E,$20,$40,$20,$F3,$20,$F4
-.byte $FF,$FF,$FF,$FF,$42,$20,$43,$20,$F5,$20,$F6,$20,$FF,$FF,$FF,$FF,$00,$00,$00,$00
+stage_table_start:    ; stage background metatile table
+.byte $20,$20,$20,$20
+.byte $20,$2A,$20,$03
+.byte $04,$05,$06,$07
+.byte $20,$08,$20,$20
+.byte $0D,$0E,$0F,$10
+.byte $11,$12,$13,$14
+.byte $15,$16,$17,$18
+.byte $19,$1A,$1B,$1C
+.byte $20,$20,$2B,$2C
+.byte $2B,$2C,$21,$2D
+.byte $21,$2F,$21,$30
+.byte $20,$31,$35,$36
+.byte $37,$38,$39,$21
+.byte $3A,$20,$3E,$3A
+.byte $21,$21,$21,$21
+.byte $20,$32,$40,$42
+.byte $3C,$20,$44,$45
+.byte $21,$21,$43,$47
+.byte $33,$48,$22,$39
+.byte $21,$49,$21,$4A
+.byte $20,$35,$31,$21
+.byte $2D,$21,$21,$21
+.byte $20,$31,$35,$21
+.byte $4E,$4B,$4B,$2E
+.byte $21,$36,$21,$2F
+.byte $4A,$21,$36,$21
+.byte $2D,$21,$49,$21
+.byte $4D,$2E,$21,$21
+.byte $4F,$22,$4E,$50
+.byte $2F,$37,$30,$39
+.byte $37,$22,$36,$3E
+.byte $21,$38,$21,$51
+.byte $4B,$3D,$21,$3F
+.byte $22,$22,$52,$53
+.byte $55,$20,$53,$3B
+.byte $54,$23,$23,$23
+.byte $22,$22,$56,$57
+.byte $4C,$4C,$21,$21
+.byte $3D,$22,$58,$3D
+.byte $53,$22,$22,$22
+.byte $3C,$20,$59,$3C
+.byte $5A,$5B,$53,$22
+.byte $20,$20,$5A,$5B
+.byte $21,$3E,$21,$37
+.byte $55,$35,$22,$5C
+.byte $21,$3E,$21,$37
+.byte $20,$20,$31,$3A
+.byte $36,$37,$2F,$4D
+.byte $5E,$5F,$60,$61
+.byte $21,$33,$41,$42
+.byte $48,$21,$39,$21
+.byte $49,$21,$4A,$21
+.byte $62,$2F,$63,$30
+.byte $0F,$10,$0F,$10
+.byte $22,$50,$50,$21
+.byte $34,$22,$21,$3D
+.byte $20,$68,$20,$69
+.byte $6A,$20,$6B,$20
+.byte $20,$15,$20,$20
+.byte $11,$12,$13,$14
+.byte $20,$20,$80,$81
+.byte $20,$20,$82,$83
+.byte $20,$20,$20,$84
+.byte $20,$20,$8D,$20
+.byte $20,$7F,$20,$20
+.byte $20,$B3,$20,$20
+.byte $20,$3E,$20,$40
+.byte $42,$20,$43,$20
+.byte $20,$47,$20,$20
+.byte $48,$20,$20,$20
+.byte $0F,$10,$0F,$10
+.byte $20,$20,$42,$20
+.byte $20,$20,$DB,$DC
+.byte $DF,$E0,$E3,$E4
+.byte $20,$F3,$20,$F4
+.byte $F5,$20,$F6,$20
+.byte $85,$86,$87,$88
+.byte $89,$8A,$8B,$8C
+.byte $20,$20,$78,$79
+.byte $20,$20,$7C,$7D
+.byte $20,$20,$7E,$7E
+.byte $FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF
+.byte $CE,$CE,$CF,$CF
+.byte $20,$20,$20,$20
+.byte $00,$00,$00,$00
+.byte $22,$22,$22,$22
+.byte $00,$01,$02,$03
+.byte $04,$05,$06,$07
+.byte $08,$09,$0A,$0B
+.byte $0C,$0D,$0E,$0F
+.byte $65,$66,$67,$68
+.byte $69,$6A,$6B,$6C
+.byte $6F,$70,$71,$71
+.byte $75,$73,$7B,$7B
+.byte $70,$70,$71,$71
+.byte $70,$70,$74,$71
+.byte $70,$77,$71,$71
+.byte $85,$86,$87,$88
+.byte $89,$8A,$8B,$8C
+.byte $FB,$FB,$FC,$FC
+.byte $FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF
+.byte $AB,$AC,$B0,$B1
+.byte $3F,$3F,$41,$41
+.byte $44,$44,$45,$46
+.byte $45,$46,$45,$46
+.byte $49,$4A,$4B,$4C
+.byte $4D,$4E,$50,$51
+.byte $52,$53,$54,$55
+.byte $56,$57,$58,$59
+.byte $5A,$5B,$5C,$5D
+.byte $5E,$5F,$60,$61
+.byte $62,$62,$63,$63
+.byte $00,$01,$02,$03
+.byte $08,$08,$09,$09
+.byte $04,$05,$06,$07
+.byte $0A,$0B,$0C,$0D
+.byte $DF,$E0,$E1,$E2
+.byte $1F,$24,$25,$26
+.byte $13,$14,$27,$12
+.byte $02,$01,$01,$02
+.byte $F0,$F1,$F2,$F2
+.byte $F7,$F8,$F9,$FA
+.byte $8E,$8F,$90,$90
+.byte $91,$92,$90,$90
+.byte $93,$94,$90,$90
+.byte $20,$20,$01,$02
+.byte $20,$20,$00,$00
+.byte $20,$20,$78,$79
+.byte $20,$20,$71,$71
+.byte $20,$20,$72,$73
+.byte $20,$20,$73,$73
+.byte $20,$20,$75,$73
+.byte $20,$20,$73,$76
+.byte $20,$20,$7C,$7D
+.byte $20,$20,$7E,$7E
+.byte $97,$98,$9F,$A0
+.byte $99,$9A,$A1,$A2
+.byte $9B,$9C,$A3,$A4
+.byte $9D,$9E,$A5,$A6
+.byte $20,$20,$3F,$3F
+.byte $20,$20,$1B,$1C
+.byte $11,$0E,$0F,$10
+.byte $20,$20,$17,$18
+.byte $20,$20,$19,$1A
+.byte $20,$20,$3F,$42
+.byte $20,$20,$3E,$3F
+.byte $95,$96,$90,$90
+.byte $0F,$10,$15,$16
+.byte $1D,$1E,$20,$20
+.byte $00,$00,$20,$20
+.byte $64,$64,$20,$20
+.byte $6D,$6E,$20,$20
+.byte $72,$73,$20,$20
+.byte $73,$73,$20,$20
+.byte $7A,$7A,$20,$20
+.byte $75,$73,$20,$20
+.byte $73,$76,$20,$20
+.byte $A7,$A8,$20,$20
+.byte $AD,$AE,$B2,$20
+.byte $41,$41,$20,$20
+.byte $41,$43,$20,$20
+.byte $40,$41,$20,$20
+.byte $FF,$FF,$FF,$FF
+.byte $20,$10,$20,$10
+.byte $A9,$AA,$20,$AF
+.byte $0F,$10,$0F,$10
+.byte $20,$3E,$20,$40
+.byte $20,$F3,$20,$F4
+.byte $FF,$FF,$FF,$FF
+.byte $42,$20,$43,$20
+.byte $F5,$20,$F6,$20
+.byte $FF,$FF,$FF,$FF
+.byte $00,$00,$00,$00
 
-boss_table_start:   ; @fdf2
-.byte $20,$20,$20,$20,$20,$08,$20,$20,$2D,$20,$32,$20,$35,$36,$37,$38,$20,$20,$20,$3B,$25
-.byte $20,$20,$20,$20,$20,$3C,$20,$20,$39,$20,$20,$1D,$1E,$16,$17,$20,$1A,$1B,$1C,$20,$20
-.byte $20,$26,$3D,$24,$27,$28,$0D,$0E,$0F,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$1A,$1B
-.byte $1C,$20,$2A,$20,$03,$04,$05,$06,$07,$87,$88,$89,$8A,$20
-.byte $8B,$8C,$8D,$8E,$8F,$90,$91,$92,$20,$93,$94,$95,$96,$97,$98,$99,$9A,$F4,$22,$9C,$9D,$9E,$9F,$A0,$A1,$A2,$A3,$A4,$A5,$A6,$A7,$A8,$A9,$20,$AA,$9B,$22,$AB,$AC,$AD,$AE,$AF,$B0,$B1,$B2,$B3
-.byte $B4,$B5,$B6,$B7,$B8,$20,$B9,$BA,$BB,$BC,$BD,$F0,$BE,$AC,$BF,$C0,$C1,$C2,$C3,$C4,$C5,$C6,$C7,$C8,$C9,$CA,$CB,$CC,$F2,$CD,$CE,$CF,$D0,$F3,$D1,$D2,$D3,$D4,$D5,$D6,$D7,$D8,$F1,$D9,$DA,$DB
-.byte $DC,$DD,$DE,$B2,$B3,$B4,$B5,$B6,$20,$B7,$20,$20,$20,$B8,$B8,$C0,$20,$C1,$20,$C9,$20,$20,$20,$20,$CA,$20,$20,$20,$20,$20,$D3,$D8,$20,$D9,$20,$20,$20,$20,$8D,$20,$90,$20,$91,$20,$96,$20
-.byte $20,$20,$9F,$20,$20,$20,$20,$20,$A4,$20,$A9,$AA,$AB,$20,$20,$20,$6C,$20,$6F,$20,$20,$70,$71,$72,$73,$20,$E6,$20,$E7,$20,$82,$20,$83,$20,$20,$20,$88,$20,$20,$20,$28,$20,$20,$29,$2A,$20
-.byte $20,$2B,$20,$2C,$2D,$33,$34,$32,$20,$39,$3A,$3B,$3C,$20,$43,$41,$42,$48,$49,$20,$4A,$20,$20,$4F,$50,$55,$56,$57,$58,$61,$62,$5B,$5C,$65,$66,$5D,$5E,$67,$68,$5F,$60,$69,$6A,$20,$6B,$20
-.byte $74,$6E,$6F,$77,$78,$70,$71,$79,$7A,$72,$73,$7B,$7C,$20,$7D,$81,$82,$80,$20,$85,$86,$20,$B9,$BA,$BB,$EA,$20,$8E,$8F,$20,$20,$6D,$6E,$1F,$3A,$18,$19,$33,$34,$20,$20,$C2,$C3,$20,$C4,$29
-.byte $2A,$2E,$2F,$2B,$2C,$30,$31
-.byte $97,$98,$99,$9A,$78,$79,$7A,$7B
-.byte $3D,$3E,$44,$45,$4B,$4C,$51,$52,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
-.byte $BC,$BD,$BE,$BF,$C5,$C6,$C7,$C8,$CB,$CC,$CD,$CE,$CF,$D0,$D1,$D2,$D4,$D5,$D6,$D7,$AC,$AD,$AE,$AF,$B0,$B1,$B1,$B0
-.byte $92,$93,$94,$95,$9B,$9C,$9D,$9E,$A0,$A1,$A2,$A3,$A5,$A6,$A7,$A8
-.byte $74,$75,$76,$77,$7C,$7D,$7E,$7F,$7E,$7F,$80,$81,$84,$85,$86,$87,$89,$8A,$8B,$8C
-.byte $2E,$2F,$35,$36,$30,$31,$37,$38,$3F,$40,$46,$47,$4D,$4E,$53,$54,$59,$5A,$63,$64,$6C,$6D,$75,$76,$7E,$7F,$83,$84
-.byte $1D,$09,$1E,$0B,$1F,$1F,$29,$29,$22,$1F,$24,$23,$1F,$22,$23,$24,$09,$0A,$0B,$0C
-.byte $00,$00,$00,$00,$20,$20,$20,$20,$FF,$FF,$FF,$FF,$20,$20,$01,$02,$E8,$E9,$20,$20,$00,$00,$00,$00
+boss_table_start:   ; @fdf2 boss background metatile table
+.byte $20,$20,$20,$20
+.byte $20,$08,$20,$20
+.byte $2D,$20,$32,$20
+.byte $35,$36,$37,$38
+.byte $20,$20,$20,$3B ; 10
+.byte $25,$20,$20,$20
+.byte $20,$20,$3C,$20
+.byte $20,$39,$20,$20
+.byte $1D,$1E,$16,$17 ; 20
+.byte $20,$1A,$1B,$1C
+.byte $20,$20,$20,$26
+.byte $3D,$24,$27,$28
+.byte $0D,$0E,$0F,$10 ; 30
+.byte $11,$12,$13,$14
+.byte $15,$16,$17,$18
+.byte $19,$1A,$1B,$1C
+.byte $20,$2A,$20,$03 ; 40
+.byte $04,$05,$06,$07
+.byte $87,$88,$89,$8A
+.byte $20,$8B,$8C,$8D
+.byte $8E,$8F,$90,$91 ; 50
+.byte $92,$20,$93,$94
+.byte $95,$96,$97,$98
+.byte $99,$9A,$F4,$22
+.byte $9C,$9D,$9E,$9F ; 60
+.byte $A0,$A1,$A2,$A3
+.byte $A4,$A5,$A6,$A7
+.byte $A8,$A9,$20,$AA
+.byte $9B,$22,$AB,$AC ; 70
+.byte $AD,$AE,$AF,$B0
+.byte $B1,$B2,$B3,$B4
+.byte $B5,$B6,$B7,$B8
+.byte $20,$B9,$BA,$BB ; 80
+.byte $BC,$BD,$F0,$BE
+.byte $AC,$BF,$C0,$C1
+.byte $C2,$C3,$C4,$C5
+.byte $C6,$C7,$C8,$C9 ; 90
+.byte $CA,$CB,$CC,$F2
+.byte $CD,$CE,$CF,$D0
+.byte $F3,$D1,$D2,$D3
+.byte $D4,$D5,$D6,$D7 ; A0
+.byte $D8,$F1,$D9,$DA
+.byte $DB,$DC,$DD,$DE
+.byte $B2,$B3,$B4,$B5
+.byte $B6,$20,$B7,$20 ; B0
+.byte $20,$20,$B8,$B8
+.byte $C0,$20,$C1,$20
+.byte $C9,$20,$20,$20
+.byte $20,$CA,$20,$20 ; C0
+.byte $20,$20,$20,$D3
+.byte $D8,$20,$D9,$20
+.byte $20,$20,$20,$8D
+.byte $20,$90,$20,$91 ; D0
+.byte $20,$96,$20,$20
+.byte $20,$9F,$20,$20
+.byte $20,$20,$20,$A4
+.byte $20,$A9,$AA,$AB ; E0
+.byte $20,$20,$20,$6C
+.byte $20,$6F,$20,$20
+.byte $70,$71,$72,$73
+.byte $20,$E6,$20,$E7 ; F0
+.byte $20,$82,$20,$83
+.byte $20,$20,$20,$88
+.byte $20,$20,$20,$28
+.byte $20,$20,$29,$2A ; 100
+.byte $20,$20,$2B,$20
+.byte $2C,$2D,$33,$34
+.byte $32,$20,$39,$3A
+.byte $3B,$3C,$20,$43 ; 110
+.byte $41,$42,$48,$49
+.byte $20,$4A,$20,$20
+.byte $4F,$50,$55,$56
+.byte $57,$58,$61,$62 ; 120
+.byte $5B,$5C,$65,$66
+.byte $5D,$5E,$67,$68
+.byte $5F,$60,$69,$6A
+.byte $20,$6B,$20,$74 ; 130
+.byte $6E,$6F,$77,$78
+.byte $70,$71,$79,$7A
+.byte $72,$73,$7B,$7C
+; section 50 for boss start, metatile table
+;      TL, TR, BL, BR
+.byte $20,$7D,$81,$82 ; 140
+.byte $80,$20,$85,$86
+.byte $20,$B9,$BA,$BB
+.byte $EA,$20,$8E,$8F
+.byte $20,$20,$6D,$6E ; 150
+.byte $1F,$3A,$18,$19
+.byte $33,$34,$20,$20
+.byte $C2,$C3,$20,$C4
+.byte $29,$2A,$2E,$2F ; 160
+.byte $2B,$2C,$30,$31
+.byte $97,$98,$99,$9A
+.byte $78,$79,$7A,$7B
+.byte $3D,$3E,$44,$45 ; 170
+.byte $4B,$4C,$51,$52
+.byte $FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF
+.byte $BC,$BD,$BE,$BF ; 180
+.byte $C5,$C6,$C7,$C8
+.byte $CB,$CC,$CD,$CE
+.byte $CF,$D0,$D1,$D2
+.byte $D4,$D5,$D6,$D7 ; 190
+.byte $AC,$AD,$AE,$AF
+.byte $B0,$B1,$B1,$B0
+.byte $92,$93,$94,$95
+.byte $9B,$9C,$9D,$9E ; 1A0
+.byte $A0,$A1,$A2,$A3
+.byte $A5,$A6,$A7,$A8
+.byte $74,$75,$76,$77
+.byte $7C,$7D,$7E,$7F ; 1B0
+.byte $7E,$7F,$80,$81
+.byte $84,$85,$86,$87
+.byte $89,$8A,$8B,$8C
+.byte $2E,$2F,$35,$36 ; 1C0
+.byte $30,$31,$37,$38
+.byte $3F,$40,$46,$47
+.byte $4D,$4E,$53,$54
+.byte $59,$5A,$63,$64 ; 1D0
+.byte $6C,$6D,$75,$76
+.byte $7E,$7F,$83,$84
+.byte $1D,$09,$1E,$0B
+.byte $1F,$1F,$29,$29 ; 1E0
+.byte $22,$1F,$24,$23
+.byte $1F,$22,$23,$24
+.byte $09,$0A,$0B,$0C
+.byte $00,$00,$00,$00 ; 1F0
+.byte $20,$20,$20,$20
+.byte $FF,$FF,$FF,$FF
+.byte $20,$20,$01,$02
+.byte $E8,$E9,$20,$20 ; 200  @FFF2 platform tiles, 80 in the column table, top left side, top right side, bottom left, bottom right
+.byte $00,$00,$00,$00
 ; VECTOR DATA NMI, RESET, IRQ
 ; $6C,$83,$00,$81,$0A,$84
 ; Character memory
