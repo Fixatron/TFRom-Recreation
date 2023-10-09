@@ -504,7 +504,7 @@ pre_stage_prep_b:
   lda #$0F
   sta $00
 :                               ; b_822f
-  lda player_acceleration_tbl,Y ; load player speed, although its always 20
+  lda player_acceleration_tbl,Y ; load player speed, although its always 20, except stage 7
   sec
   sbc $00
   sta player_acceleration
@@ -514,7 +514,7 @@ pre_stage_prep_b:
   sta $8000,X
   jsr clear_sprite_ram          ; @$A7C3
   jsr ready_level               ; @$8ACB
-  jsr play_stage_music          ; @$D87C
+  jsr play_stage_music          ; @$D87C play stage level music
   jsr level_sub_a               ; @$A5DA
   jsr set_PPU_CTRL_a
   jsr set_PPU_MASK_a
@@ -4566,45 +4566,45 @@ enemy_misc_rtn_7:
   jsr lvl_misc_rtn_3
   rts
 b_a460:
-  jsr lvl_misc_rtn_4
+  jsr eny_spawn_chkpt
   jsr dec_frm_cnt_96
   rts
-lvl_misc_rtn_4:
-  jsr lvl_misc_rtn_5
+eny_spawn_chkpt:          ; this routine checks if player is within 1-1.5 pages from enemy spawn point and spawns enemy
+  jsr get_eny_chkpt
   lda plr_x_prog_pg
   clc
   adc #$01
-  sta $03
+  sta $03                 ; load player x page, add 1 and store to 03 ram
   lda plr_x_prog_hi
-  sta $02
+  sta $02                 ; load player x prog high and store to 02 ram
   lda $00
   sec
-  sbc $02
+  sbc $02                 ; subtract lvl table result - plr_x_prog_hi
   lda $01
-  sbc $03
-  bcc b_a4c7
+  sbc $03                 ; now subtract the page bytes with the carry
+  bcc passed_eny_chkpt    ; branch to increment enemy counter if plr_x_prog at least 1 page away from the checkpoint, dont spawn enemy if we're on the same page
   lda plr_x_prog_hi
   clc
   adc #$80
-  sta $02
+  sta $02                 ; add 80 + plr_x_prog_hi and store in 02 ram
   lda plr_x_prog_pg
   adc #$01
-  sta $03
-  lda $00
+  sta $03                 ; add 1 + plr_x_prog_pg and store in 03 ram
+  lda $00                 ; load the thing from the table
   sec
   sbc $02
   lda $01
-  sbc $03
-  bcc b_a499
-  rts
+  sbc $03                 ; subtract to see if player is less than 1.5 pages to enemy checkpoint
+  bcc b_a499              ; branch if player is within 1.5 pages from enemy checkpoint
+  rts                     ; rts if player hasnt reached at least 1 or 1.5 pages from next enemy checkpoint
 b_a499:
   lda #$0F
   sta $00 
-lvl_misc_rtn_7:
+rdy_eny_x_y_typ:
   ldx #$00
   jsr find_open_eny_ram_slot
   lda $00
-  beq b_a4c9 
+  beq b_a4c9              ; exit if no more enemy slots
   lda ($09),Y
   sta eny_spr_x_pos_hi,X
   iny
@@ -4621,30 +4621,30 @@ lvl_misc_rtn_7:
   sta eny_spr_type,X
   iny
   jsr set_new_enemy
-b_a4c7:
+passed_eny_chkpt:
   inc subtitle_timer
 b_a4c9:
   rts
-lvl_misc_rtn_5:
+get_eny_chkpt:
   lda current_level
   asl
-  tax
-  lda lvl_addr_tbl_1,X    ; @$bc6d
+  tax                     ; multiply current level by 2 and use as x index
+  lda eny_chkpt_tbl,X    ; @$bc6d
   sta $09
-  lda lvl_addr_tbl_1+1,X
-  sta $0A
-  lda subtitle_timer
-  sta $00
+  lda eny_chkpt_tbl+1,X
+  sta $0A                 ; store x location from eny_chkpt_tbl
+  lda subtitle_timer      ; load subtitle_timer, we're using it as the enemy counter in this case
+  sta $00                 ; store subtitle_timer in 00 ram
   asl
-  asl
+  asl                     
   clc
-  adc $00
-  tay
+  adc $00                 ; multiply subtitle_timer by 5
+  tay                     ; use as y index
   lda ($09),Y
   sta $00
   iny
   lda ($09),Y
-  sta $01
+  sta $01                 ; get enemy x location checkpoint to ram
   dey
   rts
 dec_frm_cnt_96:
@@ -4778,12 +4778,12 @@ level_sub_a:
   sta subtitle_timer
   sta unram_7
   lda stage_orientation
-  and #$C0
-  bne b_a60f
+  and #$C0                        ; check for vertical level
+  bne b_a60f                      ; branch if vertical level, 40 down or 80 up
   lda #$0F
-  sta $0C
+  sta $0C                         ; loop the following section 0F times
 b_a5ea:
-  jsr lvl_misc_rtn_5
+  jsr get_eny_chkpt
   lda plr_x_prog_pg
   clc
   adc #$01
@@ -4798,7 +4798,7 @@ b_a5ea:
   bcs b_a60a
   lda #$0F
   sta $00
-  jsr lvl_misc_rtn_7
+  jsr rdy_eny_x_y_typ
 b_a60a:
   dec $0C
   bpl b_a5ea
@@ -6593,17 +6593,17 @@ b_b3dd:
   jsr dec_boss_wpn_timer_4
 b_b3ef:
   rts
-eny_08:   ; b3f0 platform, also bos_01  
+eny_08:                         ; b3f0 platform, also bos_01  
   lda #$04
-  sta $00                   ; y speed increment
+  sta $00                       ; y speed increment
   lda #$01
-  sta $05                   ; max y speed
+  sta $05                       ; max y speed
 b_b3f8:
   jsr move_enemy_vert
 j_b3fb:
   lda eny_spr_substatus,X
   ora #$08
-  sta eny_spr_substatus,X   ; set 3rd bit of enemy sprite status
+  sta eny_spr_substatus,X       ; set 3rd bit of enemy sprite status
   rts
 
 bos_02: ; b404
@@ -6662,27 +6662,27 @@ spawn_kabusu:
   sta eny_spr_y_pos_hi,Y
   lda eny_spr_y_pos_page,X
   sta eny_spr_y_pos_page,Y
-  lda #$05                  ; spawn Kabusu A
+  lda #$05                      ; spawn Kabusu A
   sta $00
   jsr rng_rtn
   lda rng_ram
   and #$01
   bne spawn_boss_enemy
-  lda #$06                  ; spawn Kabusu B
+  lda #$06                      ; spawn Kabusu B
   sta $00
 spawn_boss_enemy:
   lda $00
   sta eny_spr_type,Y
   jsr rng_rtn
   lda rng_ram
-  sta eny_y_spd_lo,Y    ; randomly assign initial vertical speed
+  sta eny_y_spd_lo,Y            ; randomly assign initial vertical speed
   lda #$C0
   sta eny_status_ram
   lda num_bosses
-  and #$02              ; check if 2 bosses
-  beq :+                ; branch if only one boss
+  and #$02                      ; check if 2 bosses
+  beq :+                        ; branch if only one boss
   lda #$f0
-  sta eny_status_ram          ; f0 to eny_status_ram for 2 bosses, c0 for 1
+  sta eny_status_ram            ; f0 to eny_status_ram for 2 bosses, c0 for 1
 :
   jsr eny_set_wpn_time
   lda eny_time_ram
@@ -6899,21 +6899,21 @@ b_b64f:
   sta eny_spr_substatus,X
 b_b65b:
   rts
-eny_09: ; b65c platform X
+eny_09:                       ; b65c platform X
   lda #$06
-  sta $00               ; x speed increment
+  sta $00                     ; x speed increment
   lda #$01
-  sta $05               ; x max speed
+  sta $05                     ; x max speed
   jsr ratbat_platform_x_rtn
   jmp j_b3fb
-eny_0c: ; b66a        platform stationary
+eny_0c:                       ; b66a platform stationary
   lda #$80
   sta $02
   lda #$00
   sta $03
   jsr eny_wall_collision
   jmp j_b3fb
-eny_0d: ;b678               laserbeak
+eny_0d:                       ;b678 laserbeak
   lda eny_spr_substatus,X
   and #$04
   bne b_b6b8
@@ -7677,79 +7677,210 @@ b_bc58:
   rts
 
 
-lvl_addr_tbl_1: ; @$BC6D-BFDF
-	.byte $CF,$BC,$1A,$BD ; stage 1
-  .byte $24,$BD,$83,$BD ; stage 2
-  .byte $EB,$BE,$92,$BD ; stage 3
-  .byte $AB,$BD,$00,$BE ; stage 4
-  .byte $19,$BE,$82,$BE ; stage 5
-  .byte $EB,$BE,$9B,$BE ; stage 6
-  .byte $B4,$BE,$F0,$BE ; stage 7
-  .byte $EB,$BE,$09,$BF ; stage 8
-  .byte $22,$BF,$8B,$BF ; stage 9
-  .byte $EB,$BE,$A4,$BF ; stage 10
-  .byte $BD,$BF,$A7,$BC ; , brainwave
-  .byte $BD,$BF,$BB,$BC ; , brainwave
-  .byte $C7,$BF,$EB,$BE ; stage 
-  .byte $EB,$BE,$EB,$BE ; stage 
-  .byte $D6,$BF         ; stage 
-  ; @bca7
-	.byte $80,$00,$38,$00,$1A,$80,$00,$38,$00,$1A,$80,$00,$38,$00,$1A,$FF,$FF,$FF,$FF,$00
-  ; @bcbb
-  .byte $30,$00,$00,$00,$1A,$80,$00,$00,$00,$1A,$D0,$00,$00,$00,$1A,$FF,$FF,$FF,$FF,$00
-  ; @bccf
-  .byte $80,$02,$80,$00,$04,$80,$03,$80,$00,$30,$60,$04,$80,$00,$04,$80,$04,$80,$00,$30,$00,$05,$70,$00
-	.byte $29,$80,$05,$80,$00,$30,$60,$06,$80,$00,$04,$80,$06,$80,$00,$30,$80,$07,$80,$00,$33,$80,$08,$80,$00,$04,$00,$09,$80,$00,$01,$00
-	.byte $0A,$70,$00,$29,$80,$0A,$80,$00,$04,$00,$0B,$70,$00,$29,$FF,$FF,$FF,$FF,$00
-  ; @bd1a
-  .byte $90,$00,$50,$00,$00,$FF,$FF,$FF,$FF,$00
-  ; @bd24
-  .byte $D0,$00,$A0,$00,$07,$D8,$01,$6F,$00,$18,$60,$02,$30,$00,$29,$80,$02,$78,$00,$07,$80,$02,$30,$00,$30,$68,$03,$A7,$00,$18,$80,$03
-  .byte $68,$00,$30,$17,$04,$38,$00,$29,$80,$05,$78,$00,$30,$40,$06,$B8,$00,$07,$68,$06,$77,$00,$18,$A0,$06,$50,$00,$33,$A8,$06,$28,$00
-  .byte $29,$28,$07,$28,$00,$29,$00,$09,$60,$00,$1A,$00,$0A,$30,$00,$30,$08,$0A,$78,$00,$07,$48,$0B,$B7,$00,$18,$FF,$FF,$FF,$FF,$00
-  ; @bd8d
-  .byte $90,$00,$50,$00,$00,$D0,$00,$70,$00,$00,$FF,$FF,$FF,$FF,$00
-  ; @bd92
-  .byte $18,$00,$90,$00,$01,$50,$00,$40,$00,$04,$78,$00,$80,$00,$02,$C8,$00,$58,$00,$0E,$FF,$FF,$FF,$FF,$00
-  ; @bdab
-  .byte $A0,$02,$58,$00,$30,$C0,$03,$48,$00,$30,$78,$04,$74,$00,$11,$88,$04,$58,$00,$0F,$98,$04,$58,$00,$0F,$D0,$04,$60,$00,$29
-  .byte $A0,$05,$68,$00,$33,$78,$06,$74,$00,$11,$90,$06,$40,$00,$29,$80,$07,$60,$00,$29,$88,$07,$58,$00,$0F,$80,$08,$68,$00,$30
-	.byte $30,$08,$74,$00,$11,$90,$09,$40,$00,$29,$F8,$09,$58,$00,$0F,$28,$0B,$48,$00,$0F,$FF,$FF,$FF,$FF,$00
-  ; @be00
-  .byte $18,$00,$90,$00,$01,$50,$00,$40,$00,$04,$78,$00,$80,$00,$02,$A0,$00,$5E,$00,$09,$FF,$FF,$FF,$FF,$FF
-  ; @be19
-  .byte $A0,$00,$78,$00,$08,$40,$01,$78,$00,$08,$D0,$01,$58,$00,$2B,$C8,$02,$BC,$00,$0C,$20,$03,$30,$00,$29,$40,$03,$88,$00,$30,$50,$03
-  .byte $B0,$00,$29,$B0,$03,$78,$00,$23,$10,$04,$B0,$00,$29,$18,$05,$40,$00,$33,$C0,$05,$98,$00,$08,$40,$06,$48,$00,$30,$E0,$06,$60,$00
-  .byte $08,$90,$07,$58,$00,$2B,$20,$08,$BC,$00,$0C,$20,$08,$48,$00,$30,$30,$09,$B0,$00,$29,$38,$09,$78,$00,$23,$80,$09,$B0,$00,$29,$90
-  .byte $0A,$58,$00,$2B,$FF,$FF,$FF,$FF,$00
-  ; @be82
-  .byte $18,$00,$60,$00,$01,$50,$00,$40,$00,$04,$78,$00,$80,$00,$02,$BB,$00,$4A,$00,$12,$FF,$FF,$FF,$FF,$00
-  ; @be9b
-  .byte $18,$00,$90,$00,$01,$50,$00,$40,$00,$04,$78,$00,$80,$00,$02,$C8,$00,$58,$00,$07,$FF,$FF,$FF,$FF,$00
-  ; @beb4
-  .byte $20,$02,$80,$00,$30,$40,$04,$70,$00,$29,$A0,$04,$E0,$00,$13,$00,$05,$80,$00,$30,$40,$06,$70,$00,$29,$A0,$06,$E0,$00,$13,$40,$08
-  .byte $70,$00,$29,$E0,$08,$80,$00,$33,$60,$08,$E0,$00,$13,$E0,$09,$60,$00,$1A,$17,$0B,$70,$00,$29
-  ; @beeb
+eny_chkpt_tbl: ; @$BC6D-BFDF  table of enemy placements which are also used to spawn the enemy when the player is between 1-1.5 pages away
+	.word eny_chkpt_s1,eny_chkpt_b1             ; .byte $CF,$BC,$1A,$BD ; stage 1, boss 1
+  .word eny_chkpt_s2,eny_chkpt_b2             ; .byte $24,$BD,$83,$BD ; stage 2, boss 2
+  .word eny_chkpt_vert,eny_chkpt_b3           ; .byte $EB,$BE,$92,$BD ; stage 3, boss 3
+  .word eny_chkpt_s4,eny_chkpt_b4             ; .byte $AB,$BD,$00,$BE ; stage 4, boss 4
+  .word eny_chkpt_s5,eny_chkpt_b5             ; .byte $19,$BE,$82,$BE ; stage 5, boss 5
+  .word eny_chkpt_vert,eny_chkpt_b6           ; .byte $EB,$BE,$9B,$BE ; stage 6, boss 6
+  .word eny_chkpt_s7,eny_chkpt_b7             ; .byte $B4,$BE,$F0,$BE ; stage 7, boss 7
+  .word eny_chkpt_vert,eny_chkpt_b8           ; .byte $EB,$BE,$09,$BF ; stage 8, boss 8
+  .word eny_chkpt_s9,eny_chkpt_b9             ; .byte $22,$BF,$8B,$BF ; stage 9, boss 9
+  .word eny_chkpt_vert,eny_chkpt_b10          ; .byte $EB,$BE,$A4,$BF ; stage 10, boss 10
+  .word eny_chkpt_siderm,eny_chkpt_brain1     ; .byte $BD,$BF,$A7,$BC ; pickaxe room st3/10, brainwave out
+  .word eny_chkpt_siderm,eny_chkpt_brain2     ; .byte $BD,$BF,$BB,$BC ; pickaxe room st6, brainwave in
+  .word eny_chkpt_oth,eny_chkpt_vert          ; .byte $C7,$BF,$EB,$BE ; guardian room,?
+  .word eny_chkpt_vert,eny_chkpt_vert         ; .byte $EB,$BE,$EB,$BE ; ? , ?
+  .word eny_chkpt_warp                        ; .byte $D6,$BF         ; warp zone 
+      ; Xhi,Xpg,Yhi,Ypg,sprite type 
+eny_chkpt_brain1:                 ; @bca7 prime brainwave going out
+	.byte $80,$00,$38,$00,$1A
+  .byte $80,$00,$38,$00,$1A
+  .byte $80,$00,$38,$00,$1A
   .byte $FF,$FF,$FF,$FF,$00
-  ; @bef0
-  .byte $18,$00,$90,$00,$01,$50,$00,$40,$00,$04,$78,$00,$80,$00,$02,$BA,$00,$5B,$00,$14,$FF,$FF,$FF,$FF,$00
-  ; @bf09
-  .byte $18,$00,$90,$00,$01,$50,$00,$40,$00,$04,$78,$00,$80,$00,$02,$C8,$00,$58,$00,$0B,$FF,$FF,$FF,$FF,$00
-  ; @bf22
-  .byte $A8,$00,$A7,$00,$18,$68,$01,$97,$00,$18,$70,$01,$47,$00,$18,$80,$01,$30,$00,$30,$28,$02,$97,$00,$18,$48,$02,$47,$00,$18,$D8,$02
-  .byte $98,$00,$18,$60,$03,$20,$00,$29,$A8,$03,$C0,$00,$2F,$B8,$03,$C0,$00,$19,$C8,$03,$C0,$00,$19,$00,$04,$78,$00,$30,$90,$05,$20,$00
-  .byte $29,$58,$07,$78,$00,$0F,$68,$07,$78,$00,$0F,$80,$07,$80,$00,$33,$C8,$07,$28,$00,$0F,$D8,$07,$28,$00,$0F,$50,$08,$60,$00,$29,$30
-  .byte $09,$20,$00,$29,$FF,$FF,$FF,$FF,$00
-  ; @bf8b
-  .byte $18,$00,$90,$00,$01,$50,$00,$40,$00,$04,$78,$00,$80,$00,$02,$C5,$00,$44,$00,$15,$FF,$FF,$FF,$FF,$00
-  ; @bfa4
-  .byte $18,$00,$90,$00,$01,$50,$00,$40,$00,$04,$78,$00,$80,$00,$02,$A8,$00,$54,$00,$10,$FF,$FF,$FF,$FF,$00
-  ; @bfbd
-  .byte $80,$00,$38,$00,$2D,$FF,$FF,$FF,$FF,$00
-	; @bfc7
-  .byte $80,$00,$58,$00,$12,$E0,$00,$C0,$00,$3E,$FF,$FF,$FF,$FF,$00
-  ; @bfd6
-  .byte $80,$00,$CC,$00,$18,$FF,$FF,$FF,$FF,$00
+eny_chkpt_brain2:                 ; @bcbb
+  .byte $30,$00,$00,$00,$1A
+  .byte $80,$00,$00,$00,$1A
+  .byte $D0,$00,$00,$00,$1A
+  .byte $FF,$FF,$FF,$FF,$00
+eny_chkpt_s1:                     ; @bccf
+  .byte $80,$02,$80,$00,$04
+  .byte $80,$03,$80,$00,$30
+  .byte $60,$04,$80,$00,$04
+  .byte $80,$04,$80,$00,$30
+  .byte $00,$05,$70,$00,$29
+  .byte $80,$05,$80,$00,$30
+  .byte $60,$06,$80,$00,$04
+  .byte $80,$06,$80,$00,$30
+  .byte $80,$07,$80,$00,$33
+  .byte $80,$08,$80,$00,$04
+  .byte $00,$09,$80,$00,$01
+  .byte $00,$0A,$70,$00,$29
+  .byte $80,$0A,$80,$00,$04
+  .byte $00,$0B,$70,$00,$29
+  .byte $FF,$FF,$FF,$FF,$00
+eny_chkpt_b1:; @bd1a
+  .byte $90,$00,$50,$00,$00
+  .byte $FF,$FF,$FF,$FF,$00
+eny_chkpt_s2:  ; @bd24
+  .byte $D0,$00,$A0,$00,$07
+  .byte $D8,$01,$6F,$00,$18
+  .byte $60,$02,$30,$00,$29
+  .byte $80,$02,$78,$00,$07
+  .byte $80,$02,$30,$00,$30
+  .byte $68,$03,$A7,$00,$18
+  .byte $80,$03,$68,$00,$30
+  .byte $17,$04,$38,$00,$29
+  .byte $80,$05,$78,$00,$30
+  .byte $40,$06,$B8,$00,$07
+  .byte $68,$06,$77,$00,$18
+  .byte $A0,$06,$50,$00,$33
+  .byte $A8,$06,$28,$00,$29
+  .byte $28,$07,$28,$00,$29
+  .byte $00,$09,$60,$00,$1A
+  .byte $00,$0A,$30,$00,$30
+  .byte $08,$0A,$78,$00,$07
+  .byte $48,$0B,$B7,$00,$18
+  .byte $FF,$FF,$FF,$FF,$00
+eny_chkpt_b2:  ; @bd83
+  .byte $90,$00,$50,$00,$00
+  .byte $D0,$00,$70,$00,$00
+  .byte $FF,$FF,$FF,$FF,$00
+eny_chkpt_b3:  ; @bd92
+  .byte $18,$00,$90,$00,$01
+  .byte $50,$00,$40,$00,$04
+  .byte $78,$00,$80,$00,$02
+  .byte $C8,$00,$58,$00,$0E
+  .byte $FF,$FF,$FF,$FF,$00
+eny_chkpt_s4:                   ; @bdab
+  .byte $A0,$02,$58,$00,$30
+  .byte $C0,$03,$48,$00,$30
+  .byte $78,$04,$74,$00,$11
+  .byte $88,$04,$58,$00,$0F
+  .byte $98,$04,$58,$00,$0F
+  .byte $D0,$04,$60,$00,$29
+  .byte $A0,$05,$68,$00,$33
+  .byte $78,$06,$74,$00,$11
+  .byte $90,$06,$40,$00,$29
+  .byte $80,$07,$60,$00,$29
+  .byte $88,$07,$58,$00,$0F
+  .byte $80,$08,$68,$00,$30
+	.byte $30,$08,$74,$00,$11
+  .byte $90,$09,$40,$00,$29
+  .byte $F8,$09,$58,$00,$0F
+  .byte $28,$0B,$48,$00,$0F
+  .byte $FF,$FF,$FF,$FF,$00
+eny_chkpt_b4:                 ; @be00
+  .byte $18,$00,$90,$00,$01
+  .byte $50,$00,$40,$00,$04
+  .byte $78,$00,$80,$00,$02
+  .byte $A0,$00,$5E,$00,$09
+  .byte $FF,$FF,$FF,$FF,$FF
+eny_chkpt_s5:                 ; @be19
+  .byte $A0,$00,$78,$00,$08
+  .byte $40,$01,$78,$00,$08
+  .byte $D0,$01,$58,$00,$2B
+  .byte $C8,$02,$BC,$00,$0C
+  .byte $20,$03,$30,$00,$29
+  .byte $40,$03,$88,$00,$30
+  .byte $50,$03,$B0,$00,$29
+  .byte $B0,$03,$78,$00,$23
+  .byte $10,$04,$B0,$00,$29
+  .byte $18,$05,$40,$00,$33
+  .byte $C0,$05,$98,$00,$08
+  .byte $40,$06,$48,$00,$30
+  .byte $E0,$06,$60,$00,$08
+  .byte $90,$07,$58,$00,$2B
+  .byte $20,$08,$BC,$00,$0C
+  .byte $20,$08,$48,$00,$30
+  .byte $30,$09,$B0,$00,$29
+  .byte $38,$09,$78,$00,$23
+  .byte $80,$09,$B0,$00,$29
+  .byte $90,$0A,$58,$00,$2B
+  .byte $FF,$FF,$FF,$FF,$00
+eny_chkpt_b5:                 ; @be82
+  .byte $18,$00,$60,$00,$01
+  .byte $50,$00,$40,$00,$04
+  .byte $78,$00,$80,$00,$02
+  .byte $BB,$00,$4A,$00,$12
+  .byte $FF,$FF,$FF,$FF,$00
+eny_chkpt_b6:                 ; @be9b
+  .byte $18,$00,$90,$00,$01
+  .byte $50,$00,$40,$00,$04
+  .byte $78,$00,$80,$00,$02
+  .byte $C8,$00,$58,$00,$07
+  .byte $FF,$FF,$FF,$FF,$00
+eny_chkpt_s7:                 ; @beb4
+  .byte $20,$02,$80,$00,$30
+  .byte $40,$04,$70,$00,$29
+  .byte $A0,$04,$E0,$00,$13
+  .byte $00,$05,$80,$00,$30
+  .byte $40,$06,$70,$00,$29
+  .byte $A0,$06,$E0,$00,$13
+  .byte $40,$08,$70,$00,$29
+  .byte $E0,$08,$80,$00,$33
+  .byte $60,$08,$E0,$00,$13
+  .byte $E0,$09,$60,$00,$1A
+  .byte $17,$0B,$70,$00,$29
+eny_chkpt_vert:               ; @beeb
+  .byte $FF,$FF,$FF,$FF,$00
+eny_chkpt_b7:                 ; @bef0
+  .byte $18,$00,$90,$00,$01
+  .byte $50,$00,$40,$00,$04
+  .byte $78,$00,$80,$00,$02
+  .byte $BA,$00,$5B,$00,$14
+  .byte $FF,$FF,$FF,$FF,$00
+eny_chkpt_b8:                 ; @bf09
+  .byte $18,$00,$90,$00,$01
+  .byte $50,$00,$40,$00,$04
+  .byte $78,$00,$80,$00,$02
+  .byte $C8,$00,$58,$00,$0B
+  .byte $FF,$FF,$FF,$FF,$00
+eny_chkpt_s9:                 ; @bf22
+  .byte $A8,$00,$A7,$00,$18
+  .byte $68,$01,$97,$00,$18
+  .byte $70,$01,$47,$00,$18
+  .byte $80,$01,$30,$00,$30
+  .byte $28,$02,$97,$00,$18
+  .byte $48,$02,$47,$00,$18
+  .byte $D8,$02,$98,$00,$18
+  .byte $60,$03,$20,$00,$29
+  .byte $A8,$03,$C0,$00,$2F
+  .byte $B8,$03,$C0,$00,$19
+  .byte $C8,$03,$C0,$00,$19
+  .byte $00,$04,$78,$00,$30
+  .byte $90,$05,$20,$00,$29
+  .byte $58,$07,$78,$00,$0F
+  .byte $68,$07,$78,$00,$0F
+  .byte $80,$07,$80,$00,$33
+  .byte $C8,$07,$28,$00,$0F
+  .byte $D8,$07,$28,$00,$0F
+  .byte $50,$08,$60,$00,$29
+  .byte $30,$09,$20,$00,$29
+  .byte $FF,$FF,$FF,$FF,$00
+eny_chkpt_b9:                 ; @bf8b
+  .byte $18,$00,$90,$00,$01
+  .byte $50,$00,$40,$00,$04
+  .byte $78,$00,$80,$00,$02
+  .byte $C5,$00,$44,$00,$15
+  .byte $FF,$FF,$FF,$FF,$00
+eny_chkpt_b10:                ; @bfa4
+  .byte $18,$00,$90,$00,$01
+  .byte $50,$00,$40,$00,$04
+  .byte $78,$00,$80,$00,$02
+  .byte $A8,$00,$54,$00,$10
+  .byte $FF,$FF,$FF,$FF,$00
+  eny_chkpt_siderm:           ; @bfbd sideroom
+  .byte $80,$00,$38,$00,$2D
+  .byte $FF,$FF,$FF,$FF,$00
+eny_chkpt_oth:      	        ; @bfc7
+  .byte $80,$00,$58,$00,$12
+  .byte $E0,$00,$C0,$00,$3E
+  .byte $FF,$FF,$FF,$FF,$00
+eny_chkpt_warp:               ; @bfd6
+  .byte $80,$00,$CC,$00,$18
+  .byte $FF,$FF,$FF,$FF,$00
 
 lvl_addr_tbl_2: ; @$BFE0-C0C5
 	.byte $1A,$C0,$AE,$C0 ; stage 1
@@ -7768,19 +7899,55 @@ lvl_addr_tbl_2: ; @$BFE0-C0C5
   .byte $AE,$C0,$AE,$C0
   .byte $AE,$C0
                 ; @c01a
-	.byte $00,$00,$00,$00,$01,$01,$01,$01,$01,$03,$01,$03,$01,$03,$01,$03,$05,$85,$05,$05,$85,$85,$85,$85,$00,$00,$06,$81
+	.byte $00,$00,$00,$00
+  .byte $01,$01,$01,$01
+  .byte $01,$03,$01,$03
+  .byte $01,$03,$01,$03
+  .byte $05,$85,$05,$05
+  .byte $85,$85,$85,$85
+  .byte $00,$00,$06,$81
                 ; @c036
-  .byte $00,$00,$00,$00,$01,$03,$01,$03,$03,$01,$03,$03,$03,$03,$06,$06,$06,$06,$06,$06,$85,$85,$85,$85
+  .byte $00,$00,$00,$00
+  .byte $01,$03,$01,$03
+  .byte $03,$01,$03,$03
+  .byte $03,$03,$06,$06
+  .byte $06,$06,$06,$06
+  .byte $85,$85,$85,$85
                 ; @c04e
-  .byte $00,$00,$00,$00,$24,$24,$FF,$FF,$8A,$8A,$8A,$8A,$8A,$8B,$FF,$FF,$8B,$8B,$8B,$8B,$8A,$8A,$8A,$8A
+  .byte $00,$00,$00,$00
+  .byte $24,$24,$FF,$FF
+  .byte $8A,$8A,$8A,$8A
+  .byte $8A,$8B,$FF,$FF
+  .byte $8B,$8B,$8B,$8B
+  .byte $8A,$8A,$8A,$8A
                 ; @c066
-  .byte $0B,$24,$00,$24,$FF,$FF,$0B,$0B,$FF,$24,$0D,$24,$0D,$24,$FF,$24,$FF,$FF,$0D,$FF,$8B,$8B,$8B,$8B
+  .byte $0B,$24,$00,$24
+  .byte $FF,$FF,$0B,$0B
+  .byte $FF,$24,$0D,$24
+  .byte $0D,$24,$FF,$24
+  .byte $FF,$FF,$0D,$FF
+  .byte $8B,$8B,$8B,$8B
                 ; @c07e
-  .byte $06,$06,$86,$86,$03,$03,$03,$16,$03,$16,$03,$16,$03,$06,$03,$06,$03,$00,$16,$97,$16,$00,$06,$97
+  .byte $06,$06,$86,$86
+  .byte $03,$03,$03,$16
+  .byte $03,$16,$03,$16
+  .byte $03,$06,$03,$06
+  .byte $03,$00,$16,$97
+  .byte $16,$00,$06,$97
                 ; @c096
-  .byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$0A,$0A,$FF,$FF,$FF,$FF,$FF,$FF,$0B,$0B,$0B,$0B,$FF,$FF
+  .byte $FF,$FF,$FF,$FF
+  .byte $FF,$FF,$FF,$FF
+  .byte $FF,$FF,$0A,$0A
+  .byte $FF,$FF,$FF,$FF
+  .byte $FF,$FF,$0B,$0B
+  .byte $0B,$0B,$FF,$FF
                 ; @c0ae
-  .byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+  .byte $FF,$FF,$FF,$FF
+  .byte $FF,$FF,$FF,$FF
+  .byte $FF,$FF,$FF,$FF
+  .byte $FF,$FF,$FF,$FF
+  .byte $FF,$FF,$FF,$FF
+  .byte $FF,$FF,$FF,$FF
 
 enemy_addr_tbl_1: ; @$C0C6-C12F
 	.byte $00,$C1,$00,$C1 ; stage 1
@@ -7877,8 +8044,8 @@ wpn_eny_hit_detection:    ; @$C234
   lda timer_lo_byte
   and #$01
   beq chk_wpn_status
-  jmp chk_eny_wpn_status        ; jmp every other frame check enemy bullet
-chk_wpn_status:    ; every other frame check plr bullet
+  jmp chk_eny_wpn_status  ; jmp every other frame check enemy bullet
+chk_wpn_status:           ; every other frame check plr bullet
   ldx #$00
 chk_wpn_slot:
   stx $0E
@@ -7888,10 +8055,10 @@ chk_wpn_slot:
 nxt_wpn_slot:             ; increment bullet ram slot
   lda $0E
   clc
-  adc#$10         ; next row of wpn ram
+  adc#$10                 ; next row of wpn ram
   tax
-  cpx #$40        ; max 4 bullets at a time, enemy bullet slots start at $540
-  bcc chk_wpn_slot      ; loop back if 4 or less bullets
+  cpx #$40                ; max 4 bullets at a time, enemy bullet slots start at $540
+  bcc chk_wpn_slot        ; loop back if 4 or less bullets
   rts
 wpn_status_active:
   lda #$0F
@@ -7900,16 +8067,16 @@ wpn_status_active:
 chk_eny_status:
   sty $0F
   lda eny_spr_status,Y
-  bmi :+            ; branch if enemy sprite status is active
+  bmi :+                  ; branch if enemy sprite status is active
 nxt_eny_slot:
-  jmp inc_eny_slot  ; go to next enemy slot in ram
+  jmp inc_eny_slot        ; go to next enemy slot in ram
 :
-  and #$10          ; check if odd or even ram
+  and #$10                ; check if odd or even ram
   bne nxt_eny_slot        ; skip every other ram?
   lda eny_spr_status,Y
-  and #$40          ; enemy is now exploding
+  and #$40                ; enemy is now exploding
   bne nxt_eny_slot
-  lda stage_boss    ; stage or boss has different hibox tables
+  lda stage_boss          ; stage or boss has different hibox tables
   asl
   tay
   lda eny_hitbox_jmp_tbl,Y
@@ -7917,25 +8084,25 @@ nxt_eny_slot:
   lda eny_hitbox_jmp_tbl+1,Y
   sta $01
   ldy $0F
-  lda eny_spr_type,Y  ; get hitbox based on sprite type
+  lda eny_spr_type,Y      ; get hitbox based on sprite type
   asl
   tay
-  lda ($00),Y     ; get enemy hitbox x value
+  lda ($00),Y             ; get enemy hitbox x value
   sta $02
   iny
   lda ($00),Y
-  sta $03         ; get enemy hitbox y value
+  sta $03                 ; get enemy hitbox y value
   ldy $0F
   lda wpn_status,X
-  and #$01        ; check if missile is exploding, either 81 or 83
+  and #$01                ; check if missile is exploding, either 81 or 83
   beq active_wpn_eny_hit_detection
   lda $02
   clc
-  adc #$08        ; add 08 to the hitbox x value for exploding missiles
+  adc #$08                ; add 08 to the hitbox x value for exploding missiles
   sta $02
   lda $03
   clc
-  adc #$08        ; add 08 to the hitbox y value for exploding missiles
+  adc #$08                ; add 08 to the hitbox y value for exploding missiles
   sta $03
 active_wpn_eny_hit_detection:   ; weapon/enemy hit detection for active player bullet
   lda #$00
@@ -7944,17 +8111,17 @@ active_wpn_eny_hit_detection:   ; weapon/enemy hit detection for active player b
   lda eny_spr_x_pos_hi,Y
   sec
   sbc wpn_x_pos_hi,X
-  sta $00                       ; store difference of plr wpn and eny sprite x positioin
+  sta $00                   ; store difference of plr wpn and eny sprite x positioin
   lda eny_spr_x_pos_page,Y
   sbc wpn_x_pos_page,X
-  sta $01                       ; store difference of x page position
+  sta $01                   ; store difference of x page position
   jsr flip_bits_1
   lda $01
-  bne inc_eny_slot              ; bullet and enemy are on different pages, check next enemy slot
+  bne inc_eny_slot          ; bullet and enemy are on different pages, check next enemy slot
   lda $00
-  cmp $02                 ; compare enemy x hitbox area
-  bcs inc_eny_slot        ; missed enemy, check next enemy slot
-  lda #$00                ; reset difference for y hit check
+  cmp $02                   ; compare enemy x hitbox area
+  bcs inc_eny_slot          ; missed enemy, check next enemy slot
+  lda #$00                  ; reset difference for y hit check
   sta $00
   sta $01
   lda eny_spr_y_pos_hi,Y
@@ -7975,8 +8142,8 @@ inc_eny_slot:
   clc
   adc #$10
   tay
-  dec $04     ; total of 0f rows/slots, decrement each time we go up to the next slot
-  bmi :+  ; rts when we've done all 0f slots of enemy ram
+  dec $04                   ; total of 0f rows/slots, decrement each time we go up to the next slot
+  bmi :+                    ; rts when we've done all 0f slots of enemy ram
   jmp chk_eny_status
 :
   rts
@@ -7984,22 +8151,22 @@ eny_was_hit:
   lda #$01
   sta $08
   lda wpn_status,X
-  and #$40        ; is missile or bullet
-  beq :+      ; branch if bullet
+  and #$40                  ; is missile or bullet
+  beq :+                    ; branch if bullet
   lda #$03
   sta $08
 :
   lda #$00
-  sta wpn_status,X        ; deactivate bullet
-  lda eny_spr_substatus,Y ; 
-  and #$20                ; check if enemy has(is) a powerup
-  bne eny_is_powerup              ; branch if has(is) powerup?
+  sta wpn_status,X          ; deactivate bullet
+  lda eny_spr_substatus,Y   ; 
+  and #$20                  ; check if enemy has(is) a powerup
+  bne eny_is_powerup        ; branch if has(is) powerup?
   lda eny_altmode,Y
   clc
   adc $08
   sta eny_altmode,Y
   sta $08
-  lda stage_boss  ; stage and boss has different altmode/powerup tables
+  lda stage_boss            ; stage and boss has different altmode/powerup tables
   asl
   tay
   lda eny_altmode_addr_tbl,Y
@@ -8010,13 +8177,13 @@ eny_was_hit:
   lda eny_spr_type,Y
   asl
   tay
-  lda ($06),Y   ; enemy sprite type 30 has the powerup, asl left is 60
-  bmi eny_has_altmode ; branch if enemy has a negative stored here, meaning theres an alt mode or powerup
-  and #$40      ; like an enemy needs more than one hit to change, or maybe just gets frozen if hit, like a rocket
+  lda ($06),Y               ; enemy sprite type 30 has the powerup, asl left is 60
+  bmi eny_has_altmode       ; branch if enemy has a negative stored here, meaning theres an alt mode or powerup
+  and #$40                  ; like an enemy needs more than one hit to change, or maybe just gets frozen if hit, like a rocket
   bne freeze_enemy
   iny
-  lda ($06),Y   ; go to the next byte in the table
-  cmp $08       ; 1 for bullet or 3 for missile    
+  lda ($06),Y               ; go to the next byte in the table
+  cmp $08                   ; 1 for bullet or 3 for missile    
   bcs b_c35f
   jsr play_explosion_sound
   ldy $0F
@@ -8044,8 +8211,8 @@ eny_has_altmode:
   sta eny_spr_status,Y
   lda eny_spr_type,Y
   cmp #$33
-  beq rod_letter          ; 33 is ramjet with rodimus letter
-  cmp #$30                ; 30 is ramjet with a powerup
+  beq rod_letter            ; 33 is ramjet with rodimus letter
+  cmp #$30                  ; 30 is ramjet with a powerup
   beq show_powerup
 enemy_stop:
   lda #$00
@@ -8067,13 +8234,13 @@ freeze_enemy:
   sta eny_spr_substatus,Y
   jmp enemy_stop
 rod_letter:
-  lda current_level   ; get current level
+  lda current_level         ; get current level
   lsr
   tay
-  lda rod_up_tbl,Y    ; get the rodimus letter for the correct level:1,2,4,5,7,9 only horizontal levels
+  lda rod_up_tbl,Y          ; get the rodimus letter for the correct level:1,2,4,5,7,9 only horizontal levels
   ldy $0F
-  sta eny_altmode,Y   ; store the letter in tenemy altmode ram
-  jmp enemy_stop      ; stop enemy movement because it will become a powerup
+  sta eny_altmode,Y         ; store the letter in tenemy altmode ram
+  jmp enemy_stop            ; stop enemy movement because it will become a powerup
 show_powerup:
   jsr rng_rtn
   lda rng_ram
@@ -8100,7 +8267,7 @@ b_c3e4:
   sta eny_altmode,Y
   jmp enemy_stop
 
-eny_powerup_tbl:     ; @$C3EE-C3F5 I think it might be a random selection from this table, B,P,F,D,1Up
+eny_powerup_tbl:            ; @$C3EE-C3F5 I think it might be a random selection from this table, B,P,F,D,1Up
   .byte $34,$35,$36,$37,$38,$34,$35,$36
 
 
@@ -8113,10 +8280,10 @@ enemy_misc_rtn_9:
   stx enemy_speed_lo
   stx enemy_speed_hi
   lda #$0F
-  sta $0C                 ; load total ram slots to 0c ram
+  sta $0C                   ; load total ram slots to 0c ram
 j_c406:
   lda eny_spr_status,X
-  bpl b_c40f            ; branch if ram slot is available/empty
+  bpl b_c40f                ; branch if ram slot is available/empty
   and #$50
   beq b_c412
 b_c40f:
@@ -8230,23 +8397,23 @@ get_powerup:
   lda eny_spr_type,X
   cmp #$1E
   beq clear_powerup_sprite
-  cmp #$1F          ; 1f is energon cube
+  cmp #$1F                  ; 1f is energon cube
   beq get_energon_cube
-  cmp #$29          ; 29 is blank space?
+  cmp #$29                  ; 29 is blank space?
   beq j_c494
-  cmp #$23          ; 23 is blank space?
+  cmp #$23                  ; 23 is blank space?
   beq j_c494
-  cmp #$34          ; 33 is jet w/powerup
+  cmp #$34                  ; 33 is jet w/powerup
   bcc plr_collide_eny_wpn
-  ldy #$40          ; dbl shot powerup is 40
-  cmp #$35          ; 34 is P powerup
+  ldy #$40                  ; dbl shot powerup is 40
+  cmp #$35                  ; 34 is P powerup
   bcc get_x_powerup
-  ldy #$80          ; flight powerup is 80
-  cmp #$36          ; 35 is F powerup
+  ldy #$80                  ; flight powerup is 80
+  cmp #$36                  ; 35 is F powerup
   bcc get_x_powerup
-  cmp #$37          ; 36 is D powerup
+  cmp #$37                  ; 36 is D powerup
   bcc get_d_powerup
-  cmp #$38          ; 37 is B powerup
+  cmp #$38                  ; 37 is B powerup
   bcc get_b_powerup
   beq get_1up_powerup
   sec
@@ -8259,7 +8426,7 @@ get_powerup:
   dec $00
   bpl :-
   ora rodimus_ram
-  sta rodimus_ram   ; add letter to rodimus ram
+  sta rodimus_ram           ; add letter to rodimus ram
 clear_powerup_sprite:
   lda #$00
   sta eny_spr_status,X
@@ -8269,7 +8436,7 @@ clear_powerup_sprite:
   jmp j_c494
 get_energon_cube:
   lda #$64
-  sta incScoreLo          ; add 1000 points 
+  sta incScoreLo            ; add 1000 points 
   lda #$00
   sta incScoreHi
   jsr increment_score
@@ -8394,7 +8561,7 @@ b_c605:
   lda eny_x_spd_hi,X
   sta enemy_speed_hi
   lda plr_sprite_status
-  ora #$08              ; crouching?
+  ora #$08                  ; crouching?
   sta plr_sprite_status
   jmp j_c494
 chk_eny_wpn_status:
@@ -8402,28 +8569,28 @@ chk_eny_wpn_status:
 chk_plr_hit:
   lda eny_wpn_status,X
   bpl nxt_eny_wpn_slot
-  lda #$05              ; player x hitbox botmode
+  lda #$05                  ; player x hitbox botmode
   sta $02
-  lda #$0C              ; player y hitbox botmode
+  lda #$0C                  ; player y hitbox botmode
   sta $03
-  lda plr_sprite_status ; check truck mode
-  bpl :+                ; branch if bot mode b_c644
-  lda #$0C              ; player x hitbox truck
+  lda plr_sprite_status     ; check truck mode
+  bpl :+                    ; branch if bot mode b_c644
+  lda #$0C                  ; player x hitbox truck
   sta $02
-  lda #$06              ; player y hitbox truck
+  lda #$06                  ; player y hitbox truck
   sta $03
 :
   jsr plr_stage_x_loc
-  lda $00               ; load player x position hi
+  lda $00                   ; load player x position hi
   sec
   sbc eny_wpn_x_pos_hi,X
   sta $00
-  lda $01               ; load player x position page
+  lda $01                   ; load player x position page
   sbc eny_wpn_x_pos_page,X
   sta $01
   jsr flip_bits_1
   lda $01
-  bne nxt_eny_wpn_slot  ; branch if on different page
+  bne nxt_eny_wpn_slot      ; branch if on different page
   lda $00
   cmp $02
   bcs nxt_eny_wpn_slot
@@ -8444,10 +8611,10 @@ chk_plr_hit:
   lda state
   bne nxt_eny_wpn_slot
   lda power_up
-  and #$20          ; check if barrier is set
+  and #$20                  ; check if barrier is set
   bne inc_hits_taken
   lda #$02
-  sta state         ; player died, load 02 to status
+  sta state                 ; player died, load 02 to status
   lda #$00
   sta flash_counter
   sta unram_27
@@ -8474,27 +8641,27 @@ inc_hits_taken:
   jsr play_stage_music
   jmp nxt_eny_wpn_slot
 get_eny_score:
-  sta $0B         ; store enemy sprite type to 0b ram
+  sta $0B                   ; store enemy sprite type to 0b ram
   txa
   pha
   tya
-  pha             ; hold x and y registers to stack while we use them to find the score table
-  lda stage_boss  ; 00 for level 01 for boss, odd or even, essentially
+  pha                       ; hold x and y registers to stack while we use them to find the score table
+  lda stage_boss            ; 00 for level 01 for boss, odd or even, essentially
   asl
   tay
   lda eny_score_jmp_tbl,Y
   sta $09
   lda eny_score_jmp_tbl+1,Y
   sta $0A
-  lda $0B           ; load enemy sprite type
+  lda $0B                   ; load enemy sprite type
   asl
   tay
   lda ($09),Y
-  sta incScoreLo    ; add score low byte
+  sta incScoreLo            ; add score low byte
   iny
   lda ($09),Y
-  sta incScoreHi    ; add score high byte
-  jsr increment_score ; increment score
+  sta incScoreHi            ; add score high byte
+  jsr increment_score       ; increment score
   pla
   tay
   pla
@@ -8504,10 +8671,10 @@ get_eny_score:
 ;======================================================================================================================================
 
 ;Enemy score table low and high byte 
-eny_score_jmp_tbl:        ; @$C6E6-C911
-  .word enemy_score_table ;	.byte $EA,$C6,$62,$C7
+eny_score_jmp_tbl:          ; @$C6E6-C911
+  .word enemy_score_table   ;	.byte $EA,$C6,$62,$C7
   .word boss_score_table
-enemy_score_table:        ; @c6ea
+enemy_score_table:          ; @c6ea
     ; score low bite, high byte
   .byte $0A,$00,$1E,$00,$1E,$00,$32,$00
   .byte $64,$00,$1E,$00,$32,$00,$28,$00
@@ -8524,7 +8691,7 @@ enemy_score_table:        ; @c6ea
   .byte $0A,$00,$0A,$00,$0A,$00,$0A,$00
   .byte $64,$00,$64,$00,$00,$00,$64,$00
   .byte $64,$00,$64,$00,$64,$00,$64,$00
-boss_score_table:  ; @c762
+boss_score_table:           ; @c762
   .byte $64,$00,$00,$00,$00,$00,$00,$00
   .byte $00,$00,$0A,$00,$0A,$00,$2C,$01
   .byte $14,$00,$90,$01,$32,$00,$E8,$03
@@ -8534,10 +8701,10 @@ boss_score_table:  ; @c762
   .byte $00,$00,$00,$F0,$00,$F0
 
 ; Enemy hitbox table X and Y sizes
-eny_hitbox_jmp_tbl: ; @c798
-  .word eny_hitbox_table  ; .byte $9C,$C7,$1C,$C8   ; jump table
+eny_hitbox_jmp_tbl:         ; @c798
+  .word eny_hitbox_table    ; .byte $9C,$C7,$1C,$C8   ; jump table
   .word bos_hitbox_table
-eny_hitbox_table:         ; @c79c enemy hitbox stuff
+eny_hitbox_table:           ; @c79c enemy hitbox stuff
       ;   X, Y
   .byte $0A,$03,$0A,$03,$06,$0A,$0A,$03 ; 00 ramjet,blitzwing,bot,Crack (lobster)
   .byte $04,$08,$04,$08,$08,$04,$08,$08 ; 04 Gosupu(rocket),hammer(plumbus),tosher(ufo),heru(mouse drone)
@@ -8555,7 +8722,7 @@ eny_hitbox_table:         ; @c79c enemy hitbox stuff
   .byte $04,$04,$04,$04,$04,$04,$04,$04 ; 34 P,F,D,B
   .byte $04,$04,$04,$04,$04,$04,$04,$04 ; 38 1Up,R,O,D
   .byte $04,$04,$04,$04,$04,$04,$04,$04 ; 3C I,M,U,S
-bos_hitbox_table:  ; @c81c boss stuff
+bos_hitbox_table:           ; @c81c boss stuff
   .byte $06,$06,$0C,$04,$0C,$04,$0C,$04 ; 00 planet,platform,platform,platform
   .byte $0C,$04,$04,$05,$04,$05,$04,$06 ; 04 platform,Kabusu,Kabusu,Decepticon-red
   .byte $04,$04,$04,$06,$06,$06,$04,$06 ; 08 cymbals-Dred,Nemesis,,Decepticon-Blue
@@ -8565,10 +8732,10 @@ bos_hitbox_table:  ; @c81c boss stuff
   .byte $06,$06,$08,$02                 ; 18 Bumblebee,Menasor Laser
 
 ; enemy altmodes and number of hits table
-eny_altmode_addr_tbl: ; @$C850
-.word eny_altmode_tbl ; .byte $54,$C8,$D4,$C8
+eny_altmode_addr_tbl:       ; @$C850
+.word eny_altmode_tbl       ; .byte $54,$C8,$D4,$C8
 .word bos_altmode_tbl
-eny_altmode_tbl:      ; @c854   enemy sprite altmode table or how many hits does it take to kill wildlife on another planet?
+eny_altmode_tbl:            ; @c854   enemy sprite altmode table or how many hits does it take to kill wildlife on another planet?
     ; alt mode, number of hits
   .byte $82,$00,$82,$00,$00,$00,$00,$00 ; 
   .byte $7F,$FF,$00,$00,$00,$00,$00,$02 ; 
