@@ -6,6 +6,9 @@ max_bullets             = $04 ; max bullets on screen allowed
 max_bullet_frames       = $20 ; how many frames the bullet is on screen for
 missile_frames_int      = $30 ; how many frames the bullet is on screen for
 max_missile_frames      = $40 ; how many frames the bullet is on screen for
+plr_max_jmp_time        = $0C
+plr_init_jmp_speed      = $FC
+horiz_lvl_length        = $0B
 ;;Custom defines
 current_enemy           = $0D
 
@@ -800,7 +803,7 @@ side_room_rtn:
   lda sub_state
   and #$20
   bne :-
-  jsr player_pose_1
+  jsr plr_col_spr_rtn
   jsr wpn_misc_1
   jsr wpn_hit_rtn
   jsr enemy_misc_rtn_7
@@ -886,7 +889,7 @@ title_scroll_rtn:
   jsr clear_audio_channels
   jmp pull_stack_and_rti
 game_jmp_1:
-  jsr player_pose_1
+  jsr plr_col_spr_rtn
   jsr load_sideroom     ; something about bullets?
   jsr wpn_misc_1
   jsr wpn_hit_rtn
@@ -1238,20 +1241,20 @@ clear_oam_ram:
   bne :-
   rts
 rng_rtn:
-  lda rng_ram    ; load 00 (fc) %1111 1100
-  sbc rng_counter    ; subtract 00 (-01=fb) %1111 1011
+  lda rng_ram     ; load 00 (fc) %1111 1100
+  sbc rng_counter ; subtract 00 (-01=fb) %1111 1011
   ror             ; rotate 00 right twice %0111 1101
   ror             ; %1011 1110 be
-  eor rng_ram    ; exclusive or 00 %0100 0010 42
+  eor rng_ram     ; exclusive or 00 %0100 0010 42
   adc #$03        ; add with carry 03 45
-  sta rng_ram    ; store 03 to 97 45
-  inc rng_counter    ; increment 98 to 01 02
-  lda rng_counter    ; load 01
+  sta rng_ram     ; store 03 to 97 45
+  inc rng_counter ; increment 98 to 01 02
+  lda rng_counter ; load 01
   and #$01        ; and 01
   beq :+          ; branch if equal, but its not, its 01
   lda #$FF        ; load ff to a
-  eor rng_ram    ; flip bits from 03 to FC
-  sta rng_ram    ; store fc to 97
+  eor rng_ram     ; flip bits from 03 to FC
+  sta rng_ram     ; store fc to rng value
 :
   rts             ; return
 increment_score:
@@ -2029,64 +2032,63 @@ pal_15:
 	.byte $0F, $27, $36, $07
 
   
-player_pose_1:
+plr_col_spr_rtn:              ; player x collision and set player sprite stuff
   jsr plr_x_nrml_speed_rtn
-  jsr ram_misc_3
+  jsr plr_x_speed_rtn
   lda plr_sprite_status
   and #$40
-  bne :++
+  bne :++                     ; brach if transforming and stop player speed
   lda plr_sprite_status
   and #$10
-  bne :++++
+  bne :++++                   ; branch if flying
   jsr plr_x_col_rtn
   lda plr_sprite_status
-  and #$08
+  and #$08                    ; branch if stopped flying
   bne :+++++
   lda plr_y_speed_hi
-  bmi :+
+  bmi :+                      ; branch if player is going upwards
   jsr plr_grnd_col_rtn     
-  bcs :+++
-:
-  jsr ram_misc_5
-ram_misc_12:
-  jsr ram_misc_6
+  bcs :+++                    ; branch if player landed on the ground
+:                             ; player is going upwards
+  jsr set_plr_grav
+top_col_chk:
+  jsr plr_jump_rtn
   jsr plr_vert_col_rtn
-  bcc ram_misc_14
+  bcc move_plr_set_sprite ; branch if no vertical collision upwards
   lda plr_y_speed_lo
   sta $00
   lda plr_y_speed_hi
   sta $01
-  jsr flip_bits_1
+  jsr flip_bits_1         ; flip velocity from upwards (negative), to downwards (positive)
   lda $00
   sta plr_y_speed_lo
   lda $01
   sta plr_y_speed_hi
   lda #$00
-  sta jump_hold
-ram_misc_14:
+  sta jump_hold           ; reset jump_hold, no flyzone indoors
+move_plr_set_sprite:
   jsr plr_x_move_rtn
   jsr plr_y_move_rtn
   jsr set_plr_sprite_rtn
   rts
-:
+:                         ; transforming
   jsr stop_plr_x_speed
-  jmp no_ram_misc_10
-:
+  jmp stop_plr_y_spd
+:                         ; landed on the ground, or is on the ground
   jsr ram_misc_10
-no_ram_misc_10:
+stop_plr_y_spd:
   lda #$00
-
   sta plr_y_speed_lo
   sta plr_y_speed_hi
 ram_misc_15:
   lda #$00
-  sta jump_hold
+  sta jump_hold           ; reset jump_hold when we've landed or are on the ground
   jsr transform_input_check
-  jmp ram_misc_12
-:
-  jsr plr_col_rtn
-  jmp ram_misc_14
-:
+  jmp top_col_chk
+:                         ; flying
+  jsr plr_y_col_rtn       ; check top collision, ground collision and set the carry if A is pressed last frame, not set if isnt being pressed and is set with 00 to plr_sprite_status if a was just pushed
+  jmp move_plr_set_sprite
+:                         ; stop flying
   jsr ram_misc_10
   jmp ram_misc_15
 ram_misc_10:
@@ -2097,26 +2099,26 @@ ram_misc_10:
   and #$F5
   sta player_sprite
   rts
-plr_col_rtn:
-  jsr plr_y_nrml_speed_rtn
-  jsr plr_y_speed_rtn
-  jsr plr_x_col_rtn
+plr_y_col_rtn:
+  jsr plr_y_nrml_speed_rtn  ; jump to gravity/vertical acceleration routine
+  jsr plr_y_speed_rtn       ; vertical speed routine for flying around?
+  jsr plr_x_col_rtn         ; check for x collision
   lda plr_y_speed_hi
-  bmi :+                ; branch if player is falling
+  bmi :+                ; branch if player is going up
   ora plr_y_speed_lo
-  bne :++               ; branch if player accellerating
-  jmp chk_A_btn_status     ;*************@8e92
-:                       ; player is falling
+  bne :++               ; branch if player is moving down
+  jmp chk_A_btn_status  ; @8e92 player is not moving, so yeah...
+:                       ; player is going up
   jsr plr_vert_col_rtn  ; check top y collision
   bcs stop_plr_y_speed  ; branch if player has collided vertially
   jmp chk_A_btn_status
 :
   jsr plr_grnd_col_rtn  ; check bottom y collision
   bcs stop_plr_y_speed
-chk_A_btn_status:
+chk_A_btn_status:       ; set carry if A is pressed
   lda controller_last
   lsr
-  bcs :+                  ; branch out if A was pressed last frame
+  bcs :+                  ; branch out if A was pressed last frame and set the carry
   lda controller_current
   lsr
   bcc :+                  ; branch out if A is not being held
@@ -2406,7 +2408,7 @@ plr_pos_tbl:    ; @$9063  player collision hitbox table
 	.byte $05,$EF   ; truck bottom left
 	.byte $FB,$EF   ; truck top left
 
-plr_vert_col_rtn:
+plr_vert_col_rtn:           ; top collision routing
   lda #$0D
   sta plr_y_pos_hi_diff     ; load 0d for player height in bot mode from center of sprite
   lda plr_sprite_status     ; check if truck mode or transforing to bot 80/c0
@@ -2417,7 +2419,7 @@ plr_vert_col_rtn:
   rts                       ; return if collided
 :
   lda #$08
-  cmp plr_y_pos_hi
+  cmp plr_y_pos_hi          ; set carry if collide with top of the screen
   rts
 b_9095:                     ; truck/truck to bot y collision check routine
   lda #$0A                  ; truck height from origin
@@ -2446,12 +2448,12 @@ plr_grnd_col_rtn:
   lda #$00
   sta plr_grnd_col_state
   lda plr_sprite_status
-  bpl :+                    ; branch if truck
+  bpl :+                    ; branch if bot
   lda #$01
-  sta plr_grnd_col_state    ; load plr_grnd_col_state with 01 if bot
+  sta plr_grnd_col_state    ; load plr_grnd_col_state with 01 if truck
 :
   asl plr_grnd_col_state    ; shift  01 left to 02
-  asl plr_grnd_col_state    ; shift 02 left to 04
+  asl plr_grnd_col_state    ; shift 02 left to 04 for truck or 00 for bot
   jsr grav_rtn_1
   bcc grav_rtn_0            ; branch if player isnt touching the ground
   rts
@@ -2473,59 +2475,59 @@ grav_rtn_1:
   rts
 grav_tbl_1:
         ; Y, X
-  .byte $11,$05 ; bot           (maybe its right facing)
+  .byte $11,$05 ; bot right
   .byte $11,$FB ; bot left
   .byte $09,$08 ; truck right
   .byte $09,$F7 ; truck left
-ram_misc_6:
+plr_jump_rtn:
   lda jump_hold
-  bmi b_9120
+  bmi init_plr_jump           ; branch if already jumping
   lda controller_current
   lsr
-  bcc b_913d
+  bcc f_exit                  ; branch out if A is not being pressed
   lda controller_last
   lsr
-  bcs b_913d
+  bcs f_exit                  ; branch out if a was held last frame
   lda plr_sprite_status
   and #$08
   bne b_910f
   lda plr_y_speed_lo
   ora plr_y_speed_hi
-  bne b_913d
+  bne f_exit                  ; branch if already moving
 b_910f:
   lda plr_sprite_status
-  bmi b_913d
+  bmi f_exit                  ; branch out if truck
   lda #$80
-  sta jump_hold
+  sta jump_hold               ; store 80 to jump_hold when A is pressed
   lda plr_sprite_status
   ora #$20
-  sta plr_sprite_status
+  sta plr_sprite_status       ; set 5bit when A is pressed
   jsr play_jump_sound
-b_9120:
+init_plr_jump:                ; already jumping or just started jumping
   lda jump_hold
   and #$40
-  bne b_9144
+  bne b_9144                  ; branch if A had been released
   lda controller_current
   lsr
-  bcc b_913e
-  inc jump_hold
+  bcc b_913e                  ; branch if A was just released while jumping
+  inc jump_hold               ; increment jump_hold if A is still being pressed
   lda jump_hold
   and #$3F
-  cmp #$0C
-  bcs b_913e
+  cmp #plr_max_jmp_time       ; lower 4 bits of jump_hold is the timer and we count up to 0C
+  bcs b_913e                  ; branch if we've reached maximum on our timer and start slowing down
   lda #$00
   sta plr_y_speed_lo
-  lda #$FC
-  sta plr_y_speed_hi
-b_913d:
+  lda #plr_init_jmp_speed     ; $FC
+  sta plr_y_speed_hi          ; set initial jump speed
+f_exit:
   rts
 b_913e:
   lda jump_hold
   ora #$40
   sta jump_hold
 b_9144:
-  jmp ram_misc_5
-ram_misc_3:
+  jmp set_plr_grav
+plr_x_speed_rtn:
   lda plr_x_speed_lo
   sta $08
   lda plr_x_speed_hi
@@ -2578,7 +2580,7 @@ right_is_pressed:
   sta plr_x_speed_hi
 b_919f:
   rts
-plr_y_speed_rtn:
+plr_y_speed_rtn:          ; this the y speed routine for flying
   lda plr_y_speed_lo
   sta $08
   lda plr_y_speed_hi
@@ -2600,8 +2602,8 @@ b_91b8:
   asl
   bmi b_91ca              ; branch if down is pressed
   asl
-  bpl b_919f              ; rts if up is pressed
-  jsr flip_bits_0
+  bpl b_919f              ; rts if down or up is not pressed
+  jsr flip_bits_0         ; if up is pressed, flip bits to negative
 b_91ca:                   ; down is pressed
   jsr inc_y_speed
   lda $08
@@ -2612,7 +2614,7 @@ b_91ca:                   ; down is pressed
 inc_y_speed:
   lda $08           ; load stored plr_y_speed_lo
   clc
-  adc $00           ; add upwards acceleration or #$14 from ram_misc_5 for gravity
+  adc $00           ; add upwards acceleration or #$14 from set_plr_grav for gravity
   sta $00           ; store added speed to $00 ram
   sta $02           ; store added speed to $02 ram
   lda $09           ; load stored plr_y_speed_hi byte
@@ -2645,7 +2647,7 @@ b_920d:
   lda $01
   sta $09
   rts
-  ram_misc_5:
+  set_plr_grav:
   lda #plr_gravity                ; global vertical gravity $14 (04 for moonjump)
   sta $00
   lda #$00
@@ -2663,7 +2665,7 @@ b_920d:
   sta plr_y_speed_lo
   lda $09
   sta plr_y_speed_hi
-  beq start_flight
+  beq start_flight                ; only start flight if we've reached max y speed
 :
   rts
 start_flight:
@@ -2711,8 +2713,8 @@ plr_x_move_rtn:
   lsr
   bcs b_92db
   lda plr_x_prog_pg     ; check level progression
-  cmp #$0B              ; have we reached 0b? which is the end of the level
-  beq b_92e4            ; branch if we have past 0b x progression to the stage exit routine
+  cmp #horiz_lvl_length ; have we reached 0b? which is the end of the level $0B
+  beq plr_hit_goal            ; branch if we have past 0b x progression to the stage exit routine @92e4
   lda current_level     
   lsr                   ; divide level by 2 to get current stage
   bcs b_92db            ; branch if we're on a boss
@@ -2762,7 +2764,7 @@ b_92db:
   cmp #$FA
   bcc b_92ad
   jmp stop_plr_x_speed
-b_92e4:
+plr_hit_goal:
   lda $01
   cmp #$90
   bcc b_92ad
@@ -2947,8 +2949,8 @@ plr_y_nrml_speed_rtn:
   lda plr_y_speed_hi
   sta $01
   sta $02
-  jsr flip_bits_1
-  lda #$20            ; load #$20 for player y acceleration
+  jsr flip_bits_1     ; flip bits positive if negative
+  lda #$20            ; load #$20 for player y acceleration, which is the player's relative gravity 
   sta $03
   jsr accelerate_rtn
   lda $00
@@ -2957,24 +2959,24 @@ plr_y_nrml_speed_rtn:
   sta plr_y_speed_hi
   rts
 accelerate_rtn:
-  lda $00
-  ora $01
-  beq :-
-  lsr $03             ; shift acceleration right 02
+  lda $00             ; load plr_y/x_speed_lo
+  ora $01             ; or plr_y/x_speed_hi with plr_y/x_speed_lo
+  beq :-              ; branch out if no vertical speed
+  lsr $03             ; shift acceleration right 20 >> 02
   sec
   lda $00             ; load plr_y/x_speed_lo
-  sbc $03             ; subtract acceleration from current speed, negative speed is left or up
+  sbc $03             ; subtract acceleration from current speed, negative speed is left or up, so this can act as gravity
   sta $00             ; store back to temp plr_y/x_speed_lo
   lda $01             ; 
   sbc #$00            ; subtract the carry and store back to plr_y/x_speed_hi temp ram
   sta $01
-  bcs :+              ; 
+  bcs :+              ; branch out if not rolling over to negative speed
   lda #$00            ; stop acceleration once we've reached 0
   sta $00
   sta $01
 :
   lda $02
-  bpl :--           ; rts
+  bpl :--           ; rts or flip bits back if speed was negative
   jmp flip_bits_0   ; flip to negative and rts
 ;==================================================================================
 
@@ -2985,7 +2987,7 @@ stage_checkpoint:
   sta player_direction
   lda #$80                ; hold right, we've reached the checkpoint
   sta controller_current
-  jmp player_pose_1
+  jmp plr_col_spr_rtn
 level_cleared:
   lda sideroom_state
   bmi warp_2_stages
@@ -3144,36 +3146,36 @@ load_sideroom:
 sideroom_jmp_tbl:       ; @$9565-9578
 	.word e_exit          ; stage 1 .byte $79,$95
 	.word e_exit          ; stage 2 .byte $79,$95
-  .word sideroom_exit   ; stage 3 .byte $7A,$95 
+  .word st3_sideroom    ; stage 3 .byte $7A,$95 
 	.word e_exit          ; stage 4 .byte $79,$95
 	.word e_exit          ; stage 5 .byte $79,$95
   .word pickaxe_rm      ; stage 6 .byte $86,$95 Mining Guy
 	.word e_exit          ; stage 7 .byte $79,$95
   .word guardian_rm     ; stage 8 .byte $98,$95
   .word lvl9_chk        ; stage 9 .byte $22,$96
-  .word sideroom_exit   ; stage 10 .byte $7A,$95
+  .word st3_sideroom    ; stage 10 .byte $7A,$95
 
 e_exit:
   rts
-sideroom_exit:
-  ldy #$00
+st3_sideroom:
+  ldy #$00                  ; location of checkpoint from table
   jsr fetch_siderm_chkpts
   bcs e_exit
   lda #$10
   sta state
   rts
-pickaxe_rm:
-  ldy #$04
+pickaxe_rm:                 ; stage 6 sideroom
+  ldy #$04                  ; location of checkpoint from table
   jsr fetch_siderm_chkpts
   bcs e_exit
   lda #$10
-  sta state             ; jump to siderom
-  lda #$02
+  sta state                 ; jump to siderom
+  lda #$02                  ; load sideroom number
   ora sub_state
-  sta sub_state
+  sta sub_state             ; or substate with 02 and store
   rts
-guardian_rm:
-  ldy #$08
+guardian_rm:                ; stage 8 sideroom
+  ldy #$08                  ; location of checkpoint from table
   jsr fetch_siderm_chkpts
   bcs e_exit
   lda #$10

@@ -60,6 +60,8 @@
     - health bar
     - expand PRG Rom
     - improve ice mechanics
+    - longer turning sprite times
+    - allow player to keep moving while transforming
 
 #   Tools
     -YYCHR  https://w.atwiki.jp/yychr
