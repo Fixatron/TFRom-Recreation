@@ -38,7 +38,7 @@ plr_x_pos_hi            = $32
 player_sprite           = $33 
 player_sprite_holder    = $34       ; normally: bot=04 truck=00
 transform_input_timer   = $35
-plr_sprite_status       = $36 ; 00000000 = truck,transforming,jumping,flying,0,0,0,0 (40= bot to truck, C0= truck to bot)
+plr_sprite_status       = $36 ; 00000000 = truck,transforming,jumping,flying,stop flying,0,0,0 (40= bot to truck, C0= truck to bot)
 plr_spr_aftr_trnsfrm    = $37 ; useless******
 wpn_timer               = $38
 wpn2_timer              = $39
@@ -64,7 +64,7 @@ unram_7                 = $4C
 num_bosses              = $4D   ; only stage 2 has 2 bosses
 jump_hold               = $4E   ; how long was jump button held for, 0c is max, 02 is about the lowest
 trnsfrmng_frame_counter = $4F
-plr_grnd_col_state           = $50   ; 0= standing 2= falling 4=alt mode 6=jumping/flying 
+plr_grnd_col_state      = $50   ; 0= standing 2= falling 4=alt mode 6=jumping/flying 
 plr_x_pos_hi_diff       = $51
 plr_y_pos_hi_diff       = $52
 power_up                = $53   ; %0000 0000 Flight, Dbl Shot, Barrier, *, *, *, *, *
@@ -2038,7 +2038,7 @@ player_pose_1:
   lda plr_sprite_status
   and #$10
   bne :++++
-  jsr plr_col_rtn
+  jsr plr_x_col_rtn
   lda plr_sprite_status
   and #$08
   bne :+++++
@@ -2066,7 +2066,7 @@ ram_misc_12:
 ram_misc_14:
   jsr plr_x_move_rtn
   jsr plr_y_move_rtn
-  jsr ram_misc_9
+  jsr set_plr_sprite_rtn
   rts
 :
   jsr stop_plr_x_speed
@@ -2084,7 +2084,7 @@ ram_misc_15:
   jsr transform_input_check
   jmp ram_misc_12
 :
-  jsr ram_misc_13
+  jsr plr_col_rtn
   jmp ram_misc_14
 :
   jsr ram_misc_10
@@ -2097,132 +2097,132 @@ ram_misc_10:
   and #$F5
   sta player_sprite
   rts
-ram_misc_13:
+plr_col_rtn:
   jsr plr_y_nrml_speed_rtn
   jsr plr_y_speed_rtn
-  jsr plr_col_rtn
+  jsr plr_x_col_rtn
   lda plr_y_speed_hi
   bmi :+                ; branch if player is falling
   ora plr_y_speed_lo
-  bne :++               ; branch if player is moving vertically at all
-  jmp chk_A_release     ;*************@8e92
+  bne :++               ; branch if player accellerating
+  jmp chk_A_btn_status     ;*************@8e92
 :                       ; player is falling
-  jsr plr_vert_col_rtn
-  bcs stop_plr_y_speed
-  jmp chk_A_release
+  jsr plr_vert_col_rtn  ; check top y collision
+  bcs stop_plr_y_speed  ; branch if player has collided vertially
+  jmp chk_A_btn_status
 :
-  jsr plr_grnd_col_rtn
+  jsr plr_grnd_col_rtn  ; check bottom y collision
   bcs stop_plr_y_speed
-chk_A_release:
+chk_A_btn_status:
   lda controller_last
   lsr
-  bcs :+                  ; branch if A was pressed last frame
+  bcs :+                  ; branch out if A was pressed last frame
   lda controller_current
   lsr
-  bcc :+                  ; branch if A is being held
+  bcc :+                  ; branch out if A is not being held
   lda #$00
-  sta plr_sprite_status
+  sta plr_sprite_status   ; clear player sprite status to 00 if A was just pushed
 :
   rts
 stop_plr_y_speed:
   lda #$00
   sta plr_y_speed_lo
   sta plr_y_speed_hi
-  jmp chk_A_release
-ram_misc_9:
-  bit plr_sprite_status
+  jmp chk_A_btn_status
+set_plr_sprite_rtn:
+  bit plr_sprite_status ; %nv-- ---- z
   bvs b_8f23            ; branch during transformation
   bmi b_8f0b            ; branch for truck mode
   lda plr_sprite_status
   and #$10
   bne b_8f1e            ; branch if flying
   lda jump_hold
-  bmi b_8f14            ; branch if jumping
+  bmi b_8f14            ; branch if jumping or falling because jump_hold hasnt been reset to 00
   lda plr_sprite_status
-  and #$08
+  and #$08              ; I think 08 on plr_sprite_status means to stop flying?
   bne b_8ec6
   lda plr_y_speed_lo
   ora plr_y_speed_hi
-  bne b_8ef2
-b_8ec6:
+  bne b_8ef2            ; branch if any y speed
+b_8ec6:                   ; stop flying, start standing
   lda controller_current
   and #$C0                ; check if left or right is pressed
-  bne b_8ed1
-  ldx #$02
-  jmp b_8ef4
-b_8ed1:
-  lda plr_x_speed_hi
-  and #$80
+  bne b_8ed1              ; branch if neither left or right is pressed
+  ldx #$02                ; set standing/dropping sprite
+  jmp set_plr_sprite
+b_8ed1:                   ; running and tuning sprite stuff
+  lda plr_x_speed_hi      ; load player speed
+  and #$80                ; get high byte, left speed is 80, right is 00
   rol
-  rol
-  eor player_direction
-  bne b_8ee0
-  ldx #$03
-  jmp b_8ef4
-b_8ee0:               ; left or right is pressed
+  rol                     ; roll left speed 80 to 01, or 00 if right speed
+  eor player_direction    ; 1 is right, 0 is left for player_direction, so if facing right but going left, and vice versa, we set a to 00, or 01 if going in the same direction
+  bne b_8ee0              ; branch if not changing direction
+  ldx #$03                ; set turning sprite
+  jmp set_plr_sprite
+b_8ee0:               ; left or right is pressed, running sprite
   lda timer_lo_byte
-  and #$07
+  and #$07            ; change sprites while running every 8 frames
   bne b_8ef2
-  lda player_sprite
+  lda player_sprite   ; load player sprite. would be 00,80,01,81
   tax
-  dex
-  lsr
-  bcs b_8ef4
+  dex                 ; decrement x, we want x1 to become x0...
+  lsr                 ; logical shift right. if we've dex from x0 to xf, then....
+  bcs set_plr_sprite  ; we branch with x0 in the x register, either 00 or 80
   inx
-  inx
-  jmp b_8ef4
+  inx                 ; increment xf to x1
+  jmp set_plr_sprite  ; branch with x1 in register, either 01 or 81
 b_8ef2:
   ldx player_sprite
-b_8ef4:
-  lda player_direction
-  beq b_8f05
-  jmp j_8eff
+set_plr_sprite:
+  lda player_direction    ; check player direction
+  beq set_plr_sprite_lf
+  jmp set_plr_sprite_rt   ; store new player sprite
 trnsfrm_inpt_t_chk:
   lda transform_input_timer
-  bpl b_8f05
-j_8eff:
-  txa
-  and #$7F
-  sta player_sprite
+  bpl set_plr_sprite_lf
+set_plr_sprite_rt:        ; store right facing sprite
+  txa                     ; transfer new sprite to a
+  and #$7F                ; cut out top byte for facing right
+  sta player_sprite       ; store new player sprite
   rts
-b_8f05:
+set_plr_sprite_lf:        ; store left facing sprite
   txa
-  ora #$80            ; clear all bits of player sprite except 7th bit
+  ora #$80                ; set top bit if facing left for player sprite
   sta player_sprite
   rts
 b_8f0b:
   lda controller_current
   and #$C0                ; check if left or right is pressed
-  beq b_8ef2              ; branch if neither left or right is pressed
+  beq b_8ef2              ; branch if neither left or right is pressed, no need to change sprite
   jmp b_8ee0              ; jump if left or right is pressed
-b_8f14:                   ; player is jumping
-  ldx #$09
+b_8f14:                   ; player is jumping or falling
+  ldx #$09                ; 
   lda plr_y_speed_hi
-  bmi b_8ef4
-  dex
-  jmp b_8ef4
+  bmi set_plr_sprite      ; if y speed is negative, then player is moving up, or jumping and set the jumping sprite 
+  dex                     ; decrement x for the falling sprite
+  jmp set_plr_sprite      ; set falling sprite
 b_8f1e:                   ; player is flying
-  ldx #$01
-  jmp b_8ef4
-b_8f23:
+  ldx #$01                ; load player flying sprite
+  jmp set_plr_sprite
+b_8f23:                   ; branch here if transforming to flash player every 02 frames
   lda trnsfrmng_frame_counter
   and #$02
-  bne b_8f2e
-  ldx #$0A
+  bne b_8f2e              ; jump every 3 frames to flash previous sprite
+  ldx #$0A                ; flash invisible during transformation
   jmp trnsfrm_inpt_t_chk
 b_8f2e:
   lda trnsfrmng_frame_counter
   cmp #$10
-  bcs b_8f4a
+  bcs b_8f4a                ; branch if timer has reached $10 frames and flash almost truck mode
   cmp #$08
-  bcs b_8f3d
+  bcs b_8f3d                ; branch if timer has reached $08 framed and flash almost bot mode
   ldx player_sprite_holder  ; load player sprite holder to x
   jmp trnsfrm_inpt_t_chk
 b_8f3d:
-  lda plr_sprite_status
+  lda plr_sprite_status     ; *******completely garbage lines, why php and plp... must be a remnant of some testing
   asl
   php
-  lda #$06
+  lda #$06                  ; almost bot mode
   plp
   adc #$00
   tax
@@ -2230,11 +2230,11 @@ b_8f3d:
 b_8f4a:
   lda plr_sprite_status
   asl
-  bcs b_8f54
-  ldx #$07
+  bcs b_8f54                ; branch if transforming from truck to bot and dont flash the almost truck mode at all
+  ldx #$07                  ; almost truck mode
   jmp trnsfrm_inpt_t_chk
 b_8f54:
-  ldx #$06
+  ldx #$06                  ; flash almost bot mode sprite
   jmp trnsfrm_inpt_t_chk
 transform_input_check:
   lda plr_sprite_status       ; check current player sprite
@@ -2324,16 +2324,16 @@ truck_to_bot:
   rts
 transform_y_pos_adjust:       ; this is done separate because its done earlier in the transformation
   lda plr_sprite_status
-  bpl a_exit              ; rts if going from bot to truck = 40, truck to bot = c0 (-ve)
+  bpl a_exit                  ; rts if going from bot to truck = 40, truck to bot = c0 (-ve)
   lda plr_y_pos_hi
   sec
   sbc #$08
-  sta plr_y_pos_hi        ; lower the value, the higher the location, magnus is 1 tile taller in bot mode hence 08
+  sta plr_y_pos_hi            ; lower the value, the higher the location, magnus is 1 tile taller in bot mode hence 08
   rts
 d_exit:
   clc
   rts
-plr_col_rtn:
+plr_x_col_rtn:
   lda state
   lsr                     ; exit if 0 bit is set in state
   bcs d_exit
@@ -2355,72 +2355,72 @@ b_901b:
   asl
   asl
   sta plr_grnd_col_state
-  jsr plr_col_chk
-  bcc b_902a
+  jsr plr_x_col_chk
+  bcc b_902a              ; branch if player has not collided
 b_9027:
   jmp stop_plr_x_speed
-b_902a:
+b_902a:                   ; secondary check with inner hitbox
   inc plr_grnd_col_state
   inc plr_grnd_col_state
-  jsr plr_col_chk
-  bcs b_9027
+  jsr plr_x_col_chk
+  bcs b_9027                  ; stop x speed if collieded
   lda plr_sprite_status
   bmi b_9049                  ; rts if truck
   inc plr_grnd_col_state
   inc plr_grnd_col_state
-  jsr plr_col_chk
-  bcs b_9027
+  jsr plr_x_col_chk 
+  bcs b_9027                  ; stop x speed if collieded 
   inc plr_grnd_col_state
   inc plr_grnd_col_state
-  jsr plr_col_chk
-  bcs b_9027
+  jsr plr_x_col_chk
+  bcs b_9027                  ; stop x speed if collieded
 b_9049:
   rts
-plr_col_chk:
+plr_x_col_chk:
    ldx plr_grnd_col_state     ; load player ground collision state
    lda plr_y_pos_hi
    clc
-   adc plr_pos_tbl,X
+   adc plr_pos_tbl,X          ; add plr_y_pos_hi + collision y offset
    sta plr_y_pos_hi_diff
    lda plr_x_pos_hi
    clc
-   adc plr_pos_tbl+1,X
+   adc plr_pos_tbl+1,X        ; add plr_x_pos_hi + collision x offset
    sta plr_x_pos_hi_diff
    jsr get_plr_bg_tile
    jsr collision_chk_rtn
    rts
-plr_pos_tbl:    ; @$9063
+plr_pos_tbl:    ; @$9063  player collision hitbox table
         ; Y   X
-	.byte $0D,$08   ; on the ground
-	.byte $05,$08   ; falling
-	.byte $F5,$08   ; truck mode
-	.byte $FD,$08   ; truck mode, falling
-	.byte $0D,$F7   ; jumpting
-	.byte $05,$F7
-	.byte $F5,$F7
-	.byte $FD,$F7
-	.byte $05,$10
-	.byte $FB,$10
-	.byte $00,$00
-	.byte $00,$00
-	.byte $05,$EF
-	.byte $FB,$EF
+	.byte $0D,$08   ; bot bottom right
+	.byte $05,$08   ; bot mid bottom right
+	.byte $F5,$08   ; bot mid top right
+	.byte $FD,$08   ; bot top right
+	.byte $0D,$F7   ; bot bottom left
+	.byte $05,$F7   ; bot mid bottom left
+	.byte $F5,$F7   ; bot mid top left
+	.byte $FD,$F7   ; bot top left
+	.byte $05,$10   ; truck bottom right
+	.byte $FB,$10   ; truck top right
+	.byte $00,$00   ; filler, not used
+	.byte $00,$00   ; filler, not used
+	.byte $05,$EF   ; truck bottom left
+	.byte $FB,$EF   ; truck top left
 
 plr_vert_col_rtn:
   lda #$0D
-  sta plr_y_pos_hi_diff     ; load 0d to y diff
+  sta plr_y_pos_hi_diff     ; load 0d for player height in bot mode from center of sprite
   lda plr_sprite_status     ; check if truck mode or transforing to bot 80/c0
   bmi b_9095                ; branch if truck mode/transforming from truck mode
   jsr get_plr_top_bg_tile
   jsr collision_chk_rtn
-  bcc :+
-  rts
+  bcc :+                    ; branch if not collided
+  rts                       ; return if collided
 :
   lda #$08
   cmp plr_y_pos_hi
   rts
-b_9095:       ; truck/truck to bot routine
-  lda #$0A
+b_9095:                     ; truck/truck to bot y collision check routine
+  lda #$0A                  ; truck height from origin
   sta plr_y_pos_hi_diff
   jsr get_plr_top_bg_tile
   lda current_level
@@ -2450,12 +2450,12 @@ plr_grnd_col_rtn:
   lda #$01
   sta plr_grnd_col_state    ; load plr_grnd_col_state with 01 if bot
 :
-  asl plr_grnd_col_state    ; shift  01 left to 02 *****redundant
-  asl plr_grnd_col_state    ; shift 02 left to 04 **** redundant, just store a 0 or 4 if bot or truck
+  asl plr_grnd_col_state    ; shift  01 left to 02
+  asl plr_grnd_col_state    ; shift 02 left to 04
   jsr grav_rtn_1
   bcc grav_rtn_0            ; branch if player isnt touching the ground
   rts
-grav_rtn_0:                 ; player isnt colliding with the ground
+grav_rtn_0:                 ; player isnt colliding on the right side, check the left side
   inc plr_grnd_col_state
   inc plr_grnd_col_state
 grav_rtn_1:
@@ -2473,10 +2473,10 @@ grav_rtn_1:
   rts
 grav_tbl_1:
         ; Y, X
-  .byte $11,$05 ; bot
-  .byte $11,$FB ; bot falling
-  .byte $09,$08 ; truck
-  .byte $09,$F7 ; truck falling
+  .byte $11,$05 ; bot           (maybe its right facing)
+  .byte $11,$FB ; bot left
+  .byte $09,$08 ; truck right
+  .byte $09,$F7 ; truck left
 ram_misc_6:
   lda jump_hold
   bmi b_9120
@@ -3712,7 +3712,7 @@ wpn_misc_2:
   lda wpn_addr_tbl+1,y
   sta $04
   jmp ($0003)
-wpn_addr_tbl:
+wpn_addr_tbl:             ; weapon routine jump table
   .word wpn_rts
   .word wpn_addr_b
   .word wpn_addr_c
@@ -3936,7 +3936,7 @@ b_9af1:
   inx
   iny
   rts
-plr_sprite_tbl:           ; @$9B00-9DB1
+plr_sprite_tbl:           ; @$9B00-9DB1 player sprite table
 	.byte $24,$9B,$49,$9B,$62,$9B,$83,$9B,$A8,$9B,$CD,$9B,$F2,$9B,$0B,$9C,$30,$9C ; addressing region
   .byte $51,$9C,$6E,$9C,$6F,$9C,$98,$9C,$C1,$9C,$EA,$9C,$03,$9D,$44,$9D,$85,$9D ; addressing region
   ;       X,  Y,spr,att
@@ -4118,7 +4118,7 @@ plr_sprite_tbl:           ; @$9B00-9DB1
   .byte $FD,$00,$67,$00
   .byte $05,$08,$68,$00
   .byte $F8,$08,$69,$00,$00
-wpn_spr_tbl:         ; @$9DB2-9DF1
+wpn_spr_tbl:         ; @$9DB2-9DF1  weapon sprite table
 	.byte $BC,$9D
   .byte $C1,$9D
   .byte $C6,$9D
