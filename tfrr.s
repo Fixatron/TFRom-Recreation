@@ -9,6 +9,7 @@ max_missile_frames      = $40 ; how many frames the bullet is on screen for
 plr_max_jmp_time        = $0C
 plr_init_jmp_speed      = $FC
 horiz_lvl_length        = $0B
+sideroom_time           = $05
 ;;Custom defines
 current_enemy           = $0D
 
@@ -101,13 +102,16 @@ plr_y_prog_pg           = $71
 subtitle_timer          = $72
 unram_20                = $73
 rodimus_ram             = $74
-sub_state               = $75 
-lvl9_clear                 = $76
-chkpt_counter                 = $77
+sub_state               = $75     ; 0000 0xxx : side room loaded, sideroom exited(dont reload), sideroom timeout, , | last 3 bytes are used to address the sideroom checkpoint and offset the current level with 14
+lvl9_clear              = $76
+chkpt_counter           = $77
 score_1_up_lo           = $78   ; next score needed for 2-up
 score_1_up_mid          = $79   
 score_1_up_hi           = $7A 
 unram_21                = $7B 
+
+; just some notes from Venutech
+; it may seem like I use the term stage and level interchangably, but level discretely reffers to the part before the boss and stage could refer to the same thing or both the level and the boss, because the game has an intro before the whole stage and none for the boss.
 
 ; temporary other player ram
 other_pl_stored_data    = $81
@@ -204,10 +208,10 @@ wpn_y_pos_lo            = $0505
 wpn_y_pos_hi            = $0506
 wpn_y_pos_page          = $0507
 wpn_sprite_type         = $0508
-wpn_x_inc_lo            = $0509
-wpn_x_inc_hi            = $050A
-wpn_y_inc_lo            = $050B
-wpn_y_inc_hi            = $050C
+wpn_x_spd_lo            = $0509
+wpn_x_spd_hi            = $050A
+wpn_y_spd_lo            = $050B
+wpn_y_spd_hi            = $050C
 bullet_timer            = $050D
 
 ; enemy weapon ram
@@ -3184,44 +3188,44 @@ guardian_rm:                ; stage 8 sideroom
   ora sub_state
   sta sub_state
   rts
-fetch_siderm_chkpts:
-  lda #<siderm_chkpts          ; hard coded address(#$FE), low byte *******
+fetch_siderm_chkpts:    ; load table address for sideroom checkpoint to ram        
+  lda #<siderm_chkpts   ; hard coded address(#$FE), low byte *******
   sta $02
-  lda #>siderm_chkpts         ; hard coded address(#$95), high byte *******
+  lda #>siderm_chkpts   ; hard coded address(#$95), high byte *******
   sta $03
-j_95b2:
+fetch_chkpt:            ; @95b2
   jsr plr_stage_y_loc   ; get the offset for the hard coded address into $00 and $01 ram plr y pos hi= 00, plr y prog hi = 01
-  lda $00             ; load plr_y_pos_hi + plr_y_prog_hi
+  lda $00               ; load plr_y_pos_hi + plr_y_prog_hi
   sec
-  sbc ($02),Y         ; subtract from table (3c)
-  sta $00             ; store difference in 00 ram
+  sbc ($02),Y           ; subtract from table
+  sta $00               ; store difference in 00 ram
   iny
-  lda $01             ; load plr_y_prog_pg
-  sbc ($02),y         ; subtract from table (01)
-  sta $01             ; store in 01
+  lda $01               ; load plr_y_prog_pg
+  sbc ($02),y           ; subtract plr_y_prog_pg - page from table
+  sta $01               ; store in 01 ram
   iny
-  jsr flip_bits_1
+  jsr flip_bits_1       ; flip bits if negative
   lda $01
-  bne set_carry
+  bne set_carry         ; set carry if player y page location is different from checkpoint
   lda $00
   cmp #$06
-  bcs set_carry
+  bcs set_carry         ; set carry if distance is more than 06 for player progress+position high byte
   jsr plr_stage_x_loc   ; same business as before, loaded into 01 and 00 ram
-  lda $00             ; plr_x_prog_hi + plr_x_pos_hi
+  lda $00               ; plr_x_prog_hi + plr_x_pos_hi
   sec
-  sbc ($02),Y         ; subtract from table (F8)
-  sta $00             ; store to 00 ram
-  iny                 ; increment y to get plr_x_prog_pg
+  sbc ($02),Y           ; subtract from table (F8)
+  sta $00               ; store to 00 ram
+  iny                   ; increment y to get plr_x_prog_pg
   lda $01
   sbc ($02),Y
   sta $01
   iny
   jsr flip_bits_1
   lda $01
-  bne set_carry
+  bne set_carry         ; set carry if on different x page
   lda $00
   cmp #$06
-  bcs set_carry
+  bcs set_carry         ; set carry if more than 06 distance for x pos high
   rts
 set_carry:
   sec
@@ -3231,7 +3235,7 @@ fetch_lvl_9_chkpts:
   sta $02
   lda #>lvl_9_chkpts    ; #$96
   sta $03
-  jmp j_95b2
+  jmp fetch_chkpt
 
 siderm_chkpts:   ; @$95FE
       ; Yhi,Ypg,Xhi,Xpg
@@ -3248,30 +3252,30 @@ lvl_9_chkpts:
 
 ; Level 9 checkpoint stuff
 lvl9_chk:
-  lda chkpt_counter
+  lda chkpt_counter           ; load number of checkpoints hits
   asl
-  asl
-  tay
+  asl                         ; multiply by 4 to get next row of checkpoint coordinates
+  tay                         ; store into y register
   jsr fetch_lvl_9_chkpts
-  bcc b_962d
+  bcc lvl9_chkpt_hit          ; branch if checkpoint is hit b_962d
   rts
-b_962d:
+lvl9_chkpt_hit:
   lda chkpt_counter
-  tay
+  tay                         ; load checkpoint counter to y
   lda #$01
-  dey
-  bmi b_9639
+  dey                         ; decrement y
+  bmi inc_lvl9_chkpt_counter  ; branch if negative
 b_9635:
-  asl
-  dey
-  bpl b_9635
-b_9639:
-  sta $00
-  lda lvl9_clear
+  asl                         ; shift byte left number of times as we have checkpoints
+  dey                         ; decrement y
+  bpl b_9635                  ; loop until y is negative
+inc_lvl9_chkpt_counter:
+  sta $00                     ; values for each checkpoint totals to 1F. these values get subtracted from a total and this value needs to be 00 for the level to clear
+  lda lvl9_clear              ; (checkpoint counter|amount subtracted|lvl9_clear value) 00|00|1F,01|01|1E,02|02|1C,03|04|18,04|08|10,5||00 
   sec
   sbc $00
   sta lvl9_clear
-  inc chkpt_counter
+  inc chkpt_counter           ; here we increment the checkpoint counter, for real
   rts
 
 
@@ -3303,13 +3307,13 @@ bkup_lvl_prog_for_side_lvl:
   lda current_level
   sta bk_crnt_lvl
   lda sub_state
-  and #$07
+  and #$07          ; check only lower 3 bits of substate (00 for first sideroom from stage 3/10, 02 for second sideroom from stage 6, 04 for guardian room from stage 8, 08 is unused because its the same as 00 so level 10 uses 00 and we've cleared the bit by and 07, so can never get to this address, but it works anyways)
   clc
-  adc #$14
+  adc #$14          ; 14=pickaxe room 1/3, 16=pickaxe room 2, 18=guardian room, 1A=unused pickaxe room
   sta current_level
   lda sub_state
   ora #$80
-  sta sub_state
+  sta sub_state     ; or the sub_state with 80 when the sideroom has loaded
   rts
 load_lvl_prog_bkup:
   lda bk_yScrlLo
@@ -3331,10 +3335,10 @@ b_96a0:
   lda bk_plrXPosHi
   ldx bk_crnt_lvl
   cpx #$0A        ; compare if level is stage 6
-  bne b_96b1      ; go back to same x pos if current level is not 6
+  bne rtn_to_lvl      ; go back to same x pos if current level is not 6 96b1
   clc
   adc #$18        ; go right 3 tiles
-b_96b1:
+rtn_to_lvl:
   sta plr_x_pos_hi
   lda bk_plrXProgLo
   sta plr_x_prog_lo
@@ -3362,20 +3366,20 @@ side_room_timer:
   adc #$00
   sta room_timer_hi     ; increment high byter with carry
   lda sub_state
-  and #$20      ; 
-  bne b_96f2            ; branch if substate is 20? or has 5bit set, atleast
+  and #$20              ; 0010 0000 is sideroom timrout
+  bne siderm_timeout    ; branch if already timed out
   lda room_timer_hi
-  cmp #$05              ; once room timer has reached #$06
-  bcc b_96fc            ; branch out of this routine until room_timer_hi reaches 06
+  cmp #sideroom_time    ; once room timer has reached #$05
+  bcc b_96fc            ; branch out of this routine until room_timer_hi reaches 05, stop movement and stuff
   lda #$A0      
-  sta sub_state         ; load $A0 to substate once room_timer_lo reaches 06
+  sta sub_state         ; load $A0 to substate once room_timer_lo reaches 05
   rts
-b_96f2:
+siderm_timeout:
   lda room_timer_hi
   cmp #$06
-  bcc b_96fc    ; branch to exit if room timer is less than 6
+  bcc b_96fc    ; branch to exit if room timer is less than 6 and continue to increment timer and wait until it is
   lda #$10
-  sta state     ; load 10 to state to exit room
+  sta state     ; load 10 to state to exit room when room timer high byte has reached 06
 b_96fc:
   rts
 
@@ -3410,8 +3414,8 @@ wpn1_timer_rtn_0:
   lda plr_sprite_status ; check truck mode
   bmi b_975f            ; jump if truck weapon fire
   lda #$00
-  sta wpn_y_inc_lo,X    ; load 0 vertical bullet speed
-  sta wpn_y_inc_hi,X
+  sta wpn_y_spd_lo,X    ; load 0 vertical bullet speed
+  sta wpn_y_spd_hi,X
   lda plr_x_speed_lo
   sta $00               ; store bullet speed temporarily to 00
   lda plr_x_speed_hi
@@ -3423,22 +3427,22 @@ wpn1_timer_rtn_0:
   sta $01
   lda player_direction
   bne b_9752
-  jsr flip_bits_0
+  jsr flip_bits_0       ; flip weapon speed to negative if facing left
 b_9752:
   lda $00
-  sta wpn_x_inc_lo,X
+  sta wpn_x_spd_lo,X
   lda $01
-  sta wpn_x_inc_hi,x
+  sta wpn_x_spd_hi,x
   jmp j_9773
 b_975f:
   lda #$00
-  sta wpn_y_inc_lo,X
+  sta wpn_y_spd_lo,X
   lda #vert_wpn_speed   ; #$FC
-  sta wpn_y_inc_hi,X
+  sta wpn_y_spd_hi,X
   lda plr_x_speed_lo
-  sta wpn_x_inc_lo,X    ; give the vertical shot players x movement speed
+  sta wpn_x_spd_lo,X    ; give the vertical shot players x movement speed
   lda plr_x_speed_hi
-  sta wpn_x_inc_hi,X
+  sta wpn_x_spd_hi,X
 j_9773:
   lda power_up
   and #$40              ; check for weapon powerup
@@ -3455,10 +3459,10 @@ diag_bullet_rtn:
   jsr fire_wpn
   lda #$80
   sta wpn_status,X      ; activate new bullet
-  lda #$00
-  sta wpn_y_inc_lo,X
+  lda #$007
+  sta wpn_y_spd_lo,X
   lda #vert_wpn_speed
-  sta wpn_y_inc_hi,X    ; set vertical speed
+  sta wpn_y_spd_hi,X    ; set vertical speed
   lda #$00
   sta $00
   lda #hori_wpn_speed
@@ -3470,10 +3474,10 @@ b_97a8:
   lda $00
   clc
   adc plr_x_speed_lo      ; add player horizontal speed
-  sta wpn_x_inc_lo,X
+  sta wpn_x_spd_lo,X
   lda $01
   adc plr_x_speed_hi
-  sta wpn_x_inc_hi,X
+  sta wpn_x_spd_hi,X
   rts
 fire_wpn:
   lda #max_bullet_frames    ; $20 bullet frames
@@ -3564,12 +3568,12 @@ fire_missile:
   jsr flip_bits_0  ;to @8962
 b_9858: 
   lda $00
-  sta wpn_x_inc_lo,X
+  sta wpn_x_spd_lo,X
   lda $01
-  sta wpn_x_inc_hi,X
+  sta wpn_x_spd_hi,X
   lda #$00
-  sta wpn_y_inc_lo,X
-  sta wpn_y_inc_hi,X
+  sta wpn_y_spd_lo,X
+  sta wpn_y_spd_hi,X
   lda #max_missile_frames ; missiles stay on screen for default of $40 frames
   sta bullet_timer,X
   jsr play_sound_wpn      ; this seems unnecessary since it was already called in this subroutine ******
@@ -3595,14 +3599,14 @@ wpn_hit_rtn_a:
   jmp j_9907
 b_9891: 
   jsr wpn_misc_2
-  lda wpn_x_inc_lo,X
+  lda wpn_x_spd_lo,X
   sta $07
-  lda wpn_x_inc_hi,X
+  lda wpn_x_spd_hi,X
   sta $08
   jsr wpn_misc_3
-  lda wpn_y_inc_lo,X
+  lda wpn_y_spd_lo,X
   sta $07
-  lda wpn_y_inc_hi,X
+  lda wpn_y_spd_hi,X
   sta $08
   inx
   inx
@@ -3673,10 +3677,10 @@ wpn_misc_5:             ; something related to explosion and changing the sprite
   ora #$01
   sta wpn_status,X
   lda #$00
-  sta wpn_x_inc_lo,X
-  sta wpn_x_inc_hi,X
-  sta wpn_y_inc_lo,X
-  sta wpn_y_inc_hi,X
+  sta wpn_x_spd_lo,X
+  sta wpn_x_spd_hi,X
+  sta wpn_y_spd_lo,X
+  sta wpn_y_spd_hi,X
   lda #$20
   sta bullet_timer,X
   inc wpn_sprite_type,X
@@ -3726,17 +3730,17 @@ wpn_addr_b:
   lda wpn_status,X
   lsr
   bcs wpn_addr_c
-  lda wpn_y_inc_lo,X
+  lda wpn_y_spd_lo,X
   clc
   adc #$20
   sta $03
-  lda wpn_y_inc_hi,X
+  lda wpn_y_spd_hi,X
   adc #$00
   sta $04
   lda $03
-  sta wpn_y_inc_lo,X
+  sta wpn_y_spd_lo,X
   lda $04
-  sta wpn_y_inc_hi,X
+  sta wpn_y_spd_hi,X
 b_99a8:
   rts
 wpn_addr_c:
@@ -7693,7 +7697,7 @@ eny_chkpt_tbl: ; @$BC6D-BFDF  table of enemy placements which are also used to s
   .word eny_chkpt_siderm,eny_chkpt_brain1     ; .byte $BD,$BF,$A7,$BC ; pickaxe room st3/10, brainwave out
   .word eny_chkpt_siderm,eny_chkpt_brain2     ; .byte $BD,$BF,$BB,$BC ; pickaxe room st6, brainwave in
   .word eny_chkpt_oth,eny_chkpt_vert          ; .byte $C7,$BF,$EB,$BE ; guardian room,?
-  .word eny_chkpt_vert,eny_chkpt_vert         ; .byte $EB,$BE,$EB,$BE ; ? , ?
+  .word eny_chkpt_vert,eny_chkpt_vert         ; .byte $EB,$BE,$EB,$BE ; unused pickaxe room, ?
   .word eny_chkpt_warp                        ; .byte $D6,$BF         ; warp zone 
       ; Xhi,Xpg,Yhi,Ypg,sprite type 
 eny_chkpt_brain1:                 ; @bca7 prime brainwave going out
