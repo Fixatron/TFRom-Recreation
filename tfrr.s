@@ -10,6 +10,10 @@ plr_max_jmp_time        = $0C
 plr_init_jmp_speed      = $FC
 horiz_lvl_length        = $0B
 sideroom_time           = $05
+plr_y_wpn_offset        = $06 ; how high from midsection of plr do we set the new bullet
+plr_x_wpn_offset        = $00
+missile_speed           = $06
+missile_gravity         = $20
 ;;Custom defines
 current_enemy           = $0D
 
@@ -132,9 +136,9 @@ palette_data_start_word = $0099
 
 ; palette and nametable ram
 text_flash_pal_ram_B    = $A7       ; quite useless
+text_flash_pal_ram      = $A8
 
 player_palette_ram      = $AA
-text_flash_pal_ram      = $A8
 unram_12                = $B8
 nametable_addr_hi       = $B9
 nametable_addr_lo       = $BA
@@ -774,7 +778,7 @@ stack_handler_1:
   and #$01
   bne :+
   jsr stage_checkpoint
-  jsr wpn_hit_rtn
+  jsr wpn_end_rtn
   jmp pull_stack_and_rti
 :
   jsr enemy_sprite_rtn
@@ -808,8 +812,8 @@ side_room_rtn:
   and #$20
   bne :-
   jsr plr_col_spr_rtn
-  jsr wpn_misc_1
-  jsr wpn_hit_rtn
+  jsr wpn_start_rtn
+  jsr wpn_end_rtn
   jsr enemy_misc_rtn_7
   jsr enemy_sprite_rtn
   jsr enemy_misc_rtn_8
@@ -894,15 +898,15 @@ title_scroll_rtn:
   jmp pull_stack_and_rti
 game_jmp_1:
   jsr plr_col_spr_rtn
-  jsr load_sideroom     ; something about bullets?
-  jsr wpn_misc_1
-  jsr wpn_hit_rtn
+  jsr load_sideroom
+  jsr wpn_start_rtn
+  jsr wpn_end_rtn
   jsr enemy_misc_rtn_7
   jsr enemy_sprite_rtn
   jsr enemy_misc_rtn_8
   jsr enemy_misc_rtn_9
   jsr wpn_eny_hit_detection
-  jsr lvl_8_10_flash_text
+  jsr lvl_8_10_flash_pal
   lda current_level         ; ********@852F and @0x54x
   lsr
   bcs :+
@@ -3019,7 +3023,7 @@ get_plr_bg_tile:
   lda plr_y_prog_pg
   adc #$00
   sta $0F
-get_eny_bg_tile:             ; get column from tile table where enemy is positioned
+get_sprite_bg_tile:             ; get column from tile table where enemy is positioned
   lda $00                   ; load enemy x position hi
   sta plr_x_pos_hi_diff
   lda $0E                   ; load enemy y position hi
@@ -3370,21 +3374,21 @@ side_room_timer:
   bne siderm_timeout    ; branch if already timed out
   lda room_timer_hi
   cmp #sideroom_time    ; once room timer has reached #$05
-  bcc b_96fc            ; branch out of this routine until room_timer_hi reaches 05, stop movement and stuff
+  bcc :+                ; branch out of this routine until room_timer_hi reaches 05, stop movement and stuff
   lda #$A0      
   sta sub_state         ; load $A0 to substate once room_timer_lo reaches 05
   rts
 siderm_timeout:
   lda room_timer_hi
   cmp #$06
-  bcc b_96fc    ; branch to exit if room timer is less than 6 and continue to increment timer and wait until it is
+  bcc :+                ; branch to exit if room timer is less than 6 and continue to increment timer and wait until it is
   lda #$10
-  sta state     ; load 10 to state to exit room when room timer high byte has reached 06
-b_96fc:
+  sta state             ; load 10 to state to exit room when room timer high byte has reached 06
+:                       ; 96fc
   rts
 
 ; Player Weapon stuff
-wpn_misc_1:
+wpn_start_rtn:          ; look for button press and do stuff while dealing with a timer
   jsr wpn1_timer_rtn_1
   jsr wpn2_timer_rtn_1
   rts
@@ -3408,7 +3412,7 @@ wpn1_timer_rtn_0:
   ldx #$00
   jsr find_empty_wpn_ram
   lda $00
-  beq b_9779
+  beq g_exit
   jsr play_sound_wpn
   jsr fire_wpn
   lda plr_sprite_status ; check truck mode
@@ -3426,14 +3430,14 @@ wpn1_timer_rtn_0:
   adc #hori_wpn_speed   ; $04
   sta $01
   lda player_direction
-  bne b_9752
+  bne set_wpn_speed
   jsr flip_bits_0       ; flip weapon speed to negative if facing left
-b_9752:
+set_wpn_speed:
   lda $00
   sta wpn_x_spd_lo,X
   lda $01
   sta wpn_x_spd_hi,x
-  jmp j_9773
+  jmp chk_wpn_pu
 b_975f:
   lda #$00
   sta wpn_y_spd_lo,X
@@ -3443,11 +3447,11 @@ b_975f:
   sta wpn_x_spd_lo,X    ; give the vertical shot players x movement speed
   lda plr_x_speed_hi
   sta wpn_x_spd_hi,X
-j_9773:
+chk_wpn_pu:
   lda power_up
   and #$40              ; check for weapon powerup
   bne diag_bullet_rtn
-b_9779:
+g_exit:
   rts
 diag_bullet_rtn:
   lda #max_bullets
@@ -3455,11 +3459,11 @@ diag_bullet_rtn:
   ldx #$00
   jsr find_empty_wpn_ram
   lda $00
-  beq b_9779
+  beq g_exit
   jsr fire_wpn
   lda #$80
   sta wpn_status,X      ; activate new bullet
-  lda #$007
+  lda #$00
   sta wpn_y_spd_lo,X
   lda #vert_wpn_speed
   sta wpn_y_spd_hi,X    ; set vertical speed
@@ -3468,9 +3472,9 @@ diag_bullet_rtn:
   lda #hori_wpn_speed
   sta $01               ; set horizontal speed then check direction
   lda player_direction  ; check direction
-  bne b_97a8
+  bne fire_diag_bullet
   jsr flip_bits_0
-b_97a8:
+fire_diag_bullet:
   lda $00
   clc
   adc plr_x_speed_lo      ; add player horizontal speed
@@ -3483,9 +3487,9 @@ fire_wpn:
   lda #max_bullet_frames    ; $20 bullet frames
   sta bullet_timer,X        ; set bullet timer
   lda #$80 
-  sta wpn_status,X          ; set new bullet
+  sta wpn_status,X          ; activate new bullet
   lda #$00
-  sta wpn_sprite_type,x
+  sta wpn_sprite_type,x     ; set wpn sprite type of 00 for player bullet
 wpn_set_pos:
   lda plr_x_prog_lo
   clc
@@ -3495,11 +3499,11 @@ wpn_set_pos:
   adc plr_x_pos_hi
   sta wpn_x_pos_hi,X
   lda plr_x_prog_pg
-  adc #$00
-  sta wpn_x_pos_page,X
+  adc #plr_x_wpn_offset
+  sta wpn_x_pos_page,X    ; set new wpn x position with offset of 00
   lda plr_y_pos_hi
   sec
-  sbc #$06          ; raise 6px from midsection, subtract 6 from plr y position
+  sbc #plr_y_wpn_offset   ; raise 6px from midsection, subtract 6 from plr y position $06
   sta $08
   lda plr_y_prog_lo
   clc
@@ -3507,44 +3511,44 @@ wpn_set_pos:
   sta wpn_y_pos_lo,X
   lda plr_y_prog_hi
   adc $08
-  sta wpn_y_pos_hi,X
+  sta wpn_y_pos_hi,X      ; set new wpn y position high with offset of 06
   lda plr_y_prog_pg
   adc #$00
-  sta wpn_y_pos_page,X
+  sta wpn_y_pos_page,X    ; set new wpn y position
   rts
 wpn2_timer_rtn_1:
   lda plr_sprite_status   ; check for truck mode
-  bpl b_9810          ; exit if not truck
+  bpl h_exit              ; exit if not truck
   lda wpn2_timer
-  beq wpn2_timer_rtn_2  ; start timer if its 00
+  beq wpn2_timer_rtn_2    ; start timer if its 00
   dec wpn2_timer
   rts
 wpn2_timer_rtn_2:
   lda controller_last
-  lsr                   ; check if we're havent pressed A last frame
-  bcs b_9810
+  lsr                     ; check if we're havent pressed A last frame
+  bcs h_exit
   lda controller_current
   lsr
   bcs start_missile
-b_9810:
+h_exit:
   rts
 start_missile:
   lda #missile_frames_int ; $30 frames until next missile can be fired
   sta wpn2_timer
   lda #max_bullets        ; only do 4 bullets at a time by default
-  sta $00
-  ldx #$00
+  sta $00                 ; store max bullets to 00 ram
+  ldx #$00                ; reset x to 00
 b_981b:
   lda wpn_status,X
   cmp #$C0
-  beq b_9810
+  beq h_exit              ; branch out if theres an active missile
   and #$08
-  beq fire_missile
+  beq fire_missile        ; fire missile if theres nothing in the 4th bit
   txa
   clc
   adc #$10
-  tax
-  dec $00
+  tax                     ; go to next weapon ram slot
+  dec $00                 ; decrement number of bullets
   bne b_981b
   rts
 fire_missile:
@@ -3561,14 +3565,14 @@ fire_missile:
   jsr flip_bits_1
   lda $01
   clc
-  adc #$06                ; offset the bullet infront of player 6px
+  adc #missile_speed      ; add x speed high byte of 06 to player's x speed high byte for missile speed $06
   sta $01
   lda player_direction
-  bne b_9858
-  jsr flip_bits_0  ;to @8962
-b_9858: 
+  bne init_missile_speed
+  jsr flip_bits_0         ; make speed negative if facing left
+init_missile_speed: 
   lda $00
-  sta wpn_x_spd_lo,X
+  sta wpn_x_spd_lo,X      ; store player's x speed into wpn speed
   lda $01
   sta wpn_x_spd_hi,X
   lda #$00
@@ -3580,30 +3584,35 @@ b_9858:
   rts
 find_empty_wpn_ram:
   lda wpn_status,X
-  bpl b_9882
+  bpl :+
   txa 
   clc
   adc #$10
   tax
   dec $00
-  bne find_empty_wpn_ram  ; check next slot based on the max bullet counter
-b_9882:
+  bne find_empty_wpn_ram  ; check next slot until max bullet counter reaches 0
+:                         ; b_9882
   rts
-wpn_hit_rtn:
-  ldx #$00
-  lda #$0F
+
+; wpn stuff end
+;=========================================================================
+; more wpn stuff started
+
+wpn_end_rtn:
+  ldx #$00                ; initialize weapon ram slot
+  lda #$0F                ; total bullets
   sta $0B
-wpn_hit_rtn_a:
+chk_wpn_active:
   lda wpn_status,X
-  bmi b_9891
-  jmp j_9907
-b_9891: 
-  jsr wpn_misc_2
+  bmi rdy_move_wpn        ; branch if weapon is active
+  jmp next_wpn_slot       ; jump and chech next weapon slot then try again
+rdy_move_wpn:             ; ready with weapon coordinates, move weapon x and y and decrement timer
+  jsr rdy_move_wpn_select
   lda wpn_x_spd_lo,X
   sta $07
   lda wpn_x_spd_hi,X
   sta $08
-  jsr wpn_misc_3
+  jsr move_wpn            ; move weapon in x direction
   lda wpn_y_spd_lo,X
   sta $07
   lda wpn_y_spd_hi,X
@@ -3611,19 +3620,19 @@ b_9891:
   inx
   inx
   inx
-  jsr wpn_misc_3
+  jsr move_wpn            ; move weapon in y direction 
   dex
   dex
   dex
   lda bullet_timer,X
   tay
-  dey
-  bne b_98bf
-  jsr end_bullet
+  dey                     ; decrement bullet timer
+  bne chk_wpn_offscreen_left
+  jsr end_bullet          ; end bullet if timer is 0
   tay
-b_98bf:
+chk_wpn_offscreen_left:
   tya
-  sta bullet_timer,X
+  sta bullet_timer,X      ; store decremented bullet timer
   lda plr_x_prog_hi
   clc
   adc #$08
@@ -3636,9 +3645,9 @@ b_98bf:
   sbc $01
   lda wpn_x_pos_page,X
   sbc $02
-  bcs b_98e0
+  bcs chk_wpn_bg_col
   jsr end_bullet
-b_98e0:
+chk_wpn_bg_col:
   lda wpn_x_pos_hi,X
   sta $00
   sta plr_x_pos_hi_diff
@@ -3651,46 +3660,46 @@ b_98e0:
   sta $0f
   txa
   pha
-  jsr get_eny_bg_tile
-  jsr collision_chk_rtn
+  jsr get_sprite_bg_tile
+  jsr collision_chk_rtn   ; check if weapon has hit a wall, celing or floor
   pla
   tax
-  bcc j_9907
-  jsr wpn_misc_5
-j_9907:           ; load next bullet slot
+  bcc next_wpn_slot
+  jsr end_wpn             ; end wpn if collision happened
+next_wpn_slot:            ; load next wpn slot
   txa
   clc
   adc #$10
   tax
-  dec $0B         ; go through all 0f bullets
-  bmi b_9944
-  jmp wpn_hit_rtn_a
-wpn_misc_5:             ; something related to explosion and changing the sprite
+  dec $0B         ; go through all 0f slots
+  bmi i_exit      ; branch out if all weapon slots checked
+  jmp chk_wpn_active
+end_wpn:                ; something related to explosion and changing the sprite
   lda wpn_status,X
   sta $00
-  and #$40
-  beq end_bullet
+  and #$40              ; check for missile
+  beq end_bullet        ; branch and end bullet if its not a missile
   lda $00
   lsr
-  bcs b_9944
+  bcs i_exit            ; branch out if shift weapon status right and carry is set, or weapon has already ended
   lda $00
   ora #$01
-  sta wpn_status,X
+  sta wpn_status,X      ; set the 0 bit in weapon status
   lda #$00
   sta wpn_x_spd_lo,X
-  sta wpn_x_spd_hi,X
+  sta wpn_x_spd_hi,X    ; stop weapon x speed
   sta wpn_y_spd_lo,X
-  sta wpn_y_spd_hi,X
+  sta wpn_y_spd_hi,X    ; stop weapon y speed
   lda #$20
-  sta bullet_timer,X
-  inc wpn_sprite_type,X
+  sta bullet_timer,X    ; set explostion timer
+  inc wpn_sprite_type,X ; increment missile to explosion 1, to explosion 2, to nothing
   rts
 end_bullet:
   lda #$00
   sta wpn_status,X
-b_9944:
+i_exit:
   rts
-wpn_misc_3:
+move_wpn:
   lda wpn_x_pos_lo,X
   clc
   adc $07
@@ -3709,8 +3718,8 @@ b_9963:
   adc #$00
   sta wpn_x_pos_page,X
   rts
-wpn_misc_2:
-  lda wpn_sprite_type,X
+rdy_move_wpn_select:
+  lda wpn_sprite_type,X   ; 0 is bullet, 01 is missile, 02 is explosion 1, 03 is explosion 2
   asl
   tay
   lda wpn_addr_tbl,y
@@ -3719,20 +3728,20 @@ wpn_misc_2:
   sta $04
   jmp ($0003)
 wpn_addr_tbl:             ; weapon routine jump table
-  .word wpn_rts
-  .word wpn_addr_b
-  .word wpn_addr_c
-  .word wpn_addr_c
-  .word wpn_rts
+  .word wpn_rts           ; bullet
+  .word wpn_addr_b        ; missile
+  .word wpn_addr_c        ; missile explosion 1
+  .word wpn_addr_c        ; missile explosion 2
+  .word wpn_rts           ; missile done
 wpn_rts:
   rts
-wpn_addr_b:
+wpn_addr_b:             ; add missile gravity
   lda wpn_status,X
-  lsr
-  bcs wpn_addr_c
+  lsr                   ; check for 0 bit, which means missile has hit
+  bcs wpn_addr_c        ; branch if missile has already hit
   lda wpn_y_spd_lo,X
   clc
-  adc #$20
+  adc #missile_gravity  ; add missile downwards gravity $20
   sta $03
   lda wpn_y_spd_hi,X
   adc #$00
@@ -3746,37 +3755,41 @@ b_99a8:
 wpn_addr_c:
   lda bullet_timer,X
   cmp #$10
-  bne b_99a8        ; exit if 10, something about missiles offscreen
-  inc wpn_sprite_type,X
+  bne b_99a8              ; exit if not 10, increment next weapon type/explosion every $10 frames
+  inc wpn_sprite_type,X   ; increment explosion 1 to explosion 2, then to nothing
   lda wpn_status,X
   ora #$02
-  sta wpn_status,X
+  sta wpn_status,X        ; set the 1bit in weapon status
   rts
-wpn_misc_4:
+
+;=====================================================
+; weapon sprite stuff
+
+wpn_sprite_rtn:
   ldx #$00
   lda #$0F        ; check all 0f slots
   sta $0B
-wpn_misc_4a:
+get_wpn_spr_tbl:
   lda wpn_status,X
-  bpl next_wpn_ram
+  bpl next_wpn_ram        ; branch to get next wpn ram slot if weapon is inactive
   lda wpn_x_pos_hi,X
   sec
   sbc plr_x_prog_hi
-  sta $02
+  sta $02                 ; store difference wpn_x_pos_hi - plr_x_prog_hi
   lda wpn_x_pos_page,X
   sbc plr_x_prog_pg
-  bne next_wpn_ram
+  bne next_wpn_ram        ; branch to get next wpn ram slot if weapon is on a different x page
   lda wpn_y_pos_hi,X
   sec
   sbc plr_y_prog_hi
   sta $01
   lda wpn_y_pos_page,x
   sbc plr_y_prog_pg
-  bne next_wpn_ram
+  bne next_wpn_ram        ; branch to get next wpn ram slot if weapon is on a different y page
   lda wpn_sprite_type,X
-  sta $00
+  sta $00                 ; store wpn sprite type to 00
   stx $0E
-  jsr wpn_misc_6
+  jsr get_wpn_spr_tbl_addr
   ldx $0E
 next_wpn_ram:
   txa
@@ -3784,12 +3797,12 @@ next_wpn_ram:
   adc #$10
   tax
   dec $0B
-  bpl wpn_misc_4a
+  bpl get_wpn_spr_tbl
   rts
-wpn_misc_6:
-  lda #<wpn_spr_tbl ; lda #  ??; #$B2
+get_wpn_spr_tbl_addr:
+  lda #<wpn_spr_tbl ; #$B2
   sta $09
-  lda #>wpn_spr_tbl ; lda #>wpn_spr_tbl  ??; #$9D 
+  lda #>wpn_spr_tbl ; #$9D 
   sta $0A
   jmp j_9a7a
 wpn_lookup_rtn:
@@ -3800,13 +3813,13 @@ wpn_lookup_rtn:
   sta $09
   lda stage_boss_table_2+1,Y
   sta $0A
-  jsr ram_misc_24
+  jsr get_num_tiles
   bcc b_9a28
 b_9a19:
   ldx $0F
   cpx #$E4
   bcs b_9a28
-  jsr load_sprites
+  jsr load_sprite_tiles
   stx $0F
   dec $05
   bpl b_9a19
@@ -3815,11 +3828,27 @@ b_9a28:
 stage_boss_table_2:
   .word stage_eny_spr_tbl   ; @$9df2 ****
   .word boss_eny_spr_tbl   ; @$9ef2 ****
+
+
+;==========================================
+; sprite stuff
+; 00 = sprite type
+; 01 = y position high
+; 02 = x position high
+; 03 = address of sprite tile table low
+; 04 = address of sprite tile table high
+; 05 = sprite tile counter
+; 06 = attribute offset
+; 07 = 
+; 09 = address from sprite table low byte
+; 0A = address from sprite table high byte
+; 0F = x index counter for ram placement, max is E4, starting at $071C and ending at $07FF
+
 player_bullet_enemy_routine:
   ldx #$00
   stx $0F
   jsr player_sprite_rtn
-  jsr wpn_misc_4
+  jsr wpn_sprite_rtn
   jsr enemy_status_chk
   ldx $0F               ; update OAM data starting at $0740
 j_9a3c:
@@ -3844,310 +3873,334 @@ player_sprite_rtn:
   lda rodimus_ram
   lsr
   bcc b_9a64        ; branch if rodimus not enabled
-  lda $00
-  ora #$08
-  sta $00
+  lda $00           ; load sprite type when truck and not transforming
+  ora #$08          ; add 08 to sprite to get rodimus truck
+  sta $00           ; store rodimus truck sprite value back to 00 ram
 b_9a64:
   lda plr_sprite_status
   ora #$01
-  sta plr_sprite_status
+  sta plr_sprite_status     ; plr_sprite_statue 0bit set when started loading sprite
   lda #<plr_sprite_tbl      ; $00
   sta $09
   lda #>plr_sprite_tbl      ; $9B is this a hard coded address?
   sta $0A
   lda plr_y_pos_hi
-  sta $01
+  sta $01                   ; store y position high to 01 ram
   lda plr_x_pos_hi
-  sta $02
+  sta $02                   ; store x position high to 02 ram
 j_9a7a:
-  jsr ram_misc_24
-  bcc b_9a88
-b_9a7f:
-  jsr load_sprites
-  dec $05
-  bpl b_9a7f
+  jsr get_num_tiles
+  bcc b_9a88        ; branch if sprite has no tiles left, this is to clear player from plr_sprite_status
+:
+  jsr load_sprite_tiles
+  dec $05           ; decrement number of tiles left
+  bpl :-            ; loop back if still positive
   stx $0F
 b_9a88:
   lda plr_sprite_status
   and #$FE
-  sta plr_sprite_status
+  sta plr_sprite_status   ; plr_sprite_status clear 0bit when done loading sprite tiles to ram
   rts
-ram_misc_24:
-  lda $00
+get_num_tiles:
+  lda $00         ; load sprite type, weapon or player sprite type
   asl
-  tay
+  tay             ; get index for address and store to y
   lda ($09),Y
   sta $03
   iny
   lda ($09),Y
-  sta $04
+  sta $04         ; get the address of the sprite table we're looking for
   lda #$00
-  sta $06
+  sta $06         ; attribute set to 00
   sta $07
-  tay
-  ldx $0F
-  lda ($03),Y
-  beq b_9ac4
+  tay             ; reset y register to 00
+  ldx $0F         ; load ram counter to x register
+  lda ($03),Y     ; get number of tiles for this sprite
+  beq clr_carry   ; clear carry and exit if number of tiles is 00
   sec
-  sbc #$01
-  sta $05
+  sbc #$01        ; subtract number of tiles by 1
+  sta $05         ; store in 05
   iny
-  lda $00
-  bpl b_9ac3
-  lda #$40
-  sta $06
+  lda $00         ; load first tile y position
+  bpl :+          ; branch out if first tile y position is positive
+  lda #$40        ; attribute to flip tiel horizontally
+  sta $06         ; store 40 to 06 ram
   lda #$ff
-  sta $07
-  lda $02
+  sta $07         ; store ff to 07 ram
+  lda $02         ; load sprite x position high
   sec
-  sbc #$07
-  sta $02
+  sbc #$07        ; subtract player x position high - 07
+  sta $02         ; store back in 02 ram
   sec
-b_9ac3:
+:
   rts
-b_9ac4:
+clr_carry:
   clc
   rts
-load_sprites:
-  lda ($03),Y
+load_sprite_tiles:
+  lda ($03),Y           ; get tile y position
   clc
-  adc $01
+  adc $01               ; add sprite y position high
   sta sprite1_y_pos,X   ; Store Y Position for this Sprite
   inx
   iny
-  lda ($03),Y
-  sta sprite1_y_pos,X   ; Store Address for this Sprite
+  lda ($03),Y           ; get tile number
+  sta sprite1_y_pos,X   ; store tile number
   inx
   iny
   lda $06
-  eor ($03),Y
-  sta sprite1_y_pos,X   ; X_Direction
-  lda current_level
-  cmp #$10
-  bne b_9af1
+  eor ($03),Y           ; eor orientation with tile attribute from table
+  sta sprite1_y_pos,X   ; store the sprite attribute, but flip the 6bit for x orientation?, or dont flip anything if sprite x coordinate is 00
+  lda current_level 
+  cmp #$10              ; compare with stage 8
+  bne b_9af1            ; branch if not stage 8
   lda plr_sprite_status
   lsr
   bcc b_9af1
   lda sprite1_y_pos,X
-  ora #$20
-  sta sprite1_y_pos,X
+  ora #$20              ; this will change if sprite is infront or behind background
+  sta sprite1_y_pos,X   ; or tile attribute with 0010 0000 if sprite status has 0000 0001 from when we started loading tiles
 b_9af1:
   inx
   iny
   lda ($03),Y
-  eor $07               ; flip all bits?
+  eor $07               ; flip all bits if facing left
   clc
-  adc $02
-  sta sprite1_y_pos,X   ; store x position for this sprite
+  adc $02               ; add sprite x position high to tile x position offset
+  sta sprite1_y_pos,X   ; store tile x position
   inx
   iny
   rts
 plr_sprite_tbl:           ; @$9B00-9DB1 player sprite table
-	.byte $24,$9B,$49,$9B,$62,$9B,$83,$9B,$A8,$9B,$CD,$9B,$F2,$9B,$0B,$9C,$30,$9C ; addressing region
-  .byte $51,$9C,$6E,$9C,$6F,$9C,$98,$9C,$C1,$9C,$EA,$9C,$03,$9D,$44,$9D,$85,$9D ; addressing region
-  ;       X,  Y,spr,att
+	.byte $24,$9B,$49,$9B,$62,$9B,$83,$9B,$A8,$9B,$CD,$9B,$F2,$9B,$0B,$9C,$30,$9C ; 
+  .byte $51,$9C,$6E,$9C,$6F,$9C,$98,$9C,$C1,$9C,$EA,$9C,$03,$9D,$44,$9D,$85,$9D ; 
+  ;      Y,tile,att, X
   ; @9b24 00 running
-  .byte $09,$F0,$10,$00 ; top left
-  .byte $F8,$F0,$11,$00
-  .byte $00,$F8,$14,$00
-  .byte $F8,$F8,$15,$00
-  .byte $00,$00,$12,$00
-  .byte $F8,$00,$13,$00
-  .byte $00,$08,$16,$00 ; bottom
-  .byte $F8,$08,$17,$00
-  .byte $00,$05,$18,$00,$F0
+  .byte $09               ; number of tiles
+  .byte $F0,$10,$00,$F8
+  .byte $F0,$11,$00,$00
+  .byte $F8,$14,$00,$F8
+  .byte $F8,$15,$00,$00
+  .byte $00,$12,$00,$F8
+  .byte $00,$13,$00,$00
+  .byte $08,$16,$00,$F8
+  .byte $08,$17,$00,$00
+  .byte $05,$18,$00,$F0
   ; @9b49 01 flying
-  .byte $06,$F0,$19,$00
-  .byte $FC,$F8,$1A,$00
-  .byte $FC,$00,$1B,$00
-  .byte $FC,$08,$1C,$00
-  .byte $FC,$F4,$1D,$00
-  .byte $F4,$08,$1E,$00,$F4
+  .byte $06
+  .byte $F0,$19,$00,$FC
+  .byte $F8,$1A,$00,$FC
+  .byte $00,$1B,$00,$FC
+  .byte $08,$1C,$00,$FC
+  .byte $F4,$1D,$00,$F4
+  .byte $08,$1E,$00,$F4
   ; @9b62 02 standing
-  .byte $08,$F0,$10,$00
-  .byte $F8,$F0,$11,$00
-  .byte $00,$F8,$14,$00
-  .byte $F8,$F8,$15,$00
-  .byte $00,$00,$52,$00
-  .byte $F8,$00,$13,$00
-  .byte $00,$08,$53,$00
-  .byte $F8,$08,$17,$00,$00
+  .byte $08
+  .byte $F0,$10,$00,$F8
+  .byte $F0,$11,$00,$00
+  .byte $F8,$14,$00,$F8
+  .byte $F8,$15,$00,$00
+  .byte $00,$52,$00,$F8
+  .byte $00,$13,$00,$00
+  .byte $08,$53,$00,$F8
+  .byte $08,$17,$00,$00
   ; @9b83 03 stopping
-  .byte $09,$F0,$2E,$00
-  .byte $F8,$F0,$2F,$00
-  .byte $00,$F8,$30,$00
-  .byte $F8,$F8,$31,$00
-  .byte $00,$F8,$32,$00
-  .byte $08,$00,$33,$00
-  .byte $F8,$00,$34,$00
-  .byte $00,$08,$35,$00
-  .byte $FA,$08,$36,$00,$02
+  .byte $09
+  .byte $F0,$2E,$00,$F8
+  .byte $F0,$2F,$00,$00
+  .byte $F8,$30,$00,$F8
+  .byte $F8,$31,$00,$00
+  .byte $F8,$32,$00,$08
+  .byte $00,$33,$00,$F8
+  .byte $00,$34,$00,$00
+  .byte $08,$35,$00,$FA
+  .byte $08,$36,$00,$02
   ; @9ba8 04 truckA
-  .byte $09,$FA,$37,$00
-  .byte $F0,$FA,$38,$00
-  .byte $F8,$FA,$39,$00
-  .byte $00,$FA,$3A,$00
-  .byte $08,$02,$0F,$00
-  .byte $E8,$02,$3B,$00
-  .byte $F0,$02,$3C,$00
-  .byte $F8,$02,$3D,$00
-  .byte $00,$02,$3E,$00,$08
+  .byte $09
+  .byte $FA,$37,$00,$F0
+  .byte $FA,$38,$00,$F8
+  .byte $FA,$39,$00,$00
+  .byte $FA,$3A,$00,$08
+  .byte $02,$0F,$00,$E8
+  .byte $02,$3B,$00,$F0
+  .byte $02,$3C,$00,$F8
+  .byte $02,$3D,$00,$00
+  .byte $02,$3E,$00,$08
   ; @9bcd 05 truckB
-  .byte $09,$F9,$37,$00
-  .byte $F0,$F9,$38,$00
-  .byte $F8,$F9,$39,$00
-  .byte $00,$F9,$3A,$00
-  .byte $08,$01,$0F,$00
-  .byte $E8,$01,$4E,$00
-  .byte $F0,$01,$4F,$00
-  .byte $F8,$01,$50,$00
-  .byte $00,$01,$51,$00,$08
+  .byte $09
+  .byte $F9,$37,$00,$F0
+  .byte $F9,$38,$00,$F8
+  .byte $F9,$39,$00,$00
+  .byte $F9,$3A,$00,$08
+  .byte $01,$0F,$00,$E8
+  .byte $01,$4E,$00,$F0
+  .byte $01,$4F,$00,$F8
+  .byte $01,$50,$00,$00
+  .byte $01,$51,$00,$08
   ; @9bf2 06 transformA
-  .byte $06,$F8,$48,$00
-  .byte $F5,$F8,$49,$00
-  .byte $FD,$00,$4A,$00
-  .byte $F9,$00,$4B,$00
-  .byte $01,$08,$4C,$00
-  .byte $F4,$08,$4D,$00,$00
+  .byte $06
+  .byte $F8,$48,$00,$F5
+  .byte $F8,$49,$00,$FD
+  .byte $00,$4A,$00,$F9
+  .byte $00,$4B,$00,$01
+  .byte $08,$4C,$00,$F4
+  .byte $08,$4D,$00,$00
   ; @9c0b 07 transformB
-  .byte $09,$F8,$3F,$00
-  .byte $F8,$00,$40,$00
-  .byte $F0,$00,$41,$00
-  .byte $F8,$00,$42,$00
-  .byte $00,$00,$43,$00
-  .byte $08,$08,$44,$00
-  .byte $F0,$08,$45,$00
-  .byte $F8,$08,$46,$00
-  .byte $00,$08,$47,$00,$08
+  .byte $09
+  .byte $F8,$3F,$00,$F8
+  .byte $00,$40,$00,$F0
+  .byte $00,$41,$00,$F8
+  .byte $00,$42,$00,$00
+  .byte $00,$43,$00,$08
+  .byte $08,$44,$00,$F0
+  .byte $08,$45,$00,$F8
+  .byte $08,$46,$00,$00
+  .byte $08,$47,$00,$08
   ; @9c30 08 falling
-  .byte $08,$F0,$1F,$00
-  .byte $00,$F8,$20,$00
-  .byte $F8,$F8,$21,$00
-  .byte $00,$00,$22,$00
-  .byte $F8,$00,$23,$00
-  .byte $00,$00,$24,$00
-  .byte $08,$08,$25,$00
-  .byte $F8,$08,$26,$00,$00
+  .byte $08
+  .byte $F0,$1F,$00,$00
+  .byte $F8,$20,$00,$F8
+  .byte $F8,$21,$00,$00
+  .byte $00,$22,$00,$F8
+  .byte $00,$23,$00,$00
+  .byte $00,$24,$00,$08
+  .byte $08,$25,$00,$F8
+  .byte $08,$26,$00,$00
   ; @9c51 09 jumping
-  .byte $07,$F0,$27,$00
-  .byte $FC,$F0,$28,$00
-  .byte $04,$F8,$29,$00
-  .byte $FC,$F8,$2A,$00
-  .byte $04,$00,$2B,$00
-  .byte $FC,$00,$2C,$00
-  .byte $04,$08,$2D,$00,$FC
+  .byte $07
+  .byte $F0,$27,$00,$FC
+  .byte $F0,$28,$00,$04
+  .byte $F8,$29,$00,$FC
+  .byte $F8,$2A,$00,$04
+  .byte $00,$2B,$00,$FC
+  .byte $00,$2C,$00,$04
+  .byte $08,$2D,$00,$FC
   ; @9c6e 0a nothing
   .byte $00
   ; @9c6f 0b magnusFront
-  .byte $0A,$F0,$55,$00
-  .byte $F5,$F0,$56,$00
-  .byte $FD,$F0,$57,$00
-  .byte $05,$F8,$58,$00
-  .byte $F5,$F8,$59,$00
-  .byte $FD,$F8,$5A,$00
-  .byte $05,$00,$5B,$00
-  .byte $F9,$00,$5C,$00
-  .byte $01,$08,$5D,$00
-  .byte $F9,$08,$5E,$00,$01
+  .byte $0A
+  .byte $F0,$55,$00,$F5
+  .byte $F0,$56,$00,$FD
+  .byte $F0,$57,$00,$05
+  .byte $F8,$58,$00,$F5
+  .byte $F8,$59,$00,$FD
+  .byte $F8,$5A,$00,$05
+  .byte $00,$5B,$00,$F9
+  .byte $00,$5C,$00,$01
+  .byte $08,$5D,$00,$F9
+  .byte $08,$5E,$00,$01
   ; @9c98 0c rodTruckA
-  .byte $0A,$FA,$6A,$00
-  .byte $F0,$FA,$6B,$00
-  .byte $F8,$FA,$6C,$00
-  .byte $00,$FA,$6D,$00
-  .byte $08,$FA,$6E,$00
-  .byte $10,$02,$6F,$00
-  .byte $F0,$02,$70,$00
-  .byte $F8,$02,$71,$00
-  .byte $00,$02,$72,$00
-  .byte $08,$02,$73,$00,$10
+  .byte $0A
+  .byte $FA,$6A,$00,$F0
+  .byte $FA,$6B,$00,$F8
+  .byte $FA,$6C,$00,$00
+  .byte $FA,$6D,$00,$08
+  .byte $FA,$6E,$00,$10
+  .byte $02,$6F,$00,$F0
+  .byte $02,$70,$00,$F8
+  .byte $02,$71,$00,$00
+  .byte $02,$72,$00,$08
+  .byte $02,$73,$00,$10
   ; @9cc1 0d rodTruckB
-  .byte $0A,$F9,$6A,$00
-  .byte $F0,$F9,$6B,$00
-  .byte $F8,$F9,$6C,$00
-  .byte $00,$F9,$6D,$00
-  .byte $08,$F9,$6E,$00
-  .byte $10,$01,$74,$00
-  .byte $F0,$01,$75,$00
-  .byte $F8,$01,$76,$00
-  .byte $00,$01,$77,$00
-  .byte $08,$01,$78,$00,$10
+  .byte $0A
+  .byte $F9,$6A,$00,$F0
+  .byte $F9,$6B,$00,$F8
+  .byte $F9,$6C,$00,$00
+  .byte $F9,$6D,$00,$08
+  .byte $F9,$6E,$00,$10
+  .byte $01,$74,$00,$F0
+  .byte $01,$75,$00,$F8
+  .byte $01,$76,$00,$00
+  .byte $01,$77,$00,$08
+  .byte $01,$78,$00,$10
   ; @9cea 0e primeHead
-  .byte $06,$F0,$E0,$00
-  .byte $F8,$F0,$E1,$00
-  .byte $00,$F8,$E2,$00
-  .byte $F8,$F8,$E3,$00
-  .byte $00,$00,$E4,$00
-  .byte $F8,$00,$E5,$00,$00
+  .byte $06
+  .byte $F0,$E0,$00,$F8
+  .byte $F0,$E1,$00,$00
+  .byte $F8,$E2,$00,$F8
+  .byte $F8,$E3,$00,$00
+  .byte $00,$E4,$00,$F8
+  .byte $00,$E5,$00,$00
   ; @9d03 0f explosionA
-  .byte $10,$F0,$79,$00
-  .byte $F0,$F0,$7A,$00
-  .byte $F8,$F0,$7A,$40
-  .byte $00,$F0,$79,$40
-  .byte $08,$F8,$7B,$00
-  .byte $F0,$F8,$7C,$00
-  .byte $F8,$F8,$7C,$40
-  .byte $00,$F8,$7B,$40
-  .byte $08,$00,$7B,$80
-  .byte $F0,$00,$7C,$80
-  .byte $F8,$00,$7C,$C0
-  .byte $00,$00,$7B,$C0
-  .byte $08,$08,$79,$80
-  .byte $F0,$08,$7A,$80
-  .byte $F8,$08,$7A,$C0
-  .byte $00,$08,$79,$C0,$08
+  .byte $10
+  .byte $F0,$79,$00,$F0
+  .byte $F0,$7A,$00,$F8
+  .byte $F0,$7A,$40,$00
+  .byte $F0,$79,$40,$08
+  .byte $F8,$7B,$00,$F0
+  .byte $F8,$7C,$00,$F8
+  .byte $F8,$7C,$40,$00
+  .byte $F8,$7B,$40,$08
+  .byte $00,$7B,$80,$F0
+  .byte $00,$7C,$80,$F8
+  .byte $00,$7C,$C0,$00
+  .byte $00,$7B,$C0,$08
+  .byte $08,$79,$80,$F0
+  .byte $08,$7A,$80,$F8
+  .byte $08,$7A,$C0,$00
+  .byte $08,$79,$C0,$08
   ; @9d44 10 explosionB
-  .byte $10,$F0,$7D,$00
-  .byte $F0,$F0,$7E,$00
-  .byte $F8,$F0,$7E,$40
-  .byte $00,$F0,$7D,$40
-  .byte $08,$F8,$7F,$00
-  .byte $F0,$F8,$80,$00
-  .byte $F8,$F8,$80,$40
-  .byte $00,$F8,$7F,$40
-  .byte $08,$00,$7F,$80
-  .byte $F0,$00,$80,$80
-  .byte $F8,$00,$80,$C0
-  .byte $00,$00,$7F,$C0
-  .byte $08,$08,$7D,$80
-  .byte $F0,$08,$7E,$80
-  .byte $F8,$08,$7E,$C0
-  .byte $00,$08,$7D,$C0,$08
+  .byte $10
+  .byte $F0,$7D,$00,$F0
+  .byte $F0,$7E,$00,$F8
+  .byte $F0,$7E,$40,$00
+  .byte $F0,$7D,$40,$08
+  .byte $F8,$7F,$00,$F0
+  .byte $F8,$80,$00,$F8
+  .byte $F8,$80,$40,$00
+  .byte $F8,$7F,$40,$08
+  .byte $00,$7F,$80,$F0
+  .byte $00,$80,$80,$F8
+  .byte $00,$80,$C0,$00
+  .byte $00,$7F,$C0,$08
+  .byte $08,$7D,$80,$F0
+  .byte $08,$7E,$80,$F8
+  .byte $08,$7E,$C0,$00
+  .byte $08,$7D,$C0,$08
   ; @9d85 11 rodFront
-  .byte $0B,$F0,$5F,$00
-  .byte $F5,$F0,$60,$00
-  .byte $FD,$F0,$61,$00
-  .byte $05,$F8,$62,$00
-  .byte $F5,$F8,$63,$00
-  .byte $FD,$F8,$64,$00
-  .byte $05,$00,$65,$00
-  .byte $F5,$00,$66,$00
-  .byte $FD,$00,$67,$00
-  .byte $05,$08,$68,$00
-  .byte $F8,$08,$69,$00,$00
-wpn_spr_tbl:         ; @$9DB2-9DF1  weapon sprite table
-	.byte $BC,$9D
-  .byte $C1,$9D
-  .byte $C6,$9D
-  .byte $D7,$9D
-  .byte $ED,$9D
+  .byte $0B
+  .byte $F0,$5F,$00,$F5
+  .byte $F0,$60,$00,$FD
+  .byte $F0,$61,$00,$05
+  .byte $F8,$62,$00,$F5
+  .byte $F8,$63,$00,$FD
+  .byte $F8,$64,$00,$05
+  .byte $00,$65,$00,$F5
+  .byte $00,$66,$00,$FD
+  .byte $00,$67,$00,$05
+  .byte $08,$68,$00,$F8
+  .byte $08,$69,$00,$00
+wpn_spr_tbl:          ; @$9DB2-9DF1  weapon sprite table
+	.byte $BC,$9D       ; bullet
+  .byte $C1,$9D       ; missile
+  .byte $C6,$9D       ; missile explosion A
+  .byte $D7,$9D       ; missile explosion B
+  .byte $ED,$9D       ; enemy bullet
+      ;  y,tile,attr,x
   ; @d9bc bullet
-  .byte $01,$FC,$F3,$01,$FC
+  .byte $01             ; number of tiles
+  .byte $FC,$F3,$01,$FC
   ; @d9c1 missile
-  .byte $01,$FC,$84,$01,$FC
+  .byte $01
+  .byte $FC,$84,$01,$FC
   ; @9dc6 Explosion A
-  .byte $04,$F8,$8C,$C0
-  .byte $F8,$00,$8B,$00
-  .byte $F8,$F8,$8B,$C0
-  .byte $00,$00,$8C,$00,$00
+  .byte $04
+  .byte $F8,$8C,$C0,$F8
+  .byte $00,$8B,$00,$F8
+  .byte $F8,$8B,$C0,$00
+  .byte $00,$8C,$00,$00
   ; @9dd7 Explosion B
-  .byte $04,$F8,$87,$00
-  .byte $F8,$00,$89,$00
-  .byte $F8,$F8,$88,$00
-  .byte $00,$00,$8A,$00,$00
-  ; @9de8
-  .byte $01,$FC,$81,$00,$FC
+  .byte $04
+  .byte $F8,$87,$00,$F8
+  .byte $00,$89,$00,$F8
+  .byte $F8,$88,$00,$00
+  .byte $00,$8A,$00,$00
+  ; @9de8 small explosion (unused?*****)
+  .byte $01
+  .byte $FC,$81,$00,$FC
   ; @9ded enemy bullet
-  .byte $01,$FC,$54,$00,$FC
+  .byte $01
+  .byte $FC,$54,$00,$FC
 stage_eny_spr_tbl:    ; @$9DF2-9EF1 a jump table
 	.byte $7E,$9F,$7E,$9F,$8B,$9F,$8B,$9F
   .byte $A0,$9F,$B9,$9F,$D2,$9F,$D2,$9F
@@ -4190,379 +4243,463 @@ boss_eny_spr_tbl:    ; @$9EF2-9FF1
   .byte $C6,$9D,$D7,$9D,$C6,$9D,$D7,$9D,$C6,$9D,$D7,$9D,$C6,$9D,$D7,$9D
   .byte $C6,$9D,$D7,$9D,$C6,$9D,$D7,$9D,$C6,$9D,$E8,$9D,$C6,$9D,$E8,$9D
   ; @9f7e
-  .byte $03,$FC,$C0,$41
-  .byte $04,$FC,$C1,$41
-  .byte $FC,$FC,$C2,$41,$F4
+  .byte $03
+  .byte $FC,$C0,$41,$04
+  .byte $FC,$C1,$41,$FC
+  .byte $FC,$C2,$41,$F4
   ; @9f8b
-  .byte $05,$F4,$C4,$41
-  .byte $FC,$F4,$C3,$41
-  .byte $04,$FC,$C5,$01
-  .byte $F4,$FC,$C6,$41
-  .byte $FC,$FC,$C5,$41,$04
+  .byte $05
+  .byte $F4,$C4,$41,$FC
+  .byte $F4,$C3,$41,$04
+  .byte $FC,$C5,$01,$F4
+  .byte $FC,$C6,$41,$FC
+  .byte $FC,$C5,$41,$04
   ; @9fa0
-  .byte $06,$F4,$C8,$41
-  .byte $00,$FC,$CC,$41
-  .byte $00,$04,$D0,$41
-  .byte $00,$F4,$C9,$41
-  .byte $F8,$FC,$CD,$41
-  .byte $F8,$04,$D1,$41,$F8
+  .byte $06
+  .byte $F4,$C8,$41,$00
+  .byte $FC,$CC,$41,$00
+  .byte $04,$D0,$41,$00
+  .byte $F4,$C9,$41,$F8
+  .byte $FC,$CD,$41,$F8
+  .byte $04,$D1,$41,$F8
   ; @9fb9 
-  .byte $06,$F4,$CA,$41
-  .byte $00,$FC,$CE,$41
-  .byte $00,$04,$D2,$41
-  .byte $00,$F4,$CB,$41
-  .byte $F8,$FC,$CF,$41
-  .byte $F8,$04,$D3,$41,$F8
+  .byte $06
+  .byte $F4,$CA,$41,$00
+  .byte $FC,$CE,$41,$00
+  .byte $04,$D2,$41,$00
+  .byte $F4,$CB,$41,$F8
+  .byte $FC,$CF,$41,$F8
+  .byte $04,$D3,$41,$F8
   ; @9fd2
-	.byte $03,$FC,$FA,$42
-  .byte $F4,$FC,$F9,$42
-  .byte $FC,$FC,$F8,$42,$04
+	.byte $03
+  .byte $FC,$FA,$42,$F4
+  .byte $FC,$F9,$42,$FC
+  .byte $FC,$F8,$42,$04
   ; @9fdf
-  .byte $02,$F8,$F7,$01
-  .byte $FC,$00,$E9,$01,$FC
+  .byte $02
+  .byte $F8,$F7,$01,$FC
+  .byte $00,$E9,$01,$FC
   ; @9fe8
-  .byte $02,$F8,$F7,$01
-  .byte $FC,$00,$E8,$01,$FC
+  .byte $02
+  .byte $F8,$F7,$01,$FC
+  .byte $00,$E8,$01,$FC
   ; @9ff1 hammer
-  .byte $02,$F8,$E0,$02
-  .byte $FC,$00,$E1,$02,$FC
+  .byte $02
+  .byte $F8,$E0,$02,$FC
+  .byte $00,$E1,$02,$FC
   ; @9ffa
-  .byte $02,$FC,$E2,$01
-  .byte $F8,$FC,$E3,$01,$00
+  .byte $02
+  .byte $FC,$E2,$01,$F8
+  .byte $FC,$E3,$01,$00
   ; @a003
-  .byte $03,$F6,$F0,$01
-  .byte $FC,$FE,$F1,$01
-  .byte $F8,$FE,$F2,$01,$00
+  .byte $03
+  .byte $F6,$F0,$01,$FC
+  .byte $FE,$F1,$01,$F8
+  .byte $FE,$F2,$01,$00
   ; @a010
-  .byte $03,$FC,$82,$01
-  .byte $F4,$FC,$83,$01
-  .byte $FC,$FC,$82,$41,$04
+  .byte $03
+  .byte $FC,$82,$01,$F4
+  .byte $FC,$83,$01,$FC
+  .byte $FC,$82,$41,$04
   ; Boss enemies
   ; @a01d
-  .byte $04,$F8,$BC,$03
-  .byte $F8,$F8,$BD,$03
-  .byte $00,$00,$BE,$03
-  .byte $F8,$00,$BF,$03,$00
+  .byte $04
+  .byte $F8,$BC,$03,$F8
+  .byte $F8,$BD,$03,$00
+  .byte $00,$BE,$03,$F8
+  .byte $00,$BF,$03,$00
   ; @a02e 
-  .byte $01,$FC,$EA,$21,$FC
+  .byte $01
+  .byte $FC,$EA,$21,$FC
   ; @a033
-  .byte $01,$FC,$EB,$21,$FC
+  .byte $01
+  .byte $FC,$EB,$21,$FC
   ; @a038
-  .byte $01,$FC,$EE,$03,$FC
+  .byte $01
+  .byte $FC,$EE,$03,$FC
   ; @a03d
-  .byte $01,$FC,$B0,$22,$FC
+  .byte $01
+  .byte $FC,$B0,$22,$FC
   ; @a042
-  .byte $01,$FC,$B1,$22,$FC
+  .byte $01
+  .byte $FC,$B1,$22,$FC
   ; @a047
-  .byte $01,$FC,$EC,$22,$FC
+  .byte $01
+  .byte $FC,$EC,$22,$FC
   ; @a04c
-  .byte $01,$FC,$ED,$22,$FC
+  .byte $01
+  .byte $FC,$ED,$22,$FC
   ; @a051
-  .byte $01,$FC,$E8,$22,$FC
+  .byte $01
+  .byte $FC,$E8,$22,$FC
   ; @a056
-  .byte $03,$FC,$EB,$41
-  .byte $F4,$FC,$EA,$41
-  .byte $FC,$FC,$E9,$41
-  .byte $04,$06,$F0,$E0
-  .byte $01,$F8,$F0,$E0
-  .byte $41,$00,$F8,$E2
-  .byte $01,$F8,$F8,$E2
-  .byte $41,$00,$00,$E1
-  .byte $01,$FC,$08,$E3,$01,$FC
+  .byte $03
+  .byte $FC,$EB,$41,$F4
+  .byte $FC,$EA,$41,$FC
+  .byte $FC,$E9,$41,$04
+  ; @?
+  .byte $06
+  .byte $F0,$E0,$01,$F8
+  .byte $F0,$E0,$41,$00
+  .byte $F8,$E2,$01,$F8
+  .byte $F8,$E2,$41,$00
+  .byte $00,$E1,$01,$FC
+  .byte $08,$E3,$01,$FC
   ; @a07c
-  .byte $03,$FC,$EB,$42
-  .byte $F4,$FC,$EA,$42
-  .byte $FC,$FC,$E9,$42,$04
+  .byte $03
+  .byte $FC,$EB,$42,$F4
+  .byte $FC,$EA,$42,$FC
+  .byte $FC,$E9,$42,$04
   ; @a089
-  .byte $02,$FC,$FC,$02
-  .byte $FC,$04,$FD,$02,$FC
+  .byte $02
+  .byte $FC,$FC,$02,$FC
+  .byte $04,$FD,$02,$FC
   ; @a092
-	.byte $02,$FC,$FE,$02
-  .byte $F8,$FC,$FE,$42,$00
+	.byte $02
+  .byte $FC,$FE,$02,$F8
+  .byte $FC,$FE,$42,$00
   ; @a09b
-  .byte $03,$F4,$E7,$22
-  .byte $FC,$FC,$E5,$22
-  .byte $FC,$04,$E6,$22,$FC
+  .byte $03
+  .byte $F4,$E7,$22,$FC
+  .byte $FC,$E5,$22,$FC
+  .byte $04,$E6,$22,$FC
   ; @a0a8
-  .byte $0A,$F0,$D6,$62
-  .byte $00,$F0,$D7,$62
-  .byte $F8,$F8,$D8,$62
-  .byte $00,$F8,$D9,$62
-  .byte $F8,$00,$DA,$62
-  .byte $00,$00,$DB,$62
-  .byte $F8,$08,$DC,$62
-  .byte $00,$08,$DD,$62
-  .byte $F8,$00,$DE,$62
-  .byte $08,$08,$DF,$62,$08
+  .byte $0A
+  .byte $F0,$D6,$62,$00
+  .byte $F0,$D7,$62,$F8
+  .byte $F8,$D8,$62,$00
+  .byte $F8,$D9,$62,$F8
+  .byte $00,$DA,$62,$00
+  .byte $00,$DB,$62,$F8
+  .byte $08,$DC,$62,$00
+  .byte $08,$DD,$62,$F8
+  .byte $00,$DE,$62,$08
+  .byte $08,$DF,$62,$08
   ; @a0d1
-  .byte $01,$FC,$C7,$03,$FC
+  .byte $01
+  .byte $FC,$C7,$03,$FC
   ; @a0d6
-  .byte $04,$F8,$C3,$02
-  .byte $F8,$F8,$C4,$02
-  .byte $00,$00,$C5,$02
-  .byte $F8,$00,$C6,$02,$00
+  .byte $04
+  .byte $F8,$C3,$02,$F8
+  .byte $F8,$C4,$02,$00
+  .byte $00,$C5,$02,$F8
+  .byte $00,$C6,$02,$00
   ; @a0e7
-  .byte $04,$F8,$C6,$C2
-  .byte $F8,$F8,$C5,$C2
-  .byte $00,$00,$C4,$C2
-  .byte $F8,$00,$C3,$C2,$00
+  .byte $04
+  .byte $F8,$C6,$C2,$F8
+  .byte $F8,$C5,$C2,$00
+  .byte $00,$C4,$C2,$F8
+  .byte $00,$C3,$C2,$00
   ; @a0f8
-  .byte $04,$FC,$9F,$02
-  .byte $F4,$FC,$9D,$02
-  .byte $FC,$FC,$9F,$42
-  .byte $04,$04,$9E,$02,$FC
+  .byte $04
+  .byte $FC,$9F,$02,$F4
+  .byte $FC,$9D,$02,$FC
+  .byte $FC,$9F,$42,$04
+  .byte $04,$9E,$02,$FC
   ; @a109
-  .byte $04,$FC,$9C,$02
-  .byte $F4,$FC,$9D,$02
-  .byte $FC,$FC,$9C,$42
-  .byte $04,$04,$9E,$02,$FC
+  .byte $04
+  .byte $FC,$9C,$02,$F4
+  .byte $FC,$9D,$02,$FC
+  .byte $FC,$9C,$42,$04
+  .byte $04,$9E,$02,$FC
   ; @a11a
-  .byte $02,$FC,$9A,$02
-  .byte $F8,$FC,$9B,$02,$00
+  .byte $02
+  .byte $FC,$9A,$02,$F8
+  .byte $FC,$9B,$02,$00
   ; @a123
-  .byte $04,$F5,$B1,$43
-  .byte $F8,$F5,$B0,$43
-  .byte $00,$FD,$B3,$43
-  .byte $F8,$FD,$B2,$43,$00
+  .byte $04
+  .byte $F5,$B1,$43,$F8
+  .byte $F5,$B0,$43,$00
+  .byte $FD,$B3,$43,$F8
+  .byte $FD,$B2,$43,$00
   ; @a134
-  .byte $02,$FC,$B8,$02
-  .byte $F8,$FC,$B9,$02,$00
+  .byte $02
+  .byte $FC,$B8,$02,$F8
+  .byte $FC,$B9,$02,$00
   ; @a13d
-  .byte $03,$F8,$F4,$02
-  .byte $F8,$F8,$F5,$02
-  .byte $00,$00,$F6,$02,$FC
+  .byte $03
+  .byte $F8,$F4,$02,$F8
+  .byte $F8,$F5,$02,$00
+  .byte $00,$F6,$02,$FC
   ; @a14a
-  .byte $01,$FC,$BF,$02,$FC
+  .byte $01
+  .byte $FC,$BF,$02,$FC
   ; @a14f
-  .byte $04,$F8,$EE,$02
-  .byte $F8,$F8,$EE,$42
-  .byte $00,$00,$EF,$02
-  .byte $F8,$00,$EF,$42,$00
+  .byte $04
+  .byte $F8,$EE,$02,$F8
+  .byte $F8,$EE,$42,$00
+  .byte $00,$EF,$02,$F8
+  .byte $00,$EF,$42,$00
   ; @a160
-  .byte $04,$04,$FA,$03
-  .byte $F8,$FC,$F8,$03
-  .byte $F8,$FC,$F9,$03
-  .byte $00,$F4,$F7,$03,$00
+  .byte $04
+  .byte $04,$FA,$03,$F8
+  .byte $FC,$F8,$03,$F8
+  .byte $FC,$F9,$03,$00
+  .byte $F4,$F7,$03,$00
   ; @a171
-  .byte $04,$F8,$B7,$02
-  .byte $F8,$F8,$B8,$02
-  .byte $00,$00,$B9,$02
-  .byte $F8,$00,$BA,$02,$00
+  .byte $04
+  .byte $F8,$B7,$02,$F8
+  .byte $F8,$B8,$02,$00
+  .byte $00,$B9,$02,$F8
+  .byte $00,$BA,$02,$00
   ; @a182
-  .byte $04,$F8,$BB,$02
-  .byte $F8,$F8,$BC,$02
-  .byte $00,$00,$BD,$02
-  .byte $F8,$00,$BE,$02,$00
+  .byte $04
+  .byte $F8,$BB,$02,$F8
+  .byte $F8,$BC,$02,$00
+  .byte $00,$BD,$02,$F8
+  .byte $00,$BE,$02,$00
   ; @a193
-  .byte $01,$FD,$E5,$03,$FD
+  .byte $01
+  .byte $FD,$E5,$03,$FD
   ; @a198
-  .byte $01,$FC,$D4,$02,$FC
+  .byte $01
+  .byte $FC,$D4,$02,$FC
   ; @a19d
-  .byte $01,$FC,$D5,$02,$FC
+  .byte $01
+  .byte $FC,$D5,$02,$FC
   ; @a1a2
-  .byte $01,$FD,$E6,$03,$FD
+  .byte $01
+  .byte $FD,$E6,$03,$FD
   ; @a1a7
-  .byte $01,$FC,$E7,$03,$FC
+  .byte $01
+  .byte $FC,$E7,$03,$FC
   ; @a1ac
-  .byte $03,$FC,$C0,$42
-  .byte $04,$FC,$C1,$42
-  .byte $FC,$FC,$C2,$42,$F4
+  .byte $03
+  .byte $FC,$C0,$42,$04
+  .byte $FC,$C1,$42,$FC
+  .byte $FC,$C2,$42,$F4
   ; @a1b9
-  .byte $05,$FC,$8E,$02
-  .byte $F8,$04,$8F,$02
-  .byte $F8,$FC,$8D,$02
-  .byte $00,$FC,$86,$02
-  .byte $08,$F4,$85,$02,$00
+  .byte $05
+  .byte $FC,$8E,$02,$F8
+  .byte $04,$8F,$02,$F8
+  .byte $FC,$8D,$02,$00
+  .byte $FC,$86,$02,$08
+  .byte $F4,$85,$02,$00
   ; @a1ce
-  .byte $04,$F8,$68,$02
-  .byte $F8,$00,$69,$02
-  .byte $F8,$F8,$68,$42
-  .byte $00,$00,$69,$42,$00
+  .byte $04
+  .byte $F8,$68,$02,$F8
+  .byte $00,$69,$02,$F8
+  .byte $F8,$68,$42,$00
+  .byte $00,$69,$42,$00
   ; ************@a1df not called
-  .byte $04,$FC,$F1,$02
-  .byte $F0,$FC,$F2,$02
-  .byte $F8,$FC,$F2,$42
-  .byte $00,$FC,$F1,$42,$08
+  .byte $04
+  .byte $FC,$F1,$02,$F0
+  .byte $FC,$F2,$02,$F8
+  .byte $FC,$F2,$42,$00
+  .byte $FC,$F1,$42,$08
   ; ************@a1f0 not called
-  .byte $03,$FC,$F5,$02
-  .byte $F4,$FC,$F6,$02
-  .byte $FC,$FC,$F5,$02,$04
+  .byte $03
+  .byte $FC,$F5,$02,$F4
+  .byte $FC,$F6,$02,$FC
+  .byte $FC,$F5,$02,$04
   ; @a1fd
-  .byte $02,$F8,$B4,$02
-  .byte $FC,$00,$B5,$02,$FC
+  .byte $02
+  .byte $F8,$B4,$02,$FC
+  .byte $00,$B5,$02,$FC
   ; @a206
-  .byte $02,$F8,$B6,$02
-  .byte $FC,$00,$B7,$02,$FC
+  .byte $02
+  .byte $F8,$B6,$02,$FC
+  .byte $00,$B7,$02,$FC
   ; @a20f
-  .byte $04,$F8,$B0,$02
-  .byte $F8,$F8,$B1,$02
-  .byte $00,$00,$B2,$02
-  .byte $F8,$00,$B3,$02,$00
+  .byte $04
+  .byte $F8,$B0,$02,$F8
+  .byte $F8,$B1,$02,$00
+  .byte $00,$B2,$02,$F8
+  .byte $00,$B3,$02,$00
   ; @a220
   .byte $00
   ; @a221
-  .byte $04,$F8,$D4,$02
-  .byte $F8,$F8,$D5,$02
-  .byte $00,$00,$D8,$02
-  .byte $F8,$00,$D9,$02,$00
+  .byte $04
+  .byte $F8,$D4,$02,$F8
+  .byte $F8,$D5,$02,$00
+  .byte $00,$D8,$02,$F8
+  .byte $00,$D9,$02,$00
   ; @a232
-	.byte $04,$F8,$D4,$02
-  .byte $F8,$F8,$D5,$02
-  .byte $00,$00,$D6,$02
-  .byte $F8,$00,$D7,$02,$00
+	.byte $04
+  .byte $F8,$D4,$02,$F8
+  .byte $F8,$D5,$02,$00
+  .byte $00,$D6,$02,$F8
+  .byte $00,$D7,$02,$00
   ; @a243
-  .byte $05,$F8,$90,$02
-  .byte $F0,$F8,$91,$02
-  .byte $F8,$F8,$92,$02
-  .byte $00,$00,$93,$02
-  .byte $F8,$00,$94,$02,$00
+  .byte $05
+  .byte $F8,$90,$02,$F0
+  .byte $F8,$91,$02,$F8
+  .byte $F8,$92,$02,$00
+  .byte $00,$93,$02,$F8
+  .byte $00,$94,$02,$00
   ; @a258
-  .byte $05,$F8,$91,$02
-  .byte $F8,$F8,$92,$02
-  .byte $00,$00,$97,$02
-  .byte $F0,$00,$98,$02
-  .byte $F8,$00,$94,$02,$00
+  .byte $05
+  .byte $F8,$91,$02,$F8
+  .byte $F8,$92,$02,$00
+  .byte $00,$97,$02,$F0
+  .byte $00,$98,$02,$F8
+  .byte $00,$94,$02,$00
   ; @a26d
-  .byte $02,$F8,$9B,$03
-  .byte $FC,$00,$9C,$03,$FC
+  .byte $02
+  .byte $F8,$9B,$03,$FC
+  .byte $00,$9C,$03,$FC
   ; @a276
-  .byte $04,$F8,$DC,$43
-  .byte $F8,$F8,$DB,$43
-  .byte $00,$00,$DE,$43
-  .byte $F8,$00,$DD,$43,$00
+  .byte $04
+  .byte $F8,$DC,$43,$F8
+  .byte $F8,$DB,$43,$00
+  .byte $00,$DE,$43,$F8
+  .byte $00,$DD,$43,$00
   ; @a287
-  .byte $03,$FC,$A1,$41
-  .byte $F4,$FC,$A7,$41
-  .byte $FC,$FC,$A0,$41,$04
+  .byte $03
+  .byte $FC,$A1,$41,$F4
+  .byte $FC,$A7,$41,$FC
+  .byte $FC,$A0,$41,$04
   ; @a294 
-  .byte $03,$FC,$A1,$41
-  .byte $F4,$FC,$A2,$41
-  .byte $FC,$FC,$A0,$41,$04
+  .byte $03
+  .byte $FC,$A1,$41,$F4
+  .byte $FC,$A2,$41,$FC
+  .byte $FC,$A0,$41,$04
   ; @a2a1
-  .byte $03,$FC,$A1,$41
-  .byte $F4,$FC,$A3,$41
-  .byte $FC,$FC,$A0,$41,$04
+  .byte $03
+  .byte $FC,$A1,$41,$F4
+  .byte $FC,$A3,$41,$FC
+  .byte $FC,$A0,$41,$04
   ; @a2ae 
-  .byte $03,$FC,$A1,$41
-  .byte $F4,$FC,$A4,$41
-  .byte $FC,$FC,$A0,$41,$04
+  .byte $03
+  .byte $FC,$A1,$41,$F4
+  .byte $FC,$A4,$41,$FC
+  .byte $FC,$A0,$41,$04
   ; @a2bb
-  .byte $03,$FC,$A1,$41
-  .byte $F4,$FC,$A5,$41
-  .byte $FC,$FC,$A0,$41,$04
+  .byte $03
+  .byte $FC,$A1,$41,$F4
+  .byte $FC,$A5,$41,$FC
+  .byte $FC,$A0,$41,$04
   ; @a2c8
-  .byte $03,$FC,$A1,$41
-  .byte $F4,$FC,$A6,$41
-  .byte $FC,$FC,$A0,$41,$04
+  .byte $03
+  .byte $FC,$A1,$41,$F4
+  .byte $FC,$A6,$41,$FC
+  .byte $FC,$A0,$41,$04
   ; @a2d5
-  .byte $03,$FC,$A8,$01
-  .byte $F4,$FC,$A9,$41
-  .byte $FC,$FC,$A8,$41,$04
+  .byte $03
+  .byte $FC,$A8,$01,$F4
+  .byte $FC,$A9,$41,$FC
+  .byte $FC,$A8,$41,$04
   ; @a2e2
-  .byte $03,$FC,$A8,$01
-  .byte $F4,$FC,$AA,$41
-  .byte $FC,$FC,$A8,$41,$04
+  .byte $03
+  .byte $FC,$A8,$01,$F4
+  .byte $FC,$AA,$41,$FC
+  .byte $FC,$A8,$41,$04
   ; @a2ef
-  .byte $03,$FC,$A8,$01
-  .byte $F4,$FC,$A9,$41
-  .byte $FC,$FC,$A8,$41,$04
+  .byte $03
+  .byte $FC,$A8,$01,$F4
+  .byte $FC,$A9,$41,$FC
+  .byte $FC,$A8,$41,$04
   ; @a2fc
-  .byte $03,$FC,$A8,$01
-  .byte $F4,$FC,$AB,$41
-  .byte $FC,$FC,$A8,$41,$04
+  .byte $03
+  .byte $FC,$A8,$01,$F4
+  .byte $FC,$AB,$41,$FC
+  .byte $FC,$A8,$41,$04
   ; @a309
-  .byte $03,$FC,$A8,$01
-  .byte $F4,$FC,$AC,$41
-  .byte $FC,$FC,$A8,$41,$04
+  .byte $03
+  .byte $FC,$A8,$01,$F4
+  .byte $FC,$AC,$41,$FC
+  .byte $FC,$A8,$41,$04
   ; @a316
-  .byte $03,$FC,$A8,$01
-  .byte $F4,$FC,$A9,$41
-  .byte $FC,$FC,$A8,$41,$04
+  .byte $03
+  .byte $FC,$A8,$01,$F4
+  .byte $FC,$A9,$41,$FC
+  .byte $FC,$A8,$41,$04
   ; @a323
-  .byte $03,$FC,$A8,$01
-  .byte $F4,$FC,$A9,$41
-  .byte $FC,$FC,$A8,$41,$04
+  .byte $03
+  .byte $FC,$A8,$01,$F4
+  .byte $FC,$A9,$41,$FC
+  .byte $FC,$A8,$41,$04
   ; @a330 guardian
-  .byte $03,$FC,$D0,$02
-  .byte $F4,$FC,$D1,$02
-  .byte $FC,$FC,$D0,$42,$04
+  .byte $03
+  .byte $FC,$D0,$02,$F4
+  .byte $FC,$D1,$02,$FC
+  .byte $FC,$D0,$42,$04
   ; Megatron Poster
-  .byte $30,$E8,$DF,$42
-  .byte $E0,$E8,$DE,$42
-  .byte $E8,$E8,$DD,$42
-  .byte $F0,$E8,$DC,$42
-  .byte $F8,$E8,$DB,$42
-  .byte $00,$E8,$DA,$42
-  .byte $08,$E8,$D9,$42
-  .byte $10,$E8,$D8,$42
-  .byte $18,$F0,$FF,$42
-  .byte $E0,$F0,$FE,$42
-  .byte $E8,$F0,$FD,$42
-  .byte $F0,$F0,$FC,$42
-  .byte $F8,$F0,$FB,$42
-  .byte $00,$F0,$FA,$42
-  .byte $08,$F0,$F9,$42
-  .byte $10,$F0,$F8,$42
-  .byte $18,$F8,$B7,$42
-  .byte $E0,$F8,$B6,$42
-  .byte $E8,$F8,$B5,$42
-  .byte $F0,$F8,$B4,$42
-  .byte $F8,$F8,$B3,$42
-  .byte $00,$F8,$B2,$42
-  .byte $08,$F8,$B1,$42
-  .byte $10,$F8,$B0,$42
-  .byte $18,$00,$BF,$42
-  .byte $E0,$00,$BE,$42
-  .byte $E8,$00,$BD,$42
-  .byte $F0,$00,$BC,$42
-  .byte $F8,$00,$BB,$42
-  .byte $00,$00,$BA,$42
-  .byte $08,$00,$B9,$42
-  .byte $10,$00,$B8,$42
-  .byte $18,$08,$C7,$42
-  .byte $E0,$08,$C6,$42
-  .byte $E8,$08,$C5,$42
-  .byte $F0,$08,$C4,$42
-  .byte $F8,$08,$C3,$42
-  .byte $00,$08,$C2,$42
-  .byte $08,$08,$C1,$42
-  .byte $10,$08,$C0,$42
-  .byte $18,$10,$CF,$42
-  .byte $E0,$10,$CE,$42
-  .byte $E8,$10,$CD,$42
-  .byte $F0,$10,$CC,$42
-  .byte $F8,$10,$CB,$42
-  .byte $00,$10,$CA,$42
-  .byte $08,$10,$C9,$42
-  .byte $10,$10,$C8,$42,$18
+  .byte $30
+  .byte $E8,$DF,$42,$E0
+  .byte $E8,$DE,$42,$E8
+  .byte $E8,$DD,$42,$F0
+  .byte $E8,$DC,$42,$F8
+  .byte $E8,$DB,$42,$00
+  .byte $E8,$DA,$42,$08
+  .byte $E8,$D9,$42,$10
+  .byte $E8,$D8,$42,$18
+  .byte $F0,$FF,$42,$E0
+  .byte $F0,$FE,$42,$E8
+  .byte $F0,$FD,$42,$F0
+  .byte $F0,$FC,$42,$F8
+  .byte $F0,$FB,$42,$00
+  .byte $F0,$FA,$42,$08
+  .byte $F0,$F9,$42,$10
+  .byte $F0,$F8,$42,$18
+  .byte $F8,$B7,$42,$E0
+  .byte $F8,$B6,$42,$E8
+  .byte $F8,$B5,$42,$F0
+  .byte $F8,$B4,$42,$F8
+  .byte $F8,$B3,$42,$00
+  .byte $F8,$B2,$42,$08
+  .byte $F8,$B1,$42,$10
+  .byte $F8,$B0,$42,$18
+  .byte $00,$BF,$42,$E0
+  .byte $00,$BE,$42,$E8
+  .byte $00,$BD,$42,$F0
+  .byte $00,$BC,$42,$F8
+  .byte $00,$BB,$42,$00
+  .byte $00,$BA,$42,$08
+  .byte $00,$B9,$42,$10
+  .byte $00,$B8,$42,$18
+  .byte $08,$C7,$42,$E0
+  .byte $08,$C6,$42,$E8
+  .byte $08,$C5,$42,$F0
+  .byte $08,$C4,$42,$F8
+  .byte $08,$C3,$42,$00
+  .byte $08,$C2,$42,$08
+  .byte $08,$C1,$42,$10
+  .byte $08,$C0,$42,$18
+  .byte $10,$CF,$42,$E0
+  .byte $10,$CE,$42,$E8
+  .byte $10,$CD,$42,$F0
+  .byte $10,$CC,$42,$F8
+  .byte $10,$CB,$42,$00
+  .byte $10,$CA,$42,$08
+  .byte $10,$C9,$42,$10
+  .byte $10,$C8,$42,$18
   ; @a3fe
-  .byte $04,$F8,$90,$01
-  .byte $F8,$F8,$91,$01
-  .byte $00,$00,$92,$01
-  .byte $F8,$00,$93,$01,$00
+  .byte $04
+  .byte $F8,$90,$01,$F8
+  .byte $F8,$91,$01,$00
+  .byte $00,$92,$01,$F8
+  .byte $00,$93,$01,$00
   ; @a40f
-  .byte $02,$F8,$94,$01
-  .byte $FC,$00,$95,$01,$FC
+  .byte $02
+  .byte $F8,$94,$01,$FC
+  .byte $00,$95,$01,$FC
   ; @a418
-  .byte $04,$F8,$96,$01
-  .byte $F8,$F8,$97,$01
-  .byte $00,$00,$98,$01
-  .byte $F8,$00,$99,$01,$00
+  .byte $04
+  .byte $F8,$96,$01,$F8
+  .byte $F8,$97,$01,$00
+  .byte $00,$98,$01,$F8
+  .byte $00,$99,$01,$00
   ; @a429 
-  .byte $02,$FC,$BA,$02
-  .byte $F8,$FC,$BA,$02,$00
+  .byte $02
+  .byte $FC,$BA,$02,$F8
+  .byte $FC,$BA,$02,$00
   ; @a432
-	.byte $02,$FC,$BB,$01
-  .byte $F8,$FC,$BB,$01,$00
+	.byte $02
+  .byte $FC,$BB,$01,$F8
+  .byte $FC,$BB,$01,$00
   ; @a43b
-  .byte $04,$FC,$F2,$01
-  .byte $F4,$FC,$FF,$01
-  .byte $FC,$FC,$F2,$41
-  .byte $04,$04,$FB,$01,$FC
+  .byte $04
+  .byte $FC,$F2,$01,$F4
+  .byte $FC,$FF,$01,$FC
+  .byte $FC,$F2,$41,$04
+  .byte $04,$FB,$01,$FC
   ; @a44c
-  .byte $01,$FC,$EA,$01,$FC
+  .byte $01
+  .byte $FC,$EA,$01,$FC
   ; @a451
-  .byte $01,$FC,$EB,$01,$FC
+  .byte $01
+  .byte $FC,$EB,$01,$FC
 
 
 enemy_misc_rtn_7:
@@ -5664,7 +5801,7 @@ b_ac1b:                     ; Tosher is within ~10 tiles from player
   rts   
 
 eny_ground_collision:
-  jsr get_eny_bg_tile
+  jsr get_sprite_bg_tile
   jsr collision_chk_rtn
   ldx current_enemy
   bcs b_ac66          ; branch if colided with ground
@@ -5764,7 +5901,7 @@ b_acff:
   sta $0E
   lda eny_spr_y_pos_page,X
   sta $0F
-  jsr get_eny_bg_tile
+  jsr get_sprite_bg_tile
   jsr collision_chk_rtn
   ldx current_enemy
   bcc b_ad32
@@ -5824,7 +5961,7 @@ j_ad7b:
   sta $00
   lda eny_spr_x_pos_page,X
   sta $01
-  jsr get_eny_bg_tile
+  jsr get_sprite_bg_tile
   jsr collision_chk_rtn
   ldx current_enemy
   bcc b_adae
@@ -6354,23 +6491,23 @@ b_b176:
   eor #$01
   sta eny_spr_substatus,X
   rts
-lvl_8_10_flash_text:
+lvl_8_10_flash_pal:
   lda current_level
-  cmp #$0E          ; check if level 8
-  beq flash_b_w_text
-  cmp #$12          ; check if level 10
-  beq flash_b_w_text
+  cmp #$0E                  ; check if level 8
+  beq flash_st8_10_pal
+  cmp #$12                  ; check if level 10
+  beq flash_st8_10_pal
   rts
-flash_b_w_text:
-  lda timer_lo_byte   ; flash every 8 frames
+flash_st8_10_pal:
+  lda timer_lo_byte         ; flash every 8 frames
   and #$08
-  bne :+
+  bne :+                    ; flip colours in palette
   lda #$0F
   sta text_flash_pal_ram
   lda #$00
-  sta text_flash_pal_ram_B    ; useless ram
+  sta text_flash_pal_ram_B  ; palette ram
   rts
-:                             ; b_b199
+:                           ; b_b199
   lda #$00
   sta text_flash_pal_ram
   lda #$0F
@@ -6436,7 +6573,7 @@ eny_01: ; @$B279  Blitzwing
   lda eny_spr_y_pos_page,X
   adc #$00
   sta $0F
-  jsr get_eny_bg_tile
+  jsr get_sprite_bg_tile
   jsr collision_chk_rtn
   ldx current_enemy
   bcc b_b2b1
@@ -6475,7 +6612,7 @@ eny_02: ; @b2ce           bot
   lda eny_spr_y_pos_page,X
   adc #$00
   sta $0f
-  jsr get_eny_bg_tile
+  jsr get_sprite_bg_tile
   jsr collision_chk_rtn
   ldx current_enemy
   bcc b_b306
@@ -6578,7 +6715,7 @@ b_b3a5:
   lda eny_spr_y_pos_page,X
   adc #$00
   sta $0F
-  jsr get_eny_bg_tile
+  jsr get_sprite_bg_tile
   jsr collision_chk_rtn
   ldx current_enemy
   bcs b_b3dd          
@@ -6981,7 +7118,7 @@ eny_0a:   ; b6b9
   sta $0E
   lda eny_spr_y_pos_page,X
   sta $0F
-  jsr get_eny_bg_tile
+  jsr get_sprite_bg_tile
   jsr collision_chk_rtn
   ldx current_enemy
   bcs b_b713
