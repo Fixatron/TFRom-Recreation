@@ -28,6 +28,7 @@
             Hold right as the level starts and jump over the first swooping decepticon jet. 
             Run under the subsequent jets and under the Gosupu (rocket). Shoot the powerup ramjet, but watch out for the jet that swoops just after the Gosupu.
             Running along, there is a Gosupu directly under a moon, right after this is the jet with the first Rodimus letter, R.
+            Hidden energon cube at plrxprog 048000
             Hidden energon cube is at plrxprog0xA078F8, w/ plrxpos0xBF78, or between the two large moons before the end of the level. Jump as high as you can in the middle of the two moons and shoot once to the right to reveal an energon cube. Dont shoot the cube, it can be killed and you wont get any points.
     -Boss 1:
             Go to the grey platform which looks like Optimus Prime's bumper under the boss and transform into a truck by holding down.

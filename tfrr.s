@@ -21,12 +21,12 @@ timer_lo_byte           = $19
 timer_hi_byte           = $1A
 which_player            = $1B    ; 00= player 1, ff= player 2
 rtn_trk_0               = $1C
-rtn_trk_a               = $1D    ; $80 = title screen, 04= start pushed at title, 08=level start, 00= in game. 0bit = stuff in stack
+rtn_trk_a               = $1D    ; $80 = title screen, 10 = title screen initialized, 04= start pushed at title, 08=level start/game over, 00= in game. 0bit = stuff in stack
 rtn_trk_b               = $1E
 flash_counter           = $1F
 unram_27                = $20
 sel_status              = $21    ; selection status for title screen, 0= 1 player, FF=2 players
-state                   = $22    ; level state %0000 0000 start pushed at title, level complete, warp 2 stages, sideroom trigger,  01 = level checkpoint reached
+state                   = $22    ; level state %0000 0000 start pushed at title, level complete, warp 2 stages, sideroom trigger,?,trigger warp zone,explode player,lvl end chkpoint reached  01 = level checkpoint reached
 p1ScoreLo               = $23
 p1ScoreMid              = $24
 p1ScoreHi               = $25
@@ -109,7 +109,7 @@ rodimus_ram             = $74
 sub_state               = $75     ; 0000 0xxx : side room loaded, sideroom exited(dont reload), sideroom timeout, , | last 3 bytes are used to address the sideroom checkpoint and offset the current level with 14
 lvl9_clear              = $76
 chkpt_counter           = $77
-score_1_up_lo           = $78   ; next score needed for 2-up
+score_1_up_lo           = $78   ; next score needed for 1S-up
 score_1_up_mid          = $79   
 score_1_up_hi           = $7A 
 unram_21                = $7B 
@@ -168,20 +168,20 @@ rng_counter             = $FE
 
 ; audio ram
 audio_ram_start         = $0300
-audio_ram_0             = $0300
-audio_ram_1             = $0301
-aud_addr_lo             = $0302
-aud_addr_hi             = $0303
+trk_status              = $0300
+trk_ch                  = $0301
+trk_addr_lo             = $0302
+trk_addr_hi             = $0303
 audio_ram_4             = $0304
 audio_ram_5             = $0305
 audio_ram_6             = $0306
-audio_ram_7             = $0307
-audio_ram_8             = $0308
+trk_note_len            = $0307
+track_sweep             = $0308
 audio_ram_9             = $0309
 audio_ram_A             = $030A
 audio_ram_B             = $030B
 audio_ram_C             = $030C
-audio_ram_timer             = $030D
+audio_ram_timer         = $030D
 audio_ram_E             = $030E
 audio_ram_F             = $030F
 
@@ -329,32 +329,32 @@ JOY2_FRAME      = $4017         ; Joypad #2/SOFTCLK (RW)
 .segment "STARTUP"
 ; important stuff for safe chr bank switching @$8000
 .byte $00,$01,$02,$03
-; TF insignia flip sound info a @$8004
+aud_tf_insig_a:         ; TF insignia flip sound info a @$8004
 .byte $05,$01,$0F,$00,$34,$04,$36,$02,$37,$04,$30,$02,$30,$10,$FF
-; TF insignia flip sound info b @$8013
+aud_tf_insig_b:         ; TF insignia flip sound info b @$8013
 .byte $15,$01,$0F,$00,$2B,$04,$31,$02,$32,$04,$27,$02,$27,$04,$60,$10,$FF
-; TF insignia flip sound info c @$8024
+aud_tf_insig_c:         ; TF insignia flip sound info c @$8024
 .byte $25,$7F,$00,$00,$24,$04,$26,$02,$27,$04,$20,$02,$20,$04,$24,$01,$25,$01,$26,$01,$27,$01,$28,$01,$29,$01,$2A,$01,$2B,$01,$30,$04,$FF
-; TF insignia flip sound info d @$8045
+aud_tf_insig_d:         ; TF insignia flip sound info d @$8045
 .byte $35,$00,$00,$00,$03,$04,$03,$02,$03,$04,$03,$02,$03,$04,$FF
-; game over a @$8054
+aud_game_over_a:        ; game over a @$8054
 .byte $05,$01,$0F,$00,$39,$04,$39,$02,$37,$02,$1F,$02,$37,$02,$39,$04,$40,$02,$3B,$02,$37,$02,$32,$02,$34,$02,$37,$06,$39,$02,$FF
-; game over b @$8073
+aud_game_over_b:        ; game over b @$8073
 .byte $15,$01,$0F,$00,$24,$04,$24,$02,$22,$02,$1F,$02,$22,$02,$24,$04,$20,$0A,$22,$06,$24,$02,$FF
-; game over c @$808A
+aud_game_over_c:        ; game over c @$808A
 .byte $25,$7F,$00,$00,$29,$04,$29,$02,$27,$02,$1F,$02,$27,$02,$29,$04,$25,$0A,$27,$06,$29,$02,$FF
-;tftheme/game over d @$80a1
+aud_game_over_d:        ;tftheme/game over d @$80a1
 .byte $35,$00,$00,$00,$03,$04,$03,$02,$03,$04,$03,$02,$03,$04,$03,$02,$B5,$FF,$1F,$04,$03,$02,$FF
-; rodimus endscreen/bumblebee screen @$80B8
+aud_rod_endscreen:      ; rodimus endscreen/bumblebee screen @$80B8
 .byte $12,$02,$1F,$00,$EF,$02,$40,$01,$45,$01,$47,$01,$50,$01,$B6,$FC,$DF,$02,$40,$01,$45,$01,$47,$01,$50,$01,$B7,$FC,$BF,$F4
-; Subtitle sound a @$80D6
+aud_subtitle_a:         ; Subtitle sound a @$80D6
 .byte $30,$00,$00,$00,$07,$10,$FF
-; Subtitle sound b @$80DD
+aud_subtitle_b:         ; Subtitle sound b @$80DD
 .byte $10,$01,$01,$00,$69,$10,$FF
-; Subtitle sound c @$80E4
-.byte $10,$01,$1F,$00,$EF,$01,$29,$01,$24,$01,$22,$01,$19,$01,$B8,$FC
-;buffer area
-.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+aud_subtitle_c:         ; Subtitle sound c @$80E4
+.byte $10,$01,$1F,$00,$EF,$01,$29,$01,$24,$01,$22,$01,$19,$01,$B8,$FC,$FF
+; unused buffer area
+.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
 ; Main code segment for the program
 .segment "CODE"
 
@@ -694,7 +694,7 @@ nmi:                        ; beginning of frame
   lda rtn_trk_a             ; check routine status, do stuff if 0bit is set or if it isnt
   lsr
   bcc :+                    ; branch if stack is cleared
-  jmp stack_handler_1       ; @$840B 
+  jmp play_sound_then_rti       ; @$840B 
 :
   lda rtn_trk_a
   ora #$01                  ; set 0bit in routine status to 1
@@ -717,9 +717,9 @@ nmi:                        ; beginning of frame
 :
   and #$08
   bne :+
-  jmp sound_rtn_jmp_point_2 ; jump to collision detection if A is $08
+  jmp game_rtn_1            ; jump to collision detection if A is not $08
 :
-  jmp sound_rtn_jmp_point_1 ; jump to the first one, if A isnt $08
+  jmp card_screen_rtn       ; stage intro screen, game over screen, end screen
 :
   jmp titlescreen_get_player_input
 :
@@ -733,7 +733,7 @@ nmi:                        ; beginning of frame
 :
   jsr set_nametable
   jsr player_bullet_enemy_routine
-  jsr clear_audio_channels
+  jsr audio_rtn
   jsr write_pl1_score
   jsr get_player_input
   jsr controller_input_check_b
@@ -742,7 +742,7 @@ nmi:                        ; beginning of frame
   lda state
   and #$04                  ; check if we've triggered a bumblebee warp room
   beq :+
-  jmp flash_counter_jmp     ; jump to flashing screen stuff
+  jmp warp_trigger          ; jump to flashing screen stuff
 :
   lda sideroom_state
   bpl :+
@@ -751,13 +751,13 @@ nmi:                        ; beginning of frame
   lda state
   bmi pull_stack_and_rti
   and #$02
-  bne :+++
+  bne explode_plr           ; if state has 0000 0010 set, then explode player
   lda state
   lsr
-  bcs :+
+  bcs roll_out_rtn          ; do rollout routine at the end of stage if 0000 0001 set
   lda sub_state
-  bmi side_room_rtn
-  jsr game_jmp_1            ; @$8511
+  bmi side_room_rtn         ; run sideroom routine if sub_state is negative
+  jsr gameplay_rtn            ; @$8511 do regular game routine if substate not negative
 pull_stack_and_rti:
   lda rtn_trk_a
   and #$FE
@@ -770,34 +770,34 @@ pull_stack_and_rti_b:
   pla
 irq:
   rti
-stack_handler_1:
-  jsr clear_audio_channels
+play_sound_then_rti:
+  jsr audio_rtn
   jmp pull_stack_and_rti_b
-:
+roll_out_rtn:
   lda current_level
   and #$01
-  bne :+
+  bne rollout_boss_rtn            ; branch if on a boss
   jsr stage_checkpoint
   jsr wpn_end_rtn
   jmp pull_stack_and_rti
-:
+rollout_boss_rtn:
   jsr enemy_sprite_rtn
   jsr boss_defeated
   jsr flash_background
   jmp pull_stack_and_rti
-:
+explode_plr:
   inc flash_counter
   lda flash_counter
-  cmp #$80
+  cmp #$80          ; end level when flash counter reaches 80
   bcs :++
   ldx #$00
-  ldy #$0F
-  cmp #$0C
+  ldy #$0F          ; load explode player sprite to y
+  cmp #$0C          ; show explosion sprite until 0F on flash counter
   bcc :+
-  iny
+  iny               ; increment y to next explosion sprite until 18 on flash counter
   cmp #$18
   bcc :+
-  ldy #$0A
+  ldy #$0A          ; show invisible sprite
 :
   sty player_sprite
   jmp pull_stack_and_rti
@@ -820,7 +820,7 @@ side_room_rtn:
   jsr enemy_misc_rtn_9
   jsr wpn_eny_hit_detection
   jmp pull_stack_and_rti
-flash_counter_jmp:
+warp_trigger:
   inc flash_counter
   lda flash_counter
   cmp #$C0
@@ -829,9 +829,9 @@ flash_counter_jmp:
   jmp pull_stack_and_rti
 :
   lda #$80
-  sta sideroom_state        ;***********@8483, @0x49x
+  sta sideroom_state        ;***********@8483, @0x49x, not sure why this is necessary
   lda #$20
-  sta state
+  sta state                 ; warp 2 stages
   jmp pull_stack_and_rti
 enemy_misc_rtn_1:
   jsr enemy_misc_rtn_7
@@ -847,17 +847,17 @@ titlescreen_get_player_input:
   jsr get_player_input
   jsr titlescreen_input_check
   jsr sel_sprite_rtn
-  jsr clear_audio_channels
+  jsr audio_rtn
   jmp pull_stack_and_rti
-sound_rtn_jmp_point_1:
-  jsr clear_audio_channels
+card_screen_rtn:
+  jsr audio_rtn
   jsr get_player_input
   lda #$00
   sta $0F
   jsr player_sprite_rtn
   jmp pull_stack_and_rti
-sound_rtn_jmp_point_2:
-  jsr clear_audio_channels
+game_rtn_1:                         ; pre-stage screen, endscreen, gameover screen
+  jsr audio_rtn
   jsr player_bullet_enemy_routine
   jsr enemy_sprite_rtn
   jsr enemy_misc_rtn_8
@@ -894,11 +894,11 @@ title_scroll_rtn:
   jsr get_player_input
   jsr scroll_logo
   jsr set_nametable
-  jsr clear_audio_channels
+  jsr audio_rtn
   jmp pull_stack_and_rti
-game_jmp_1:
+gameplay_rtn:
   jsr plr_col_spr_rtn
-  jsr load_sideroom
+  jsr chk_sideroom_chkpt
   jsr wpn_start_rtn
   jsr wpn_end_rtn
   jsr enemy_misc_rtn_7
@@ -909,11 +909,11 @@ game_jmp_1:
   jsr lvl_8_10_flash_pal
   lda current_level         ; ********@852F and @0x54x
   lsr
-  bcs :+
+  bcs :+                    ; branch out if on a boss
   lda stage_orientation
   and #$C0
-  bne :+
-  jsr save_plr_x_prog
+  bne :+                    ; branch out if on a vertical level
+  jsr chk_plr_x_scroll       
 :
   rts
 get_player_input:           ; @$853E
@@ -1002,7 +1002,7 @@ set_nametable:              ; @$85CA
   sta ram_PPU_CTRL
   sta PPU_CTRL              ; turn on screen
   jmp ppu_scroll
-ram_misc_30:
+ram_misc_30:    ; something to do with plr eny collision
   lda #$00
   sta $04
   sta $05
@@ -1027,8 +1027,8 @@ ram_misc_30:
   dey
   bpl :--
   rts
-ram_misc_1:
-  lda #$00
+hex2dec:
+  lda #$00        ; load low byte
   sta $06
   sta $07
   sta $08
@@ -1036,15 +1036,15 @@ ram_misc_1:
 :
   lda $00
   sec
-  sbc #$A0
+  sbc #$A0        ; subtract low byte - A0/ 160 decimal
   sta $03
   lda $01
-  sbc #$86  
+  sbc #$86        ; subtract high byte - 86 / 134 decimal
   sta $04
-  lda $02
+  lda $02         ; load the higher byte, only used for score, 0186A0 = 10,000 decimal
   sbc #$01
-  sta $05
-  bcc :+
+  sta $05         ; subtract 100k from score and store in 03,04,05 ram
+  bcc :+          ; branch if score is less than 100k
   lda $03
   sta $00
   lda $04
@@ -1053,7 +1053,7 @@ ram_misc_1:
   sta $02
   lda $08
   adc #$0F
-  sta $08
+  sta $08         ; add 0F + carry (10) to 08 ram for every 100k points
   bne :-
 :
   lda $00
@@ -1065,7 +1065,7 @@ ram_misc_1:
   sta $04
   lda $02
   sbc #$00
-  sta $05
+  sta $05         ; subtract 10k from points score
   bcc :+
   lda $03
   sta $00
@@ -1073,7 +1073,7 @@ ram_misc_1:
   sta $01
   lda $05
   sta $02
-  inc $08
+  inc $08         ; inc 08 for every 10k points
   bne :-
 :
   lda $00
@@ -1085,7 +1085,7 @@ ram_misc_1:
   sta $04
   lda $02
   sbc #$00
-  sta $05
+  sta $05         ; subtract 1k from points score
   bcc :+
   lda $03
   sta $00
@@ -1095,7 +1095,7 @@ ram_misc_1:
   sta $02
   lda $07
   adc #$0F
-  sta $07
+  sta $07         ; add 0F + carry (10) to 07 ram for every 1k points
   bne :-
 :
   lda $00
@@ -1104,13 +1104,13 @@ ram_misc_1:
   sta $03
   lda $01
   sbc #$00
-  sta $04
+  sta $04         ; subtract 100 from points score
   bcc :+
   lda $03
   sta $00
   lda $04
   sta $01
-  inc $07
+  inc $07         ; inc 07 ram for every 100 points
   bne :-
 :
   lda $00
@@ -1119,7 +1119,7 @@ ram_misc_1:
   sta $03
   lda $01
   sbc #$00
-  sta $04
+  sta $04         ; subtract 10 from points score
   bcc :+
   lda $03
   sta $00
@@ -1127,20 +1127,20 @@ ram_misc_1:
   sta $01
   lda $06
   adc #$0F
-  sta $06
+  sta $06         ; add 0F +carry (10 )to 06 ram for every 10 points
   bne :-
 :
   lda $00
   ora $06
-  sta $06
+  sta $06         ; add remainder
   rts
 controller_input_check_b:
-  lda $F2
-  and #$08
-  beq :+++
+  lda controller_p1_current
+  and #$08                  ; check for start button
+  beq :+++                  ; branch out if start was not pushed
   eor controller_p1_last
-  and #$08
-  beq :+++
+  and #$08                  ; check for start button last frame
+  beq :+++                  ; branch out if start wasnt pushed last frame either
   lda rtn_trk_b
   bpl :+
   lda #$00
@@ -1217,21 +1217,23 @@ write_blank_screen_a:
   iny
   bne :-
   rts
-screen_reset:         ; related to loading screen, likely something to do with a flash
+
+;======================================================================================
+screen_reset:         ; related to loading screen, likely something to do with a flash **************** not called subroutine
   lda PPU_STATUS      ; read PPU status to reset the high/low latch to high
   lda $02
   sta PPU_ADDR        ; write the high byte of $0203 address
   lda $03
   sta PPU_ADDR        ; write the low byte of $0203 address
 :
-  lda $04             ; code for dark pink
+  lda $04             ; 
   sta PPU_VRAM_IO     ; write to PPU $0203
   jsr dec_zero_ram    ; this decrements zero ram @$00 and loops until $00 is equal to $01?
   lda $00
   ora $01
   bne :-
   rts
-dec_zero_ram:
+dec_zero_ram:         ; ******* not called subroutine
   sec
   lda $00
   sbc #$01
@@ -1240,6 +1242,8 @@ dec_zero_ram:
   sbc #$00
   sta $01
   rts
+;==========================================================================
+
 clear_oam_ram:
   ldx #$00
   lda #$F0
@@ -1308,7 +1312,7 @@ chk_1up:
   lda hiScoreMid
   sbc p1ScoreMid
   lda hiScoreHi
-  sbc p2ScoreHi         ; this seems to be a huge mistake when checking the high score. it checks the player 2 high byte instead of player 1
+  sbc p2ScoreHi         ; ***********this seems to be a huge mistake when checking the high score. it checks the player 2 high byte instead of player 1
   bcs b_exit            ; branch out if score isnt higher than current high score
   lda p1ScoreLo
   sta hiScoreLo
@@ -1356,7 +1360,7 @@ p2_1_up_check:
   sbc p2ScoreHi
   bcc offer_1up
   rts
-offer_1up:
+offer_1up:            ; add 2000 points to the amount of points needed to get a one up, then add a 1up. it gets maxed out at 16777215 or ffffff. Keep in mind theres an extra 0 at the end on the scoreboard
   lda score_1_up_lo
   clc
   adc #$D0
@@ -1367,12 +1371,12 @@ offer_1up:
   lda score_1_up_hi
   adc #$00
   sta score_1_up_hi
-  bcc c_exit
+  bcc add_1up
   lda #$FF
   sta score_1_up_lo
   sta score_1_up_mid
   sta score_1_up_hi
-c_exit:
+add_1up:
   inc lives
   rts
 clear_player_scores:  ; @$8868
@@ -1386,6 +1390,8 @@ clear_player_scores:  ; @$8868
   sta incScoreLo    ; $2C
   sta incScoreHi    ; $2D
   rts
+
+;===============================================================================
 not_called_subroutine_2:  ; ***************************************?
   lda PPU_STATUS          ; read PPU status to reset the high/low latch to high
   lda $00
@@ -1394,13 +1400,13 @@ not_called_subroutine_2:  ; ***************************************?
   sta PPU_ADDR            ; write the low byte of $0001 address
   ldy #$00                ; reset y to 0 so we can loop the following 4 times and send 4 bytes of palette data
 :
-  lda ($02),Y             ; load something from a table, somewhere, indirect addressing to an address stored in RAM @$02
+  lda ($02),Y             ; load fourth byte from nonexistant table
   sta PPU_VRAM_IO         ; Send the byte to PPU Data, but its at $0001 of the PPU, which is weird, no? Wonder what the point of this is.
   iny                     ; increment Y
   cpy $04                 ; compare Y with $04
   bcc :-                  ; Loop back until 4 bytes are loaded to PPU 
   rts
-roll_ram_4_5:
+roll_ram_4_5:             ; ****************** not called subroutine
   ldy #$07
   lda #$00
   sta $02
@@ -1422,6 +1428,7 @@ roll_ram_4_5:
   dey
   bpl :--
   rts
+;========================================================
 send_palette_to_ram:
   ldy #$1F
 :
@@ -1458,7 +1465,7 @@ write_pl2_score_b:
   lda p2ScoreHi
   sta $02        ; 
 draw_score:
-  jsr ram_misc_1
+  jsr hex2dec
   ldx #$00
   ldy #$00
   lda $0F                          ; load y postion from RAM
@@ -1534,7 +1541,7 @@ flip_bits_0:    ; flip positive back to negative
   eor #$ff
   sta $00
   rts
-save_plr_x_prog:
+chk_plr_x_scroll:
   lda plr_x_prog_hi
   clc
   adc #$80
@@ -1790,25 +1797,29 @@ update_palette_a:
   cpx #$10        ; store all palette data in ram
   bcc :-
   rts
+  
+;=========================================================
 not_called_subroutine_1:  ;*****************************
   ldy #$00
-  lda ($05),Y
-  sta $00
+  lda ($05),Y     ; load first byte from nonexistant table
+  sta $00         ; store ppu address high byte
   iny
-  lda ($05),Y
-  sta $01
+  lda ($05),Y     ; load second byte
+  sta $01         ; store ppu address low byte
   iny
-  lda ($05),Y
-  sta $04
+  lda ($05),Y     ; load third byte
+  sta $04         ; store length of bytes to send to ppu_data
   iny
   tya
   clc
   adc $05
-  sta $02
+  sta $02         ; just add the index to the address, makes sense to do things this way
   lda #$00
   adc $06
   sta $03
   jmp not_called_subroutine_2
+;===========================================================
+
 reset_scroll_00:
   lda ram_PPU_CTRL
   and #$FE          ; force nametable 0 when sending byte to PPU_CTRL
@@ -3138,7 +3149,7 @@ b_9544:
   inc $01
 b_954a:
   jmp b_9516
-load_sideroom:
+chk_sideroom_chkpt:
   lda sub_state
   and #$40              ; check if we've already been in the room with 40 stored at sub_state
   bne e_exit            ; exit if we've been in the room
@@ -3809,9 +3820,9 @@ wpn_lookup_rtn:
   lda stage_boss
   asl
   tay
-  lda stage_boss_table_2,Y
+  lda stage_boss_sprite_tbl,Y
   sta $09
-  lda stage_boss_table_2+1,Y
+  lda stage_boss_sprite_tbl+1,Y
   sta $0A
   jsr get_num_tiles
   bcc b_9a28
@@ -3825,9 +3836,6 @@ b_9a19:
   bpl b_9a19
 b_9a28:
   rts
-stage_boss_table_2:
-  .word stage_eny_spr_tbl   ; @$9df2 ****
-  .word boss_eny_spr_tbl   ; @$9ef2 ****
 
 
 ;==========================================
@@ -3843,6 +3851,10 @@ stage_boss_table_2:
 ; 09 = address from sprite table low byte
 ; 0A = address from sprite table high byte
 ; 0F = x index counter for ram placement, max is E4, starting at $071C and ending at $07FF
+
+stage_boss_sprite_tbl:
+  .word stage_eny_spr_tbl   ; @$9df2 ****
+  .word boss_eny_spr_tbl   ; @$9ef2 ****
 
 player_bullet_enemy_routine:
   ldx #$00
@@ -4170,6 +4182,8 @@ plr_sprite_tbl:           ; @$9B00-9DB1 player sprite table
   .byte $00,$67,$00,$05
   .byte $08,$68,$00,$F8
   .byte $08,$69,$00,$00
+
+
 wpn_spr_tbl:          ; @$9DB2-9DF1  weapon sprite table
 	.byte $BC,$9D       ; bullet
   .byte $C1,$9D       ; missile
@@ -4201,6 +4215,8 @@ wpn_spr_tbl:          ; @$9DB2-9DF1  weapon sprite table
   ; @9ded enemy bullet
   .byte $01
   .byte $FC,$54,$00,$FC
+
+
 stage_eny_spr_tbl:    ; @$9DF2-9EF1 a jump table
 	.byte $7E,$9F,$7E,$9F,$8B,$9F,$8B,$9F
   .byte $A0,$9F,$B9,$9F,$D2,$9F,$D2,$9F
@@ -4234,6 +4250,7 @@ stage_eny_spr_tbl:    ; @$9DF2-9EF1 a jump table
   .byte $E2,$A2,$E2,$A2,$EF,$A2,$EF,$A2
   .byte $FC,$A2,$FC,$A2,$09,$A3,$09,$A3
   .byte $16,$A3,$16,$A3,$23,$A3,$23,$A3
+
 boss_eny_spr_tbl:    ; @$9EF2-9FF1
 	.byte $1D,$A0,$1D,$A0,$10,$A0,$10,$A0,$10,$A0,$10,$A0,$10,$A0,$10,$A0,$10,$A0,$10,$A0,$2E,$A0,$33,$A0,$2E,$A0,$33,$A0,$38,$A0,$38,$A0
 	.byte $3D,$A0,$42,$A0,$D1,$A0,$D1,$A0,$D6,$A0,$E7,$A0,$38,$A0,$38,$A0,$3D,$A0,$42,$A0,$4F,$A1,$4F,$A1,$38,$A0,$38,$A0,$3D,$A0,$42,$A0
@@ -9107,8 +9124,12 @@ collision_jmp_tbl:   ; @$CC94
   .byte $FF,$FF,$FF,$FF,$00,$00,$00,$00
 
 
-
+;======================================================
 ; Title screen stuff
+;
+; 00 = palette table/PPU_ADDR address low byte
+; 01 = palette table/PPU_ADDR address high byte
+
 draw_title:          ; @$CCC6
   jsr clear_screen
   jsr clear_oam_ram
@@ -9238,7 +9259,7 @@ title_timer_rtn:
   lda #$00
   sta rtn_trk_a
   lda #$FF
-  sta rtn_trk_b
+  sta rtn_trk_b     ; title timed out, set rtn_trk_b with FF to start demo?
   rts
 scroll_logo:
   lda x_scroll      ; starting from FE, roll the x-scroll down for the title to roll in from the left
@@ -9496,7 +9517,7 @@ draw_lives:
   lda #$00
   sta $01
   sta $02
-  jsr ram_misc_1
+  jsr hex2dec
   lda #$22
   sta PPU_ADDR
   lda #$6E
@@ -9899,7 +9920,9 @@ brain_wave:
   bpl :-    ; loop back for 2 more brainwaves
   rts
 
+;===================================================
 ; Audio stuff
+
 disable_audio_channels:
   txa
   pha
@@ -9909,8 +9932,8 @@ disable_audio_channels:
   stx APU_CHANCTRL        ; disable all channels %---D NT21
   stx apu_status_ram_6    ; store to apu_status_ram_6
 :                         ; d49a
-  lda #$FF                ; Load $FF to all channel_status in RAM
-  sta audio_ram_0,X       ; Store ff to audio status
+  lda #$FF                ; Load $FF to first 8 tracks channel_status in RAM
+  sta trk_status,X       ; Store ff to audio status
   txa
   clc
   adc #$10                ; load next line in x by adding 10
@@ -9922,17 +9945,18 @@ disable_audio_channels:
   pla
   tax                     ; restore x and y from stack and rts
   rts
-clear_audio_channels:
+
+audio_rtn:
   lda #$00
   sta apu_status_ch0      ; store 0 to apu_status_ch0
   sta apu_status_ch1      ; store 0 to apu_status_ch1
   sta apu_status_ch2      ; store 0 to apu_status_ch2
   sta apu_status_ch3      ; store 0 to apu_status_ch3
-chk_audio_ram:            ; b_d4bb
+chk_audio_ram:            ; b_d4bb start of checking track in 300 ram block
   tax
-  lda audio_ram_1,X       ; load which audio channel from audio_ram_1
+  lda trk_ch,X            ; load which audio channel from trk_ch
   sta apu_current_ch_ram  ; store channel to apu_current_ch_ram
-  tay
+  tay                     ; use y register to index the channel
   cmp #$02
   bcc :++                 ; branch if its channel 00 or 01, pulse 1 and pulse 2
   beq :+                  ; branch if its a triangle
@@ -9942,15 +9966,15 @@ chk_audio_ram:            ; b_d4bb
   ora #$80                ; or with 80
 :
   sta apu_status_ram_5    ; store channel to status_ram_5
-  lda audio_ram_0,X       ; load audio status
+  lda trk_status,X        ; load track status
   cmp #$FF                ; check if its disabled
   beq next_aud_ram_track  ; branch to next track if this track is disabled
   lda apu_status_ch0,Y    ; load the status of channel from ram
   clc
   adc #$01                ; increment channel status ram
   sta apu_status_ch0,Y    ; store in channel status ram
-  lda audio_ram_0,X       ; load audio track status
-  beq b_d51b              ; branch if status is 0
+  lda trk_status,X        ; load audio track status
+  beq start_new_track     ; branch if status is 0, after track was just loaded to ram
   inc audio_ram_C,X       ; increment audio_ram_C
   lda audio_ram_C,X
   sec
@@ -9963,54 +9987,54 @@ chk_audio_ram:            ; b_d4bb
   lda audio_ram_4,X       ; load max length
   sta audio_ram_5,X       ; store to counter
   jsr inc_audio_ram_6
-  dec audio_ram_7,X       ; decrement 
-  beq b_d50f
+  dec trk_note_len,X      ; decrement note length
+  beq b_d50f              ; branch if note length reaches 0
 :                         ; b_d509
   jsr set_sq1_vol_b
   jmp next_aud_ram_track
 b_d50f:
-  jsr misc_audio_ram
+  jsr get_sample_notes
 next_aud_ram_track:
   txa                     ; transfer x to a
   clc
   adc #$10                ; add 10 to index
   cmp #$80
-  bne chk_audio_ram              ; loop back until we've covered all ram tracks
+  bne chk_audio_ram       ; loop back until we've covered all ram tracks
   rts                     ; rts when we've dont all tracks
-b_d51b:                   ; branch here if track status is 00
-  lda aud_addr_lo,X
+start_new_track:          ; branch here if track status is 00, when track was just loaded to ram
+  lda trk_addr_lo,X
   sta $10
-  lda aud_addr_hi,X
+  lda trk_addr_hi,X
   sta $11                 ; get audio sound address from track
   ldy #$00
   lda ($10),y             ; get the first byte, which is the length
-  and #$0f                ; and with 0f
+  and #$0f                ; get only the lower 4 bits
   sta audio_ram_4,X       ; store length 
-  sta audio_ram_5,X
-  iny
-  jsr get_sample_ch
-  iny
+  sta audio_ram_5,X       ; store length
+  iny                     ; increment y to next byte
+  jsr get_sample_ch       ; store channel to apu_status_ram_7 0=0, 1=40, 2=80, 3=C0
+  iny                     ; increment y to 3rd byte
   lda ($10),Y
-  ora apu_status_ram_7
-  sta audio_ram_6,X
-  iny
+  ora apu_status_ram_7    ; or 3rd byte with apu_status_ram_7
+  sta audio_ram_6,X       ; store in audio_ram_6,X
+  iny                     ; increment y to 4th byte
   lda ($10),Y
-  sta audio_ram_8,X
+  sta track_sweep,X       ; store 4th byte to track_sweep,X
   lda #$00
   sta audio_ram_9,X
   sta audio_ram_A,X
-  sta audio_ram_timer,X
+  sta audio_ram_timer,X   ; clear audio_ram 9,A and D
   lda #$02
-  sta audio_ram_0,X
+  sta trk_status,X       ; store 02 to audio ram status
   bne b_d50f              ; why bne instead of jmp? less cycles? less bytes in program?
 b_d556:
-  and #$0f
+  and #$0f                ; get lower 4 bits only
   bpl :+
 b_d55a:
   and #$0f
   eor #$FF
   clc
-  adc #$01
+  adc #$01                ; flip bits
 :
   bit apu_status_ram_5
   bmi :+
@@ -10019,48 +10043,48 @@ b_d55a:
   sta audio_ram_E,X
   sta audio_ram_F,X
 :
-  jmp apu_status_rtn_2
-misc_audio_ram:
-  lda audio_ram_0,X
+  jmp re_start_sample
+get_sample_notes:
+  lda trk_status,X
   sta $10
-  ldy #$00
+  ldy #$00          ; start with 5th byte from audio table, but set y to 00
   sty $11
   asl $10
   rol $11
-  lda aud_addr_lo,X
+  lda trk_addr_lo,X
   adc $10
   sta $10
-  lda aud_addr_hi,X
+  lda trk_addr_hi,X
   adc $11
   sta $11
-  lda ($10),Y
+  lda ($10),Y       ; load 5th byte, which is a note
   iny
-  cmp #$F0
-  bcs b_d5aa
-  cmp #$E0
-  bcs b_d55a
+  cmp #$F0          ; check for flag bytes
+  bcs b_d5aa        ; branch if terminator flag is found
+  cmp #$E0          
+  bcs b_d55a        ; pause sound has EF, so we branch here
   cmp #$D0
-  bcs b_d556
+  bcs b_d556        ; branch if terminator is Dx
   cmp #$C0
-  bcs b_d60c
+  bcs b_d60c        ; branch if note is Cx
   cmp #$B0
-  bcs b_d5f0
+  bcs b_d5f0        ; branch if repeat flag is found
   cmp #$A0
-  bcs b_d5bd
-b_d5aa:
+  bcs b_d5bd        ; branch if sweep flag is set
+b_d5aa:                 ; check terminator
   cmp #$FE
-  beq apu_status_rtn_2
-  bcs apu_status_rtn_3
+  beq re_start_sample
+  bcs end_sample_track  ; branch if terminator is FF
   jsr apu_status_rtn_4
-  inc audio_ram_0,X
+  inc trk_status,X
   rts
-apu_status_rtn_3:
-  sta audio_ram_0,X
+end_sample_track:
+  sta trk_status,X
   jmp set_sq1_vol_c
 b_d5bd:
   bne b_d5ce
   bit apu_status_ram_5
-  bmi apu_status_rtn_2
+  bmi re_start_sample
   lda audio_ram_6,X
   and #$C0
   ora ($10),Y
@@ -10069,8 +10093,8 @@ b_d5ce:
   cmp #$A1
   bne :+
   lda ($10),Y
-  sta audio_ram_8,X
-  jmp apu_status_rtn_2
+  sta track_sweep,X
+  jmp re_start_sample
 :
   jsr get_sample_ch
   bcs apu_status_rtn_2a
@@ -10079,36 +10103,36 @@ b_d5ce:
   ora apu_status_ram_7
 apu_status_rtn_2a:
   sta audio_ram_6,X
-apu_status_rtn_2:
-  inc audio_ram_0,X
-  jmp misc_audio_ram
-b_d5f0:
+re_start_sample:
+  inc trk_status,X
+  jmp get_sample_notes
+b_d5f0:                 ; branch here for Bx notes
   and #$0f
   cmp #$0F
-  beq b_d600
+  beq b_d600            ; branch if repeater is BF
   dec audio_ram_9,X
-  beq apu_status_rtn_2
+  beq re_start_sample
   bpl b_d600
   sta audio_ram_9,X
-b_d600:
+b_d600:                 ; check byte after repeater
   lda ($10),Y
   clc
-  adc audio_ram_0,X
-  sta audio_ram_0,X
-  jmp misc_audio_ram
+  adc trk_status,X      ; go back that many notes
+  sta trk_status,X
+  jmp get_sample_notes
 b_d60c:
   and #$0f
   sta apu_status_ram_7
   bit apu_status_ram_5
-  bmi apu_status_rtn_2
+  bmi re_start_sample
   lda audio_ram_6,X
   and #$10
-  beq apu_status_rtn_2
+  beq re_start_sample
   lda ($10),Y
   sta audio_ram_B,X
   lda apu_status_ram_7
   sta audio_ram_A,X
-  bpl apu_status_rtn_2
+  bpl re_start_sample
 get_sample_ch:
   bit apu_status_ram_5 
   bmi b_d63a
@@ -10126,7 +10150,7 @@ b_d63a:
   sec
   rts
 apu_status_rtn_4:
-  bit apu_status_ram_5
+  bit apu_status_ram_5      ; channel num with the offset bit
   bvs set_sq1_vol
   pha
   and #$0f
@@ -10153,8 +10177,8 @@ apu_status_rtn_4:
   bne :-
 sq1_apu_rtn:
   ldy #$01
-  lda ($10),Y
-  sta audio_ram_7,X
+  lda ($10),Y                 ; get length of note
+  sta trk_note_len,X          ; store length
   lda #$00
   sta audio_ram_C,X
   jsr chk_aud_ch_status
@@ -10166,14 +10190,14 @@ sq1_apu_rtn:
   ora apu_status_ram_6
   jsr send_apu_status
   jsr set_sq1_vol_a
-  lda audio_ram_8,X
-  sta APU_PULSE1RAMP, y       ;send to SQ1 sweep @$4001
+  lda track_sweep,X
+  sta APU_PULSE1RAMP, y       ;send to SQ1/SQ2 sweep @$4001
   pla
-  sta APU_PULSE1FTUNE,Y       ;send to SQ1 LoByte @$4002
+  sta APU_PULSE1FTUNE,Y       ;send to SQ1/SQ2 LoByte @$4002
   pla
   and #$07
   ora #$08
-  sta APU_PULSE1CTUNE,Y       ;send to SQ1 HiByte @$4003
+  sta APU_PULSE1CTUNE,Y       ;send to SQ1/SQ2 HiByte @$4003
   rts
 set_sq1_vol:
   cmp #$10
@@ -10187,7 +10211,7 @@ set_sq1_vol_d:
 :
   ldy #$01
   lda ($10),Y
-  sta audio_ram_7,X
+  sta trk_note_len,X
 set_sq1_vol_c:
   jsr chk_aud_ch_status
   lda audio_tbl_1a,y      ; @$D7E7
@@ -10197,13 +10221,13 @@ set_sq1_vol_b:
   jsr chk_aud_ch_status
 set_sq1_vol_a:
   cpy #$02
-  beq :+
-  lda audio_ram_A,X
+  beq :+                    ; branch if...?
+  lda audio_ram_A,X         ; normally 0....
   bne :++
   tya
   asl
   asl
-  tay
+  tay                       ; shift channel index left twice
   lda audio_ram_6,X
   and #$10
   asl
@@ -10218,7 +10242,9 @@ set_sq1_vol_a:
   asl
   tay
   rts
-:
+;============================================
+; not called
+:                           ; this area doesnt get called, i dont think
   sec
   sbc #$01
   asl
@@ -10285,6 +10311,10 @@ set_sq1_vol_a:
   ora apu_status_ram_8
   sta APU_PULSE1CTRL,Y        ; send to sq1 vol
   rts
+
+; not called
+;==============================================
+
 chk_aud_ch_status:
   ldy apu_current_ch_ram
   lda apu_status_ch0,Y        ; load channel status
@@ -10318,7 +10348,7 @@ inc_audio_ram_6:
 :
   rts
 :
-  inc audio_ram_timer,X       ; iincrement audio_ram_timer
+  inc audio_ram_timer,X       ; increment audio_ram_timer
   lda apu_status_ram_7
   cmp #$10
   beq :--
@@ -10326,8 +10356,19 @@ inc_audio_ram_6:
   rts
 
 
-audio_tbl_0:                ; @$D7C0-D7D7
-  .byte $AE,$06,$4E,$06,$F4,$05,$9E,$05,$4D,$05,$01,$05,$B9,$04,$75,$04,$35,$04,$F9,$03,$C0,$03,$8A,$03
+audio_tbl_0:                ; @$D7C0-D7D7 note table?
+  .byte $AE,$06   ; 00
+  .byte $4E,$06   ; 01
+  .byte $F4,$05   ; 02
+  .byte $9E,$05   ; 03
+  .byte $4D,$05   ; 04
+  .byte $01,$05   ; 05
+  .byte $B9,$04   ; 06
+  .byte $75,$04   ; 07
+  .byte $35,$04   ; 08
+  .byte $F9,$03   ; 09
+  .byte $C0,$03   ; 0A
+  .byte $8A,$03   ; 0B
 send_apu_status:
   sta apu_status_ram_6      ; which audio channel
   bit rtn_trk_b
@@ -10340,44 +10381,46 @@ audio_tbl_1:                ; @$D7E3-D832
 	.byte $01,$02,$04,$08
 audio_tbl_1a:               ; @$D7E7
   .byte $0E,$0D,$0B,$07
-audio_tbl_1b:               ; @$D7EB
-  .byte $FE,$DC,$BA,$98,$76,$54,$32,$10,$01,$23,$45,$67,$89,$AB,$CD,$EF,$FE,$DC,$BA,$98,$89,$AB,$CD,$EF,$89,$AB,$CD,$EF,$FE,$DC,$BA,$98,$FD,$B9,$75,$31,$EC,$A8,$64,$20,$FE,$DC,$CD,$ED,$CA,$86,$42,$10,$FD,$B9,$AB,$97,$65,$43,$21,$10,$44,$44,$44,$46,$67,$8A,$CF,$B8,$FF,$A8,$FF,$A8,$77,$66,$55,$42
+audio_tbl_1b:               ; @$D7EB not used??
+  .byte $FE,$DC,$BA,$98,$76,$54,$32,$10,$01,$23,$45,$67,$89,$AB,$CD,$EF,$FE,$DC,$BA,$98,$89,$AB,$CD,$EF
+  .byte $89,$AB,$CD,$EF,$FE,$DC,$BA,$98,$FD,$B9,$75,$31,$EC,$A8,$64,$20,$FE,$DC,$CD,$ED,$CA,$86,$42,$10
+  .byte $FD,$B9,$AB,$97,$65,$43,$21,$10,$44,$44,$44,$46,$67,$8A,$CF,$B8,$FF,$A8,$FF,$A8,$77,$66,$55,$42
 
 
 load_audio_ram:
-  sta $12         ; play jump sound, for example, lda#$02 and ldx#$05 coming in here (then 3 and 4)
-  asl             ; $12 is now 02, we shift it left to 04 (06)
+  sta $12         ; store sound index for sound table
+  asl             ; shift left...
   clc
-  adc $12         ; add 02+04=06 (09) essentially multiply a by 3
+  adc $12         ; add again, so we multiply a by 3 and get the line of the address for the sound table
   tay             ; transfrer 06 to y, which will point to the first jump point for magnus' jump sound
-  lda audio_jump_tbl_2,Y           ; @$DA1E low byte of address
-  sta $12         ; store low byte in $12
-  lda audio_jump_tbl_2+1,Y           ; @$DA1F high byte of address
-  sta $13         ; store high byte in $13
-  lda audio_jump_tbl_2+2,Y           ; @$DA20 some low value between 0 and 3
-  sta $14         ; store 3rd value in $14
-  txa             ; transfer x to a, which is 05 (04)
+  lda audio_jump_tbl_2,Y          ; @$DA1E low byte of address
+  sta $12                         ; store low byte in $12
+  lda audio_jump_tbl_2+1,Y        ; @$DA1F high byte of address
+  sta $13                         ; store high byte in $13
+  lda audio_jump_tbl_2+2,Y        ; @$DA20 some low value between 0 and 3
+  sta $14                         ; store 3rd value, channel, into $14
+  txa                             ; transfer ram slot in x to a, which is 05 (04)
   asl
   asl
   asl
-  asl             ; shift left 4 times so we now have 50 (40)
+  asl             ; shift left 4 times so we go to that audio track in ram
   clc             ; redundant?
-  adc #$00        ; redundant?
-  sta $15         ; store 50 (40)to $15
-  lda #$00        ; why not just load #03?
+  adc #$00        ; redundant? I guess there may be a case where theres an offset..
+  sta $15         ; store audio track index to $15
+  lda #$00        ; why not just load #03? I guess if it might roll over to 400 block of ram, but not likely
   adc #$03        
-  sta $16         ; store 03 to $16
-  ldy #$02        ; make y=2
-  lda $12         ; $12 should be the low byte of the jump sound address $a8
-  sta ($15),Y     ; $15 should be 0350, plus 2, makes 0352, where we store $a8
-  ldy #$03        ; make y=3
-  lda $13         ; load high byte of sound address, which is $da for the jump sound
-  sta ($15),Y     ; store it to 0353
-  ldy #$01        ; make y=1
-  lda $14         ; load the small byte at the end
-  sta ($15),Y     ; to 0351
-  ldy #$00        ; make y=0
-  lda #$00        ; make a=a
+  sta $16         ; store 03 to $16 as high byte of audio track ram
+  ldy #$02        ; make y=2 for sound address low byte
+  lda $12         ; $12 should be the low byte of the jump sound address
+  sta ($15),Y     ; $15,Y should be 03x2
+  ldy #$03        ; make y=3 for sound address high byte
+  lda $13         ; load high byte of sound address
+  sta ($15),Y     ; store it to 03x3
+  ldy #$01        ; make y=1 for audio channel
+  lda $14         ; load the channel byte from the table
+  sta ($15),Y     ; to 03x1
+  ldy #$00        ; make y=0 for audio track status
+  lda #$00        ; make a=0
   sta ($15),Y     ; store 00 to 0350: shouldlook like $00 $01 $a8 $da (0340 $00 $03 $af $da)
   rts
 store_ind_17_18:
@@ -10425,8 +10468,8 @@ audio_jump_tbl_1a:
   .word play_guardian_room_music          ; .byte <play_guardian_room_music,>play_guardian_room_music
   .word play_warp_room_music              ; .byte <play_warp_room_music,>play_warp_room_music
 play_sideroom_music:
-  lda #$0f
-  ldx #$06
+  lda #$0f                      ; indexed location on table
+  ldx #$06                      ; audio ram track
   jsr load_audio_ram
   lda #$10
   ldx #$07
@@ -10593,11 +10636,14 @@ play_barrier_music:
   jsr load_audio_ram
   jmp load_ind_17_18
 audio_jump_tbl_2:  ; @DA1E
-  .byte $CC,$DB,$00     ; stage music.
-  .byte $04,$DC,$02     ; stage music.2
+  .word aud_stage_music_a ; .byte $CC,$DB,$00     ; stage music.
+    .byte $00
+  .word aud_stage_music_b ; .byte $04,$DC,$02     ; stage music.2
+    .byte $02
   .word magnus_jump_sound_1 ;  	.byte $A8,$DA,$01  ; magnus jump sound.
     .byte $01
-	.byte $AF,$DA,$03     ; magnus jump sound.2
+	.word magnus_jump_sound_2 ; .byte $AF,$DA,$03     ; magnus jump sound.2
+    .byte $03
 	.byte $C8,$DA,$01     ; magnus bullet sound.      / boss explosion sound.
 	.byte $D7,$DA,$03     ; boss main explosion sound (gets repeated on trypticon defeat)
 	.byte $E0,$DA,$01     ; magnus transform sound
@@ -10611,24 +10657,36 @@ audio_jump_tbl_2:  ; @DA1E
 	.byte $B6,$DB,$02     ; boss music.2
 	.byte $E6,$DD,$00     ; sideroom music.
 	.byte $2C,$DE,$02     ; sideroom music.2
-	.byte $54,$80,$00     ; game over a @$8054
-	.byte $73,$80,$01     ; game over b @$8073
-	.byte $8A,$80,$02     ; game over c @$808A
-	.byte $A1,$80,$03     ; tftheme/game over d @$80A1
+	.word aud_game_over_a ; .byte $54,$80,$00     ; 11 game over a @$8054
+    .byte $00
+	.word aud_game_over_b ; .byte $73,$80,$01     ; 12 game over b @$8073
+    .byte $01
+	.word aud_game_over_c ; .byte $8A,$80,$02     ; 13 game over c @$808A
+    .byte $02
+	.word aud_game_over_d ; .byte $A1,$80,$03     ; 14 tftheme/game over d @$80A1
+    .byte $03
 	.byte $54,$DE,$00     ; guardian room music.
 	.byte $76,$DE,$02     ; guardian room music.2
-	.byte $B8,$80,$01     ; rodimus endscreen @$80B8 / bumblebee screen
-	.byte $D6,$80,$03     ; Subtitle sound a @$80D6
-	.byte $DD,$80,$01     ; Subtitle sound b @$80DD
-	.byte $E4,$80,$01     ; Subtitle sound c @$80E4 / Enemy explosion sound
+	.word aud_rod_endscreen ; .byte $B8,$80,$01     ; rodimus endscreen @$80B8 / bumblebee screen
+    .byte $01
+  .word aud_subtitle_a ; .byte $D6,$80,$03     ; Subtitle sound a @$80D6
+    .byte $03
+	.word aud_subtitle_b ; .byte $DD,$80,$01     ; Subtitle sound b @$80DD
+    .byte $01
+	.word aud_subtitle_c ; .byte $E4,$80,$01     ; Subtitle sound c @$80E4 / Enemy explosion sound
+    .byte $01
 	.byte $AC,$DE,$00     ; endscreen music.
 	.byte $02,$DF,$01     ; endscreen music.2
 	.byte $58,$DF,$02     ; endscreen music.3
 	.byte $A0,$DF,$03     ; endscreen music.4
-	.byte $04,$80,$00     ; TF insignia flip sound info a @$8004
-	.byte $13,$80,$01     ; TF insignia flip sound info b @$8013
-	.byte $24,$80,$02     ; TF insignia flip sound info c @$8024
-	.byte $45,$80,$03     ; TF insignia flip sound info d @$8045
+	.word aud_tf_insig_a  ; .byte $04,$80,$00     ; TF insignia flip sound info a @$8004
+    .byte $00
+	.word aud_tf_insig_b  ; .byte $13,$80,$01     ; TF insignia flip sound info b @$8013
+    .byte $01
+	.word aud_tf_insig_c  ; .byte $24,$80,$02     ; TF insignia flip sound info c @$8024
+    .byte $02
+	.word aud_tf_insig_d  ; .byte $45,$80,$03     ; TF insignia flip sound info d @$8045
+    .byte $03
 	.byte $19,$DB,$00     ; brainwave sounds
 	.byte $20,$DB,$01
 	.byte $52,$DB,$01     ; Azak sound.
@@ -10641,104 +10699,190 @@ audio_jump_tbl_2:  ; @DA1E
 	.byte $BA,$DF,$00     ; barrier powerup music.
 	.byte $02,$E0,$02     ; barrier powerup music.2
 magnus_jump_sound_1:  ; magnus jump sound. @daa8
-.byte $10,$01,$0F,$8B,$59,$08,$FF
-; magnus jump sound.2 @daaf
-.byte $30,$00,$1F,$00,$EF,$01,$09,$01,$08,$01,$07,$01,$06,$01,$05,$01,$04,$01,$03,$01,$02,$01,$01,$01,$FF
+.byte $10,$01,$0F,$8B
+.byte $59,$08,$FF
+magnus_jump_sound_2:  ; magnus jump sound.2 @daaf
+.byte $30,$00,$1F,$00
+.byte $EF,$01,$09,$01,$08,$01,$07,$01,$06,$01,$05,$01,$04,$01,$03,$01,$02,$01,$01,$01,$FF
 ; magnus bullet sound.@dac8
-.byte $10,$00,$1F,$00,$EF,$01,$50,$01,$55,$01,$5A,$01,$B5,$FD,$FF
+.byte $10,$00,$1F,$00
+.byte $EF,$01,$50,$01,$55,$01,$5A,$01,$B5,$FD,$FF
 ; boss main explosion sound@dad7
-.byte $31,$00,$1F,$00,$EF,$02,$0F,$20,$FF
+.byte $31,$00,$1F,$00
+.byte $EF,$02,$0F,$20,$FF
 ; magnus transform sound @ dae0
-.byte $10,$01,$1F,$00,$EF,$03,$60,$01,$5A,$01,$58,$01,$56,$01,$54,$01,$52,$01,$50,$01,$4A,$01,$48,$01,$46,$01,$44,$04,$42,$04,$40,$01,$B5,$F3,$FF
+.byte $10,$01,$1F,$00
+.byte $EF,$03,$60,$01,$5A,$01,$58,$01,$56,$01,$54,$01,$52,$01,$50,$01,$4A,$01,$48,$01,$46,$01,$44,$04,$42,$04,$40,$01
+.byte $B5,$F3,$FF
 .byte $31,$00,$1F,$00,$0C,$01,$0D,$01,$0E,$01,$EF,$02,$0F,$20,$FF
-; unknown music @db12
-.byte $10,$02,$0F,$82,$29,$10,$FF
+; enemy damage sound @db12
+.byte $10,$02,$0F,$82
+.byte $29,$10,$FF
 ; brainwave sound @db19
-.byte $15,$01,$0F,$00,$60,$10,$FF
+.byte $15,$01,$0F,$00
+.byte $60,$10,$FF
 ; unused sound @db20
-.byte $10,$02,$09,$8C,$09,$3C,$FF
+.byte $10,$02,$09,$8C
+.byte $09,$3C,$FF
 ; magnus explosion sound. @db27
-.byte $01,$00,$1F,$00,$10,$01,$0B,$01,$0A,$01,$EF,$02,$0F,$20,$FF
+.byte $01,$00,$1F,$00
+.byte $10,$01,$0B,$01,$0A,$01,$EF,$02,$0F,$20,$FF
 ; powerup sound @db36
-.byte $15,$01,$02,$01,$55,$01,$53,$01,$51,$01,$4B,$01,$49,$01,$FF
+.byte $15,$01,$02,$01
+.byte $55,$01,$53,$01,$51,$01,$4B,$01,$49,$01,$FF
 ; pause sound @db45
-.byte $13,$02,$1F,$00,$EF,$01,$39,$01,$1F,$01,$B7,$FE,$FF
-; unknown sound @db52
-.byte $10,$01,$1F,$00,$EF,$02,$0B,$01,$0A,$01,$09,$01,$BE,$BD,$FF
-; unknown sound @db61
-.byte $30,$00,$1F,$00,$EF,$02,$0D,$01,$0E,$01,$0F,$01,$BF,$FD,$FF
+.byte $13,$02,$1F,$00
+.byte $EF,$01,$39,$01,$1F,$01
+.byte $B7,$FE,$FF
+; azak sound. @db52
+.byte $10,$01,$1F,$00
+.byte $EF,$02,$0B,$01,$0A,$01,$09,$01
+.byte $BE,$BD,$FF
+; azak sound.2 @db61
+.byte $30,$00,$1F,$00
+.byte $EF,$02,$0D,$01,$0E,$01,$0F,$01
+.byte $BF,$FD,$FF
 ; boss weapon sound. @db70
-.byte $10,$02,$0F,$83,$29,$3C,$FF
+.byte $10,$02,$0F,$83
+.byte $29,$3C,$FF
 ; boss weapon sound.2 @db77
-.byte $30,$00,$19,$00,$0F,$01,$0E,$01,$0D,$01,$0C,$01,$0B,$01,$0A,$01,$09,$01,$08,$01,$07,$01,$06,$01,$FF
+.byte $30,$00,$19,$00
+.byte $0F,$01,$0E,$01,$0D,$01,$0C,$01,$0B,$01,$0A,$01,$09,$01,$08,$01,$07,$01,$06,$01,$FF
 ; boss music. @db90
-.byte $04,$01,$03,$00,$24,$02,$24,$02,$22,$02,$24,$02,$1F,$02,$24,$02,$22,$02,$24,$02,$1F,$02,$24,$02,$22,$02,$24,$02,$27,$02,$26,$02,$22,$02,$24,$02,$BF,$F0
+.byte $04,$01,$03,$00
+.byte $24,$02,$24,$02,$22,$02,$24,$02,$1F,$02,$24,$02,$22,$02,$24,$02
+.byte $1F,$02,$24,$02,$22,$02,$24,$02,$27,$02,$26,$02,$22,$02,$24,$02
+.byte $BF,$F0           ; loop infinite times
 ; boss music.2 @dbb6
-.byte $24,$18,$00,$00,$24,$02,$B7,$FF
+.byte $24,$18,$00,$00
+.byte $24,$02,$B7,$FF
 .byte $22,$02,$B7,$FF
 .byte $20,$02,$B7,$FF
 .byte $1B,$02,$B7,$FF
 .byte $BF,$F8
-; stage music. @dbcc
-.byte $04,$01,$0F,$00,$27,$04,$30,$04,$35,$02,$34,$02,$32,$02,$30,$02,$32,$10,$27,$04,$30,$04,$35,$02,$34,$02,$32,$02,$30,$02,$32,$04,$34
-.byte $02,$30,$0A,$28,$04,$30,$04,$37,$02,$35,$02,$33,$02,$32,$02,$32,$0C,$2A,$04,$30,$20,$BF
-; stage music.2 @dc02
-.byte $E7,$24,$20,$00,$00,$30,$02,$B7,$FF
+aud_stage_music_a:    ; stage music. @dbcc
+.byte $04,$01,$0F,$00
+.byte $27,$04,$30,$04,$35,$02,$34,$02,$32,$02,$30,$02,$32,$10
+.byte $27,$04,$30,$04,$35,$02,$34,$02,$32,$02,$30,$02,$32,$04,$34,$02,$30,$0A
+.byte $28,$04,$30,$04,$37,$02,$35,$02,$33,$02,$32,$02,$32,$0C,$2A,$04,$30,$20
+.byte $BF,$E7
+aud_stage_music_b:    ; stage music.2 @dc04
+.byte $24,$20,$00,$00
+.byte $30,$02,$B7,$FF ; B7 means repeat the last notes 8 times
 .byte $2B,$02,$B7,$FF
 .byte $2A,$02,$B7,$FF
 .byte $29,$02,$B7,$FF
 .byte $28,$02,$B7,$FF
 .byte $2A,$02,$B7,$FF
-.byte $30,$02,$30,$02,$B7,$FE,$BF,$F1
+.byte $30,$02,$30,$02,$B7,$FE
+.byte $BF,$F1
 ; end of subtitle. tf 2010 theme @dc28
-.byte $05,$01,$01,$00,$39,$01,$1F,$01,$39,$01,$1F,$01,$39,$01,$1F,$01,$34,$01,$37,$01,$39,$01,$37,$01,$34,$01,$39,$01,$1F,$01,$37,$01,$1F
+.byte $05,$01,$01,$00
+.byte $39,$01,$1F,$01,$39,$01,$1F,$01,$39,$01,$1F,$01,$34,$01,$37,$01,$39,$01,$37,$01,$34,$01,$39,$01,$1F,$01,$37,$01,$1F
 .byte $01,$34,$01,$B2,$F0,$39,$01,$1F,$01,$39,$01,$1F,$01,$39,$01,$1F,$01,$34,$01,$37,$01,$39,$01,$37,$01,$34,$01,$40,$01,$1F,$01,$3B,$01,$1F,$01,$37,$01,$39,$01,$1F,$01,$39,$01,$1F,$01,$39
 .byte $01,$1F,$01,$34,$01,$37,$01,$39,$01,$37,$01,$34,$01,$39,$01,$1F,$01,$37,$01,$1F,$01,$34,$01,$B2,$F0,$39,$01,$1F,$01,$39,$01,$1F,$01,$39,$01,$1F,$01,$34,$01,$37,$01,$39,$01,$37,$01,$34
 .byte $01,$40,$01,$1F,$01,$3B,$01,$1F,$01,$37,$01,$29,$01,$B7,$FF,$1F,$01,$40,$01,$1F,$01,$42,$01,$1F,$01,$42,$01,$40,$02,$29,$01,$B7,$FF,$1F,$01,$35,$01,$1F,$01,$37,$01,$1F,$01,$37,$01,$37
 .byte $02,$39,$02,$FF
 ; end of subtitle.2 @dcd7
-.byte $15,$01,$01,$00,$24,$01,$1F,$01,$24,$01,$1F,$01,$24,$01,$1F,$0B,$B2,$FA,$24,$01,$1F,$01,$24,$01,$1F,$01,$24,$01
+.byte $15,$01,$01,$00
+.byte $24,$01,$1F,$01,$24,$01,$1F,$01,$24,$01,$1F,$0B,$B2,$FA,$24,$01,$1F,$01,$24,$01,$1F,$01,$24,$01
 .byte $1F,$03,$A1,$82,$29,$01,$27,$01,$24,$01,$22,$01,$20,$01,$19,$01,$17,$02,$A1,$00,$24,$01,$1F,$01,$24,$01,$1F,$01
 .byte $24,$01,$1F,$0B,$B3,$FA,$24,$01,$B7,$FF,$1F,$01,$37,$01,$1F,$01,$39,$01,$1F,$01,$39,$01,$37,$02,$24,$01,$B7,$FF
 .byte $1F,$01,$20,$01,$1F,$01,$22,$01,$1F,$01,$22,$01,$22,$02,$24,$02,$FF
 ; end of subtitle.3 @dd3c
-.byte $25,$18,$00,$00,$19,$01,$1F,$01,$19,$01,$1F,$01,$19,$01,$1F,$0B,$B3,$FA,$19,$02,$29,$02,$20,$02,$30,$02,$22,$02
+.byte $25,$18,$00,$00
+.byte $19,$01,$1F,$01,$19,$01,$1F,$01,$19,$01,$1F,$0B,$B3,$FA,$19,$02,$29,$02,$20,$02,$30,$02,$22,$02
 .byte $32,$02,$20,$02,$30,$02,$15,$02,$25,$02,$14,$02,$24,$02,$15,$02,$25,$02,$17,$02,$27,$02,$B1,$F0,$A2,$10,$19,$01
 .byte $B7,$FF,$1F,$01,$20,$01,$1F,$01,$22,$01,$1F,$01,$22,$41,$20,$02,$19,$01,$B7,$FF,$1F,$01,$15,$01,$1F,$01,$17,$01
 .byte $1F,$01,$17,$01,$17,$02,$19,$02,$FF
 ; end of subtitle.4 @dd99
-.byte $35,$00,$00,$00,$03,$02,$03,$02,$03,$04,$07,$04,$07,$04,$B2,$FB,$03,$02,$03,$02,$03,$04,$03,$01,$04,$01,$05,$01,$06,$01,$07,$01
-.byte $08,$01,$09,$02,$09,$02,$03,$02,$06,$02,$03,$02,$B7,$FC,$03,$01,$B7,$FF,$1F,$01,$03,$02,$03,$02,$03,$01,$03,$02,$03,$01,$B7,$FF,$1F,$01,$03,$02,$03,$02,$03,$01,$03,$02,$03,$03,$FF,$07
+.byte $35,$00,$00,$00
+.byte $03,$02,$03,$02,$03,$04,$07,$04,$07,$04
+.byte $B2,$FB
+.byte $03,$02,$03,$02,$03,$04,$03,$01,$04,$01,$05,$01,$06,$01,$07,$01
+.byte $08,$01,$09,$02,$09,$02,$03,$02,$06,$02,$03,$02
+.byte $B7,$FC
+.byte $03,$01
+.byte $B7,$FF
+.byte $1F,$01,$03,$02,$03,$02,$03,$01,$03,$02,$03,$01,$B7,$FF
+.byte $1F,$01,$03,$02,$03,$02,$03,$01,$03,$02,$03,$03,$FF,$07
 .byte $02,$0A,$00,$2B,$02,$32,$01,$32,$03,$32,$03,$34,$02,$32,$01,$2B,$03,$27,$03,$2B,$02,$32,$01,$32,$03,$32,$03,$34,$02,$37,$01,$37,$03,$1F,$03,$2B,$02,$32,$01,$32,$03,$32,$03,$34,$02,$32
 .byte $01,$2B,$03,$27,$03,$29,$02,$1F,$01,$2B,$02,$29,$01,$27,$02,$24,$01,$27,$06,$1F,$03,$BF,$E0
 ; sideroom music.2 @de2c
-.byte $27,$19,$00,$00,$17,$02,$22,$01,$22,$03,$22,$03,$20,$02,$27,$01,$27,$03,$27,$03,$B2,$F8,$22
-.byte $02,$29,$01,$29,$03,$29,$03,$17,$02,$22,$01,$22,$03,$22,$03,$BF,$EF
+.byte $27,$19,$00,$00
+.byte $17,$02,$22,$01,$22,$03,$22,$03,$20,$02,$27,$01,$27,$03,$27,$03
+.byte $B2,$F8
+.byte $22,$02,$29,$01,$29,$03,$29,$03,$17,$02,$22,$01,$22,$03,$22,$03
+.byte $BF,$EF
 ; unknown sound @de54
-.byte $09,$01,$0F,$00,$20,$0A,$23,$01,$22,$01,$1A,$0A,$1A,$01,$20,$01,$17,$18,$B1,$F9,$20,$0A,$23,$01,$22,$01,$1A,$09,$17
-.byte $03,$20,$18,$BF,$F2
+.byte $09,$01,$0F,$00
+.byte $20,$0A,$23,$01,$22,$01,$1A,$0A,$1A,$01,$20,$01,$17,$18
+.byte $B1,$F9
+.byte $20,$0A,$23,$01,$22,$01,$1A,$09,$17,$03,$20,$18
+.byte $BF,$F2
 ; unknown sound @de76
-.byte $29,$1A,$00,$00,$20,$03,$20,$01,$20,$01,$20,$01,$20,$03,$20,$01,$20,$01,$20,$01,$B7,$F8,$18,$03,$18,$01,$18,$01,$18,$01,$B1,$FC,$1A,$03,$1A,$01,$1A,$01,$1A,$01,$B1
-.byte $FC,$20,$03,$20,$01,$20,$01,$20,$01,$B3,$FC,$BF,$E8
+.byte $29,$1A,$00,$00
+.byte $20,$03,$20,$01,$20,$01,$20,$01,$20,$03,$20,$01,$20,$01,$20,$01
+.byte $B7,$F8
+.byte $18,$03,$18,$01,$18,$01,$18,$01
+.byte $B1,$FC
+.byte $1A,$03,$1A,$01,$1A,$01,$1A,$01
+.byte $B1,$FC
+.byte $20,$03,$20,$01,$20,$01,$20,$01
+.byte $B3,$FC
+.byte $BF,$E8
 ; endscreen music. @deac
-.byte $06,$01,$0F,$00,$36,$12,$29,$01,$32,$01,$36,$01,$37,$01,$36,$01,$34,$01,$B2,$F9,$39,$12,$37,$01,$36,$01,$34,$01,$32,$02,$34,$01,$36
-.byte $12,$29,$01,$32,$01,$36,$01,$37,$01,$36,$01,$34,$01,$B2,$F9,$39,$12,$37,$01,$36,$01,$34,$01,$32,$02,$34,$01,$26,$06,$29,$06,$32,$06,$34,$06,$37,$06,$36,$01,$34,$01,$32,$03,$34,$01,$36
-.byte $06,$34,$06,$B1,$F5,$BF,$D8
+.byte $06,$01,$0F,$00
+.byte $36,$12,$29,$01,$32,$01,$36,$01,$37,$01,$36,$01,$34,$01
+.byte $B2,$F9
+.byte $39,$12,$37,$01,$36,$01,$34,$01,$32,$02,$34,$01
+.byte $36,$12,$29,$01,$32,$01,$36,$01,$37,$01,$36,$01
+.byte $34,$01
+.byte $B2,$F9
+.byte $39,$12,$37,$01,$36,$01,$34,$01,$32,$02,$34,$01,$26,$06,$29,$06,$32,$06
+.byte $34,$06,$37,$06,$36,$01,$34,$01,$32,$03,$34,$01,$36,$06,$34,$06
+.byte $B1,$F5
+.byte $BF,$D8
 ; endscreen music.2 @df02
-.byte $16,$01,$0F,$00,$32,$12,$26,$01,$29,$01,$32,$01,$34,$01,$32,$01,$31,$01,$B2,$F9,$34,$12,$34,$01,$32,$01,$31,$01,$2B,$02,$31,$01,$32,$12,$26,$01,$29,$01,$32
-.byte $01,$34,$01,$32,$01,$31,$01,$B2,$F9,$34,$12,$34,$01,$32,$01,$31,$01,$2B,$02,$31,$01,$22,$06,$24,$06,$29,$06,$31,$06,$32,$06,$32,$01,$31,$01,$2B,$03,$31,$01,$32,$06,$31,$06,$B1,$F5,$BF
-.byte $D8
+.byte $16,$01,$0F,$00
+.byte $32,$12,$26,$01,$29,$01,$32,$01,$34,$01,$32,$01,$31,$01
+.byte $B2,$F9
+.byte $34,$12,$34,$01,$32,$01,$31,$01,$2B,$02,$31,$01,$32,$12,$26,$01,$29,$01,$32,$01,$34,$01,$32,$01,$31,$01
+.byte $B2,$F9
+.byte $34,$12,$34,$01,$32,$01,$31,$01,$2B,$02,$31,$01,$22,$06,$24,$06,$29,$06,$31,$06,$32,$06,$32,$01,$31,$01,$2B,$03,$31,$01,$32,$06,$31,$06
+.byte $B1,$F5
+.byte $BF,$D8
 ; endscreen music.3 @df58
-.byte $26,$20,$00,$00,$22,$03,$B7,$FF,$20,$03,$B7,$FF,$17,$03,$B7,$FF,$19,$03,$B7,$FF,$22,$03,$B7,$FF,$20,$03,$B7,$FF,$17,$03,$B7,$FF,$19,$03,$B7,$FF,$22,$03,$22,$03,$21,$03,$21,$03,$1B
-.byte $03,$1B,$03,$19,$03,$19,$03,$17,$03,$17,$03,$17,$03,$17,$03,$19,$03,$19,$03,$19,$03,$19,$03,$B1,$F0,$BF,$DF
+.byte $26,$20,$00,$00
+.byte $22,$03,$B7,$FF
+.byte $20,$03,$B7,$FF
+.byte $17,$03,$B7,$FF
+.byte $19,$03,$B7,$FF
+.byte $22,$03,$B7,$FF
+.byte $20,$03,$B7,$FF
+.byte $17,$03,$B7,$FF
+.byte $19,$03,$B7,$FF
+.byte $22,$03,$22,$03,$21,$03,$21,$03,$1B,$03,$1B,$03,$19,$03,$19,$03,$17,$03,$17,$03,$17,$03,$17,$03,$19,$03,$19,$03,$19,$03,$19,$03
+.byte $B1,$F0
+.byte $BF,$DF
 ; endscreen music.4 @dfa0
-.byte $36,$00,$00,$00,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03
-.byte $01,$03,$01,$03,$01,$BF,$F6
+.byte $36,$00,$00,$00
+.byte $03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$03,$01,$03,$01,$03,$01
+.byte $BF,$F6
 ; barrier powerup music @dfba similar to tf2010 music, but not the same
-.byte $05,$01,$01,$00,$39,$01,$1F,$01,$39,$01,$1F,$01,$39,$01,$1F,$01,$34,$01,$37,$01,$39,$01,$37,$01,$34,$01,$39,$01,$1F,$01,$37,$01,$1F,$01,$34,$01,$B2,$F0,$39
-.byte $01,$1F,$01,$39,$01,$1F,$01,$39,$01,$1F,$01,$34,$01,$37,$01,$39,$01,$37,$01,$34,$01,$40,$01,$1F,$01,$3B,$01,$1F,$01,$37,$01,$BF,$DF
+.byte $05,$01,$01,$00
+.byte $39,$01,$1F,$01,$39,$01,$1F,$01,$39,$01,$1F,$01,$34,$01,$37,$01
+.byte $39,$01,$37,$01,$34,$01,$39,$01,$1F,$01,$37,$01,$1F,$01,$34,$01
+.byte $B2,$F0
+.byte $39,$01,$1F,$01,$39,$01,$1F,$01,$39,$01,$1F,$01,$34,$01,$37,$01
+.byte $39,$01,$37,$01,$34,$01,$40,$01,$1F,$01,$3B,$01,$1F,$01,$37,$01
+.byte $BF,$DF
 ; barrier powerup music.2 @e002
-.byte $25,$18,$00,$00,$19,$02,$29,$02,$20,$02,$30,$02,$22,$02,$32,$02,$20,$02,$30,$02,$15,$02,$25,$02,$14,$02,$24,$02,$15,$02,$25,$02,$17,$02,$27,$02,$BF,$F0,$BF,$F0
+.byte $25,$18,$00,$00
+.byte $19,$02,$29,$02,$20,$02,$30,$02,$22,$02,$32,$02,$20,$02,$30,$02
+.byte $15,$02,$25,$02,$14,$02,$24,$02,$15,$02,$25,$02,$17,$02,$27,$02
+.byte $BF,$F0
+.byte $BF,$F0
 
 
 
@@ -10746,18 +10890,16 @@ magnus_jump_sound_1:  ; magnus jump sound. @daa8
 ; sound composer was told to make the sounds within a certain memory space, saw the challenge and said "hold my stong lemon"
 
 ; padding
-.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
-; empty room?
-.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
-.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
-.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
-.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
-.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
-.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
-.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
-.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
-.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
-.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
 
 ; stage metatile tables, each of the 4 first rows are 4 columns of metatiles. each screen is made up of 4 sets of 4 metatiles
 ; first 4 sections is the first screen of the first stage
@@ -11379,8 +11521,8 @@ stage_table_start:    ; stage background metatile table
 .byte $20,$20,$78,$79
 .byte $20,$20,$7C,$7D
 .byte $20,$20,$7E,$7E
-.byte $FF,$FF,$FF,$FF
-.byte $FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF ; not used
+.byte $FF,$FF,$FF,$FF ; not used
 .byte $CE,$CE,$CF,$CF
 .byte $20,$20,$20,$20
 .byte $00,$00,$00,$00
@@ -11399,9 +11541,9 @@ stage_table_start:    ; stage background metatile table
 .byte $85,$86,$87,$88
 .byte $89,$8A,$8B,$8C
 .byte $FB,$FB,$FC,$FC
-.byte $FF,$FF,$FF,$FF
-.byte $FF,$FF,$FF,$FF
-.byte $FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF ; not used
+.byte $FF,$FF,$FF,$FF ; not used
+.byte $FF,$FF,$FF,$FF ; not used
 .byte $AB,$AC,$B0,$B1
 .byte $3F,$3F,$41,$41
 .byte $44,$44,$45,$46
@@ -11463,16 +11605,16 @@ stage_table_start:    ; stage background metatile table
 .byte $41,$41,$20,$20
 .byte $41,$43,$20,$20
 .byte $40,$41,$20,$20
-.byte $FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF   ; not used
 .byte $20,$10,$20,$10
 .byte $A9,$AA,$20,$AF
-.byte $0F,$10,$0F,$10
+.byte $0F,$10,$0F,$10   ; not used?
 .byte $20,$3E,$20,$40
 .byte $20,$F3,$20,$F4
-.byte $FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF   ; not used
 .byte $42,$20,$43,$20
 .byte $F5,$20,$F6,$20
-.byte $FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF   ; not used
 .byte $00,$00,$00,$00
 
 boss_table_start:   ; @fdf2 boss background metatile table
@@ -11572,8 +11714,10 @@ boss_table_start:   ; @fdf2 boss background metatile table
 .byte $78,$79,$7A,$7B
 .byte $3D,$3E,$44,$45 ; 170
 .byte $4B,$4C,$51,$52
+; not used
 .byte $FF,$FF,$FF,$FF
 .byte $FF,$FF,$FF,$FF
+; not used
 .byte $BC,$BD,$BE,$BF ; 180
 .byte $C5,$C6,$C7,$C8
 .byte $CB,$CC,$CD,$CE
