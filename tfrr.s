@@ -172,18 +172,18 @@ trk_status              = $0300
 trk_ch                  = $0301
 trk_addr_lo             = $0302
 trk_addr_hi             = $0303
-audio_ram_4             = $0304
-audio_ram_5             = $0305
-audio_ram_6             = $0306
+trk_inter               = $0304
+trk_timer               = $0305
+trk_apu_ctrl            = $0306
 trk_note_len            = $0307
-track_sweep             = $0308
-audio_ram_9             = $0309
+trk_sweep               = $0308
+trk_loop_cnt            = $0309
 audio_ram_A             = $030A
 audio_ram_B             = $030B
 audio_ram_C             = $030C
-audio_ram_timer         = $030D
-audio_ram_E             = $030E
-audio_ram_F             = $030F
+trk_cres_length         = $030D
+trk_cres_inter          = $030E
+trk_cres_timer          = $030F
 
 jump_sound_ram          = $0350
 
@@ -1516,10 +1516,10 @@ write_score:
 flip_bits_1:    ; flip bits if negative
   lda $01       ; load $01 ram
   bpl :+        ; rts if positive
-  eor #$ff      ; flip bits
+  eor #$FF      ; flip bits
   sta $01       ; store back to $01 ram
   lda $00
-  eor #$ff
+  eor #$FF
   clc
   adc #$01      ; need to add 1 when we flip the low byte
   sta $00
@@ -1535,10 +1535,10 @@ flip_bits_0:    ; flip positive back to negative
   sta $00
   lda $01
   sbc #$00
-  eor #$ff
+  eor #$FF
   sta $01
   lda $00
-  eor #$ff
+  eor #$FF
   sta $00
   rts
 chk_plr_x_scroll:
@@ -2908,7 +2908,7 @@ y_scroll_up_rtn:
   adc $04
   sta plr_y_prog_hi
   lda plr_y_prog_pg
-  adc #$ff
+  adc #$FF
   sta plr_y_prog_pg
   lda y_scroll_lo
   clc
@@ -3721,7 +3721,7 @@ move_wpn:
   lda $08
   bpl b_9963
   lda wpn_x_pos_page,X
-  adc #$ff
+  adc #$FF
   sta wpn_x_pos_page,X
   rts
 b_9963:
@@ -3866,7 +3866,7 @@ player_bullet_enemy_routine:
 j_9a3c:
   cpx #$E4
   bcs b_9a4c
-  lda #$f0
+  lda #$F0
   sta sprite1_y_pos,X
   inx
   inx
@@ -3937,7 +3937,7 @@ get_num_tiles:
   bpl :+          ; branch out if first tile y position is positive
   lda #$40        ; attribute to flip tiel horizontally
   sta $06         ; store 40 to 06 ram
-  lda #$ff
+  lda #$FF
   sta $07         ; store ff to 07 ram
   lda $02         ; load sprite x position high
   sec
@@ -5011,7 +5011,7 @@ b_a647:
 b_a663:
   lda plr_y_prog_hi
   clc
-  adc #$f0
+  adc #$F0
   sta $02
   lda plr_y_prog_pg
   adc #$00
@@ -5053,7 +5053,7 @@ lvl_misc_rtn_8:
   sta $01
   ldy #$01
   lda ($00),Y
-  cmp #$ff
+  cmp #$FF
   rts
 lvl_misc_rtn_9:
   dey 
@@ -5460,7 +5460,7 @@ b_a99e:
   dec $0C
   bpl b_a951
   ldx $08
-  lda #$f0
+  lda #$F0
   sta some_ram_start,x ; @$0400,x
   rts
 load_enemies:
@@ -5895,10 +5895,10 @@ eny_wall_collision:        ; @$ acb8
   sta $02
   lda $03
   sbc #$00
-  eor #$ff
+  eor #$FF
   sta eny_x_spd_hi,X
   lda $02
-  eor #$ff
+  eor #$FF
   sta eny_x_spd_lo,X        ; set nevative direction
   jmp b_acff
 b_acf5:
@@ -5923,10 +5923,10 @@ b_acff:
   ldx current_enemy
   bcc b_ad32
   lda eny_x_spd_lo,X
-  eor #$ff
+  eor #$FF
   sta eny_x_spd_lo,X
   lda  eny_x_spd_hi,X
-  eor #$ff
+  eor #$FF
   sta eny_x_spd_hi,X
 b_ad32:
   rts
@@ -5955,10 +5955,10 @@ ram_misc_35:
   sta $02
   lda $03
   sbc #$00
-  eor #$ff
+  eor #$FF
   sta eny_y_spd_hi,X
   lda $02
-  eor #$ff
+  eor #$FF
   sta eny_y_spd_lo,X
   jmp j_ad7b
 b_ad71:
@@ -5983,10 +5983,10 @@ j_ad7b:
   ldx current_enemy
   bcc b_adae
   lda eny_y_spd_lo,X
-  eor #$ff
+  eor #$FF
   sta eny_y_spd_lo,X
   lda eny_y_spd_hi,X
-  eor #$ff
+  eor #$FF
   sta eny_y_spd_hi,X
 b_adae:
   rts
@@ -6043,7 +6043,7 @@ b_ae0b:
   jsr ram_misc_28
   ldy $0B
   lda $0A
-  and #$f0
+  and #$F0
   beq b_ae43
   lda #$20
   bit $0A
@@ -6243,7 +6243,7 @@ dec_boss_wpn_timer_7:     ; ******
 fire_eny_wpn:
   lda #$00
   sta $04
-  lda #$fe
+  lda #$Fe
   sta $05
 j_af9c:               ; this section of the subroutine is repeated above ****
   jsr ram_misc_27
@@ -6317,7 +6317,7 @@ b_b017:
   tay
   cpy #$C0
   bcc b_b017
-  ldy #$ff
+  ldy #$FF
 b_b027:
   rts
 ram_misc_27:
@@ -6361,7 +6361,7 @@ ram_misc_27:
   jsr flip_bits_0
 b_b078:
   jsr ram_misc_34
-  cpy #$ff
+  cpy #$FF
   beq b_b0a8
   lda eny_spr_x_pos_hi,X
   clc
@@ -6377,7 +6377,7 @@ b_b078:
   lda $02
   bpl b_b0aa
   lda eny_spr_y_pos_page,X
-  adc #$ff
+  adc #$FF
   sta eny_wpn_y_pos_page,Y
   jmp b_b0b2
 b_b0a8:
@@ -6465,7 +6465,7 @@ enemy_misc_rtn_19:
   sta y_scroll_lo
   lda y_scroll_hi
   sbc $01
-  cmp #$f0
+  cmp #$F0
   bcc b_b139
   sbc #$10
 b_b139:
@@ -6487,9 +6487,9 @@ b_b14e:
   sta y_scroll_lo
   lda y_scroll_hi
   adc $01
-  cmp #$f0
+  cmp #$F0
   bcc b_b15f
-  sbc #$f0
+  sbc #$F0
 b_b15f:
   sta y_scroll_hi
   bmi b_b167
@@ -6577,7 +6577,7 @@ eny_00:                   ; swooping Ramjet
 eny_01: ; @$B279  Blitzwing
   lda #$40
   sta eny_x_spd_lo,X
-  lda #$ff
+  lda #$FF
   sta eny_x_spd_hi,X
   lda eny_spr_x_pos_hi,X
   sta $00
@@ -6596,7 +6596,7 @@ eny_01: ; @$B279  Blitzwing
   bcc b_b2b1
   lda #$00
   sta eny_y_spd_lo,X
-  lda #$fe 
+  lda #$Fe 
   sta eny_y_spd_hi,X
   rts
 b_b2b1:
@@ -6616,7 +6616,7 @@ b_b2b1:
 eny_02: ; @b2ce           bot
   lda #$00
   sta eny_x_spd_lo,X
-  lda #$ff
+  lda #$FF
   sta eny_x_spd_hi,X
   lda eny_spr_x_pos_hi,X
   sta $00
@@ -6635,7 +6635,7 @@ eny_02: ; @b2ce           bot
   bcc b_b306
   lda #$00
   sta eny_y_spd_lo,X
-  lda #$fe
+  lda #$Fe
   sta eny_y_spd_hi,X
   rts
 b_b306:
@@ -6686,7 +6686,7 @@ eny_05:                   ; hammer (plumbus)
   jsr move_enemy_vert
   lda #$00
   sta eny_x_spd_lo,X
-  lda #$ff
+  lda #$FF
   sta eny_x_spd_hi,X
   rts
 eny_06:                   ; Tosher routine (ufo)
@@ -6737,10 +6737,10 @@ b_b3a5:
   ldx current_enemy
   bcs b_b3dd          
   lda eny_x_spd_lo,X
-  eor #$ff
+  eor #$FF
   sta eny_x_spd_lo,X
   lda eny_x_spd_hi,X
-  eor #$ff
+  eor #$FF
   sta eny_x_spd_hi,X  ; reverse direction if enemy is not colliding with floor/reached the edge of a platform
 b_b3dd:
   lda #$00
@@ -6794,7 +6794,7 @@ eny_0b:
   jsr enemy_vert_off_plr_rtn
   lda #$40
   sta  eny_x_spd_lo,X
-  lda #$ff
+  lda #$FF
   sta eny_x_spd_hi,X
   rts
 bos_00:
@@ -6841,7 +6841,7 @@ spawn_boss_enemy:
   lda num_bosses
   and #$02                      ; check if 2 bosses
   beq :+                        ; branch if only one boss
-  lda #$f0
+  lda #$F0
   sta eny_status_ram            ; f0 to eny_status_ram for 2 bosses, c0 for 1
 :
   jsr eny_set_wpn_time
@@ -6935,7 +6935,7 @@ bos_05: ; b52d                Kabusu A
   bcc b_b560
   lda #$40
   sta eny_x_spd_lo,X
-  lda #$ff
+  lda #$FF
   sta eny_x_spd_hi,X
 b_b560:
   lda #$20
@@ -6979,7 +6979,7 @@ bos_06:  ; b570         Kabusu B
   bcc b_b5c1
   lda #$80
   sta eny_x_spd_lo,X
-  lda #$ff
+  lda #$FF
   sta eny_x_spd_hi,X
 b_b5c1:
   rts
@@ -6987,7 +6987,7 @@ b_b5c1:
 bos_08: ; b5c2
   lda #$C0
   sta eny_x_spd_lo,X
-  lda #$ff
+  lda #$FF
   sta eny_x_spd_hi,X
   lda eny_spr_substatus,X
   and #$04
@@ -6996,7 +6996,7 @@ bos_08: ; b5c2
   sta eny_y_spd_lo,X
   sta eny_y_spd_hi,x
   sta eny_x_spd_lo,X
-  lda #$fe
+  lda #$Fe
   sta eny_x_spd_hi,X
   rts
 b_b5e4:
@@ -7147,7 +7147,7 @@ b_b713:
 b_b714:
   lda #$80
   sta eny_x_spd_lo,X
-  lda #$ff
+  lda #$FF
   sta eny_x_spd_hi,X
   lda #$00
   sta $02
@@ -7158,7 +7158,7 @@ b_b714:
 eny_0e: ; b72a            condor
   lda #$00
   sta eny_x_spd_lo,X
-  lda #$ff
+  lda #$FF
   sta eny_x_spd_hi,X      ; store enemy speed of -1.0
   lda #$00
   sta $00
@@ -7204,7 +7204,7 @@ eny_0f:                     ; zunonbat closed
 eny_10: ; b787              ; zunonbat flying
   lda #$80
   sta eny_x_spd_lo,X
-  lda #$ff
+  lda #$FF
   sta eny_x_spd_hi,X        ; store -0.5 to Zunonbat speed
   lda #$20
   sta $00                   ; speed increment
@@ -7256,7 +7256,7 @@ b_b7db:
   rts
 b_b7f5:
   lda eny_spr_substatus,X
-  and #$fe
+  and #$Fe
   sta eny_spr_substatus,X
   rts
 b_b7fe:
@@ -7266,7 +7266,7 @@ b_b7fe:
   inc eny_boss_wpn_timer,X
   lda #$00
   sta eny_y_spd_lo,X
-  lda #$ff
+  lda #$FF
   sta eny_y_spd_hi,X
   rts
 b_b813:
@@ -7304,7 +7304,7 @@ b_b84e:
   bcs :+
   lda #$00
   sta eny_y_spd_lo,X
-  lda #$fe
+  lda #$Fe
   sta eny_y_spd_hi,X
   inc eny_exp_timer,X
   rts
@@ -7333,7 +7333,7 @@ bos_09: ; b877    nemesis
   bcc b_b8c6
   lda #$00
   sta eny_wpn_x_speed_lo,Y
-  lda  #$fe
+  lda  #$Fe
   sta eny_wpn_x_speed_hi,Y
   lda eny_exp_timer,X
   sec
@@ -7378,7 +7378,7 @@ eny_15: ; b8df  ratbat tape
 eny_16: ; b8e8            snow commander (this guy sounds awesome, why has nobody made a character called snow commander?)
   lda #$00
   sta eny_x_spd_lo,X
-  lda #$fe
+  lda #$Fe
   sta eny_x_spd_hi,X          ; set enemy x speed of -2.0
   lda eny_spr_x_pos_hi,x
   sta $00
@@ -7469,7 +7469,7 @@ bos_0f: ; b979  cymbal from purple decepticon
 eny_1a: ; b996              Starscrem jetmode
   lda #$00
   sta eny_x_spd_lo,X
-  lda #$fe
+  lda #$Fe
   sta eny_x_spd_hi,X        ; set x speed to -2.0
   rts
 eny_1b: ; b9a1              Starscrem bot
@@ -7600,7 +7600,7 @@ eny_23: ; ba82              ball spawner
 eny_2c: ; ba9b
   lda #$00
   sta eny_y_spd_lo,X
-  lda #$fe
+  lda #$Fe
   sta eny_y_spd_hi,X
   rts
 eny_24: ; baa6
@@ -7609,7 +7609,7 @@ eny_24: ; baa6
   bne b_bac0
   lda #$80
   sta eny_y_spd_lo,X
-  lda #$fe
+  lda #$Fe
   sta eny_y_spd_hi,X
   lda eny_spr_substatus,X
   ora #$04
@@ -7618,7 +7618,7 @@ eny_24: ; baa6
 b_bac0:
   lda #$00
   sta eny_x_spd_lo,X
-  lda #$ff
+  lda #$FF
   sta eny_x_spd_hi,X
   lda #$10
   sta $00
@@ -7804,7 +7804,7 @@ bos_1a: ; bc1b
   bcs b_bc31
   lda #$00
   sta eny_spr_status,X
-  lda #$ff
+  lda #$FF
   sta state
 b_bc31:
   rts
@@ -8654,7 +8654,7 @@ j_c564:
   sta $08
   cmp #$08
   bcs b_c5a5
-  lda #$ff
+  lda #$FF
   sta $06
 b_c5a5:
   lda $02
@@ -9961,9 +9961,9 @@ chk_audio_ram:            ; b_d4bb start of checking track in 300 ram block
   bcc :++                 ; branch if its channel 00 or 01, pulse 1 and pulse 2
   beq :+                  ; branch if its a triangle
   ora #$40                ; or with 40 if more than 02
-  bne :++                 ; branch if more than 02
+  bne :++                 ; branch if more than 02, ie, 03=>43
 :
-  ora #$80                ; or with 80
+  ora #$80                ; or with 80, ie 02=>82
 :
   sta apu_status_ram_5    ; store channel to status_ram_5
   lda trk_status,X        ; load track status
@@ -9982,17 +9982,17 @@ chk_audio_ram:            ; b_d4bb start of checking track in 300 ram block
   bcc :+                  ; branch if carry is cleared
   sta audio_ram_C,X       ; store difference in audio_ram_C if no carry
 :
-  dec audio_ram_5,X       ; decrement audio_ram_5
+  dec trk_timer,X         ; decrement note trk_timer
   bpl :+                  ; branch if positive or 00
-  lda audio_ram_4,X       ; load max length
-  sta audio_ram_5,X       ; store to counter
-  jsr inc_audio_ram_6
+  lda trk_inter,X         ; load note time interval
+  sta trk_timer,X         ; store to note interval counter
+  jsr inc_dec_volume
   dec trk_note_len,X      ; decrement note length
-  beq b_d50f              ; branch if note length reaches 0
+  beq next_sample_notes   ; branch if note length reaches 0 to get next note
 :                         ; b_d509
-  jsr set_sq1_vol_b
+  jsr set_apu_ctrl_chk_ch
   jmp next_aud_ram_track
-b_d50f:
+next_sample_notes:
   jsr get_sample_notes
 next_aud_ram_track:
   txa                     ; transfer x to a
@@ -10007,47 +10007,47 @@ start_new_track:          ; branch here if track status is 00, when track was ju
   lda trk_addr_hi,X
   sta $11                 ; get audio sound address from track
   ldy #$00
-  lda ($10),y             ; get the first byte, which is the length
+  lda ($10),y             ; get the first byte, which is the note length
   and #$0f                ; get only the lower 4 bits
-  sta audio_ram_4,X       ; store length 
-  sta audio_ram_5,X       ; store length
+  sta trk_inter,X         ; store note length 
+  sta trk_timer,X         ; store note length to counter
   iny                     ; increment y to next byte
-  jsr get_sample_ch       ; store channel to apu_status_ram_7 0=0, 1=40, 2=80, 3=C0
+  jsr get_sample_duty     ; store duty to apu_status_ram_7 0=0, 1=40, 2=80, 3=C0
   iny                     ; increment y to 3rd byte
   lda ($10),Y
   ora apu_status_ram_7    ; or 3rd byte with apu_status_ram_7
-  sta audio_ram_6,X       ; store in audio_ram_6,X
+  sta trk_apu_ctrl,X      ; store in trk_apu_ctrl,X
   iny                     ; increment y to 4th byte
   lda ($10),Y
-  sta track_sweep,X       ; store 4th byte to track_sweep,X
+  sta trk_sweep,X         ; store 4th byte to trk_sweep,X
   lda #$00
-  sta audio_ram_9,X
+  sta trk_loop_cnt,X
   sta audio_ram_A,X
-  sta audio_ram_timer,X   ; clear audio_ram 9,A and D
+  sta trk_cres_length,X   ; clear audio_ram 9,A and D
   lda #$02
-  sta trk_status,X       ; store 02 to audio ram status
-  bne b_d50f              ; why bne instead of jmp? less cycles? less bytes in program?
-b_d556:
+  sta trk_status,X        ; store 02 to audio ram status
+  bne next_sample_notes   ; why bne instead of jmp? less cycles? less bytes in program?
+note_flag_Dx:             ; increase volume gradually flag
   and #$0f                ; get lower 4 bits only
   bpl :+
-b_d55a:
+note_flag_Ex:             ; lower volume gradually flag
   and #$0f
   eor #$FF
   clc
   adc #$01                ; flip bits
 :
   bit apu_status_ram_5
-  bmi :+
-  sta audio_ram_timer,X
+  bmi :+                  ; branch if triangle
+  sta trk_cres_length,X
   lda ($10),Y
-  sta audio_ram_E,X
-  sta audio_ram_F,X
+  sta trk_cres_inter,X
+  sta trk_cres_timer,X
 :
-  jmp re_start_sample
+  jmp next_sample_note
 get_sample_notes:
   lda trk_status,X
   sta $10
-  ldy #$00          ; start with 5th byte from audio table, but set y to 00
+  ldy #$00                ; start with 5th byte from audio table, but set y to 00
   sty $11
   asl $10
   rol $11
@@ -10057,114 +10057,114 @@ get_sample_notes:
   lda trk_addr_hi,X
   adc $11
   sta $11
-  lda ($10),Y       ; load 5th byte, which is a note
+  lda ($10),Y           ; load the note/flag
   iny
-  cmp #$F0          ; check for flag bytes
-  bcs b_d5aa        ; branch if terminator flag is found
+  cmp #$F0              ; check for flag bytes
+  bcs note_flag_Fx      ; branch if terminator flag is found
   cmp #$E0          
-  bcs b_d55a        ; pause sound has EF, so we branch here
+  bcs note_flag_Ex      ; pause sound has EF, so we branch here
   cmp #$D0
-  bcs b_d556        ; branch if terminator is Dx
+  bcs note_flag_Dx      ; branch if terminator is Dx
   cmp #$C0
-  bcs b_d60c        ; branch if note is Cx
+  bcs note_flag_Cx      ; branch if note is Cx
   cmp #$B0
-  bcs b_d5f0        ; branch if repeat flag is found
+  bcs note_flag_Bx      ; branch if repeat flag is found
   cmp #$A0
-  bcs b_d5bd        ; branch if sweep flag is set
-b_d5aa:                 ; check terminator
+  bcs note_flag_Ax      ; branch if sweep flag is set
+note_flag_Fx:           ; check terminator
   cmp #$FE
-  beq re_start_sample
+  beq next_sample_note
   bcs end_sample_track  ; branch if terminator is FF
-  jsr apu_status_rtn_4
+  jsr get_note_value    ; get the value of the note and handle rests
   inc trk_status,X
   rts
 end_sample_track:
   sta trk_status,X
-  jmp set_sq1_vol_c
-b_d5bd:
-  bne b_d5ce
+  jmp play_nothing
+note_flag_Ax:
+  bne :+                  ; branch if note flag not A0 to set apu channel ctrl without duty
   bit apu_status_ram_5
-  bmi re_start_sample
-  lda audio_ram_6,X
-  and #$C0
+  bmi next_sample_note    ; branch if triangle
+  lda trk_apu_ctrl,X
+  and #$C0                ; get duty from track ram but clear the rest
   ora ($10),Y
   jmp apu_status_rtn_2a
-b_d5ce:
+:                         ; branch here for note flag A1 to set sweep
   cmp #$A1
   bne :+
   lda ($10),Y
-  sta track_sweep,X
-  jmp re_start_sample
-:
-  jsr get_sample_ch
-  bcs apu_status_rtn_2a
-  lda audio_ram_6,X
-  and #$1F
-  ora apu_status_ram_7
+  sta trk_sweep,X         ; A1 is set track sweep with 2nd byte
+  jmp next_sample_note
+:                         ; branch here for note flag A2-AF to set duty
+  jsr get_sample_duty
+  bcs apu_status_rtn_2a   ; okay, we replace the entire apu channel ctrl with %cvvv vFdd constant volume (c), volume/envelops(v), set entire apu ch ctrl(F), new duty(d)
+  lda trk_apu_ctrl,X
+  and #$1F                ; save lower bytes but clear the duty %ddle nnnn
+  ora apu_status_ram_7    ; add the duty from the second byte
 apu_status_rtn_2a:
-  sta audio_ram_6,X
-re_start_sample:
+  sta trk_apu_ctrl,X
+next_sample_note:
   inc trk_status,X
   jmp get_sample_notes
-b_d5f0:                 ; branch here for Bx notes
-  and #$0f
+note_flag_Bx:                 ; branch here for Bx flags for repreating: Bx dd > repleat flag (B), number of loops F for infinite(x),second byte is how many notes to go back (or forwards)
+  and #$0F
   cmp #$0F
-  beq b_d600            ; branch if repeater is BF
-  dec audio_ram_9,X
-  beq re_start_sample
-  bpl b_d600
-  sta audio_ram_9,X
-b_d600:                 ; check byte after repeater
+  beq dec_note_counter        ; branch if repeater is BF for infinite looping
+  dec trk_loop_cnt,X          ; decrement number of loops
+  beq next_sample_note
+  bpl dec_note_counter
+  sta trk_loop_cnt,X          ; store number of loops to track loop counter
+dec_note_counter:             ; check byte after repeater
   lda ($10),Y
   clc
   adc trk_status,X      ; go back that many notes
   sta trk_status,X
   jmp get_sample_notes
-b_d60c:
-  and #$0f
-  sta apu_status_ram_7
+note_flag_Cx:           ; branch here if note flag is Cx
+  and #$0F              ; get lower 4 bits
+  sta apu_status_ram_7  ; store lower 4 bits in apu_status_ram_7
   bit apu_status_ram_5
-  bmi re_start_sample
-  lda audio_ram_6,X
+  bmi next_sample_note   ; branch if triangle
+  lda trk_apu_ctrl,X
   and #$10
-  beq re_start_sample
-  lda ($10),Y
-  sta audio_ram_B,X
+  beq next_sample_note
+  lda ($10),Y           ; get second byte
+  sta audio_ram_B,X     ; store in audio_ram_B
   lda apu_status_ram_7
-  sta audio_ram_A,X
-  bpl re_start_sample
-get_sample_ch:
+  sta audio_ram_A,X     ; store the x value from Cx to audio_ram_A
+  bpl next_sample_note
+get_sample_duty:
   bit apu_status_ram_5 
-  bmi b_d63a
-  lda ($10),Y               ; get channel for this sound from sound sample table
+  bmi get_tri_lin_counter   ; branch if triangle
+  lda ($10),Y               ; get duty for this sound from sound sample table
   and #$03                  ; and %0000 0011
   ror                       ; ror = 0000 0001 +c
   ror                       ; ror = 1000 0000 +c
   ror                       ; ror = 1100 0000
-  sta apu_status_ram_7      ; store channel with 0=0, 1=40, 2=80, 3=C0
+  sta apu_status_ram_7      ; shift duty into high bits with 0=0, 1=40, 2=80, 3=C0
   rts
-b_d63a:
+get_tri_lin_counter:
   lda ($10),Y
-  and #$7F
+  and #$7F                  ; get triangle linear counter load for $4008	CRRR RRRR	Length counter halt / linear counter control (C), linear counter load (R)
   sta apu_status_ram_7
   sec
   rts
-apu_status_rtn_4:
+get_note_value:
   bit apu_status_ram_5      ; channel num with the offset bit
   bvs set_sq1_vol
-  pha
-  and #$0f
-  cmp #$0C
-  bcs set_sq1_vol_d
+  pha                       ; push note to stack
+  and #$0f                  ; get lower 4 bits
+  cmp #$0C                  ; branch if rest flag
+  bcs set_rest_length         ; branch if note is 0C or above
   asl
   tay
-  lda audio_tbl_0,y         ;#$D7C0,y 
+  lda note_tbl,y            ;#$D7C0,y 
   sta apu_status_ram_7
-  lda audio_tbl_0+1,y        ;#$D7C1,y 
+  lda note_tbl+1,y          ;
   sta apu_status_ram_8
   pla
-  and #$F0
-  beq sq1_apu_rtn
+  and #$F0                  ; check for octave
+  beq sq2_apu_set_note      ; branch if lower octave, no octave to process
   lsr
   lsr
   lsr
@@ -10175,28 +10175,28 @@ apu_status_rtn_4:
   ror apu_status_ram_7
   dey
   bne :-
-sq1_apu_rtn:
+sq2_apu_set_note:
   ldy #$01
   lda ($10),Y                 ; get length of note
   sta trk_note_len,X          ; store length
   lda #$00
-  sta audio_ram_C,X
+  sta audio_ram_C,X           ; reset audio_ram_C
   jsr chk_aud_ch_status
   lda apu_status_ram_8
   pha
   lda apu_status_ram_7
-  pha
-  lda audio_tbl_1,y
+  pha                         ; push note value to stack
+  lda ch_activate_tbl,y           ; load #$02 from table at index 01 for pulse 2 channel
   ora apu_status_ram_6
-  jsr send_apu_status
-  jsr set_sq1_vol_a
-  lda track_sweep,X
-  sta APU_PULSE1RAMP, y       ;send to SQ1/SQ2 sweep @$4001
-  pla
-  sta APU_PULSE1FTUNE,Y       ;send to SQ1/SQ2 LoByte @$4002
-  pla
-  and #$07
-  ora #$08
+  jsr set_apu_channel         ; enable pulse 2 channel
+  jsr set_apu_ctrl            ; set pulse 2 ctrl
+  lda trk_sweep,X
+  sta APU_PULSE1RAMP, y       ; send to SQ1/SQ2 sweep @$4001/$4005 eppp nsss   enable sweep, period, negative, shift
+  pla                         ; pull note value low byte from stack
+  sta APU_PULSE1FTUNE,Y       ; send to SQ1/SQ2 LoByte @$4002 %pppp pppp
+  pla                         ; pull note value high byte from stack
+  and #$07                    ; get lower 3 bits %llll lppp
+  ora #$08                    ; set length to 1
   sta APU_PULSE1CTUNE,Y       ;send to SQ1/SQ2 HiByte @$4003
   rts
 set_sq1_vol:
@@ -10205,42 +10205,42 @@ set_sq1_vol:
   sta apu_status_ram_7
   lda #$00
   sta apu_status_ram_8
-  beq sq1_apu_rtn
-set_sq1_vol_d:
-  pla
+  beq sq2_apu_set_note
+set_rest_length:
+  pla                     ; pull (rest) note from stack
 :
   ldy #$01
   lda ($10),Y
   sta trk_note_len,X
-set_sq1_vol_c:
+play_nothing:             ; jump here if 1F, rest note
   jsr chk_aud_ch_status
-  lda audio_tbl_1a,y      ; @$D7E7
+  lda ch_mute_tbl,y      ; @$D7E7 get rest value from table
   and apu_status_ram_6
-  jmp send_apu_status
-set_sq1_vol_b:
+  jmp set_apu_channel
+set_apu_ctrl_chk_ch:
   jsr chk_aud_ch_status
-set_sq1_vol_a:
+set_apu_ctrl:
   cpy #$02
-  beq :+                    ; branch if...?
-  lda audio_ram_A,X         ; normally 0....
-  bne :++
+  beq :+                    ; branch if triangle wave
+  lda audio_ram_A,X
+  bne :++                   ; branch if audio_ram_A is not 00
   tya
   asl
-  asl
-  tay                       ; shift channel index left twice
-  lda audio_ram_6,X
-  and #$10
-  asl
-  ora audio_ram_6,X
-  sta APU_PULSE1CTRL,Y        ; send to sq1 vol @$4000
+  asl                       ; shift channel left 4 times for APU_PULSE2CTRL at $4004
+  tay                       ; transfer a to x index APU
+  lda trk_apu_ctrl,X
+  and #$10                  ; and w/ %0001 0000
+  asl                       ; asl to %0010 0000
+  ora trk_apu_ctrl,X         ; if envelope is disabled, then also disable envelope length
+  sta APU_PULSE1CTRL,Y      ; send to sq1 vol @$4000/$4004 %ddle nnnn  duty, loop env/disable length, env disable, vol/env period
   rts
-:
-  lda audio_ram_6,X
+:                           ; branch here if triangle wave
+  lda trk_apu_ctrl,X
   sta APU_TRICTRL1          ; send to tri_linear @$4008
   tya
   asl
   asl
-  tay
+  tay                       ; multiply channel by 4 and store back in y
   rts
 ;============================================
 ; not called
@@ -10283,7 +10283,7 @@ set_sq1_vol_a:
   asl
 :
   sta apu_status_ram_7
-  lda audio_ram_6,X
+  lda trk_apu_ctrl,X
   and #$0f
   sta apu_status_ram_9
   ldy #$04
@@ -10305,7 +10305,7 @@ set_sq1_vol_a:
   lsr apu_status_ram_8
   lsr apu_status_ram_8
   lsr apu_status_ram_8
-  lda audio_ram_6,X
+  lda trk_apu_ctrl,X
   and #$C0
   ora #$30
   ora apu_status_ram_8
@@ -10324,52 +10324,52 @@ chk_aud_ch_status:
   pla                         ; pull twice from stack because the channel is disabled and we're done
 :
   rts
-inc_audio_ram_6:
+inc_dec_volume:
   bit apu_status_ram_5
-  bmi :+                      ; branch out if negative
-  lda audio_ram_timer,X
-  beq :+                      ; branch out if track timer is 0
-  dec audio_ram_F,X
-  bne :+
-  lda audio_ram_E,X
-  sta audio_ram_F,X
-  lda audio_ram_6,X
-  and #$1F
+  bmi :+                      ; branch out if negative, triangle wave
+  lda trk_cres_length,X       ; check timer left on crescenco
+  beq :+                      ; branch out if crescendo length timer is 0
+  dec trk_cres_timer,X        ; decrement crescendo interval timer
+  bne :+                      ; branch out unless vol interval timer is 0
+  lda trk_cres_inter,X
+  sta trk_cres_timer,X        ; restore timer
+  lda trk_apu_ctrl,X
+  and #$1F                    ; get volume from trk_apu_ctrl
   sta apu_status_ram_7
   and #$10
-  beq :+                      ; branch out if audio_ram_6 doesnt have 4bit set
-  lda audio_ram_timer,X
-  bmi :++                     ; branch if audio_ram_timer is negative and increment up to 00
-  dec audio_ram_timer,X
+  beq :+                      ; branch out if trk_apu_ctrl doesnt have 4bit set %---c ----
+  lda trk_cres_length,X
+  bmi :++                     ; branch to lower volume if trk_cres_length is negative and increment up to 00
+  dec trk_cres_length,X
   lda apu_status_ram_7
-  cmp #$1F
-  beq :+
-  inc audio_ram_6,X
+  cmp #$1F                    ; check if volume is maxed out
+  beq :+                      ; branch out if volume is maxed out
+  inc trk_apu_ctrl,X          ; raise volume
 :
   rts
 :
-  inc audio_ram_timer,X       ; increment audio_ram_timer
+  inc trk_cres_length,X       ; increment trk_cres_length
   lda apu_status_ram_7
-  cmp #$10
-  beq :--
-  dec audio_ram_6,x
+  cmp #$10                    ; check if volume bottomed out already
+  beq :--                     ; branch out if volume is already 0 
+  dec trk_apu_ctrl,x          ; lower volume
   rts
 
 
-audio_tbl_0:                ; @$D7C0-D7D7 note table?
-  .byte $AE,$06   ; 00
-  .byte $4E,$06   ; 01
-  .byte $F4,$05   ; 02
-  .byte $9E,$05   ; 03
-  .byte $4D,$05   ; 04
-  .byte $01,$05   ; 05
-  .byte $B9,$04   ; 06
-  .byte $75,$04   ; 07
-  .byte $35,$04   ; 08
-  .byte $F9,$03   ; 09
-  .byte $C0,$03   ; 0A
-  .byte $8A,$03   ; 0B
-send_apu_status:
+note_tbl:                ; @$D7C0-D7D7 note table, 20 is middle C
+  .byte $AE,$06   ; 00 C
+  .byte $4E,$06   ; 01 C#
+  .byte $F4,$05   ; 02 D
+  .byte $9E,$05   ; 03 D#
+  .byte $4D,$05   ; 04 E
+  .byte $01,$05   ; 05 F
+  .byte $B9,$04   ; 06 F#
+  .byte $75,$04   ; 07 G
+  .byte $35,$04   ; 08 G#
+  .byte $F9,$03   ; 09 A
+  .byte $C0,$03   ; 0A A#
+  .byte $8A,$03   ; 0B B
+set_apu_channel:
   sta apu_status_ram_6      ; which audio channel
   bit rtn_trk_b
   bmi :+                    ; rts if rtn_trk_b is negative
@@ -10377,13 +10377,15 @@ send_apu_status:
 :
   rts
 
-audio_tbl_1:                ; @$D7E3-D832
-	.byte $01,$02,$04,$08
-audio_tbl_1a:               ; @$D7E7
-  .byte $0E,$0D,$0B,$07
+ch_activate_tbl:            ; @$D7E3-D832 %0000 0001, %0000 0010, %0000 0100, %0000 1000
+	.byte $01,$02,$04,$08     ; bits for APU_STATUS: Pulse 1, Pulse 2, Triangle, Noise (no DMC?)
+ch_mute_tbl:                ; @$D7E7      %0000 1110, %0000 1101, %0000 1011, %0000 0111
+  .byte $0E,$0D,$0B,$07     ; rest for pulse 1, pulse 2, triangle, noise
 audio_tbl_1b:               ; @$D7EB not used??
-  .byte $FE,$DC,$BA,$98,$76,$54,$32,$10,$01,$23,$45,$67,$89,$AB,$CD,$EF,$FE,$DC,$BA,$98,$89,$AB,$CD,$EF
-  .byte $89,$AB,$CD,$EF,$FE,$DC,$BA,$98,$FD,$B9,$75,$31,$EC,$A8,$64,$20,$FE,$DC,$CD,$ED,$CA,$86,$42,$10
+  .byte $FE,$DC,$BA,$98,$76,$54,$32,$10,$01,$23,$45,$67,$89,$AB,$CD,$EF
+  .byte $FE,$DC,$BA,$98,$89,$AB,$CD,$EF,$89,$AB,$CD,$EF
+  .byte $FE,$DC,$BA,$98,$FD,$B9,$75,$31,$EC,$A8,$64,$20
+  .byte $FE,$DC,$CD,$ED,$CA,$86,$42,$10
   .byte $FD,$B9,$AB,$97,$65,$43,$21,$10,$44,$44,$44,$46,$67,$8A,$CF,$B8,$FF,$A8,$FF,$A8,$77,$66,$55,$42
 
 
@@ -10698,6 +10700,22 @@ audio_jump_tbl_2:  ; @DA1E
 	.byte $45,$DB,$01     ; pause sound
 	.byte $BA,$DF,$00     ; barrier powerup music.
 	.byte $02,$E0,$02     ; barrier powerup music.2
+
+;===============================
+; sample tables
+; first 4 bytes are the sample info:
+;   note length %---- iiii, duty cycle %---- --dd, volume %--?c vvvv, sweep
+; rest of the bytes are notes, note lengths and flags
+; A0 sets the volume in apu ctrl with the second byte, without setting the duty, the duty is plulled from ram
+; A1 sets the sweep for the channel with the second byte
+; A2-F sets entire apu channel ctrl byte with second byte %cvvv vFdd where F is the flag to set the entire byte, duty (d), volume(v),constant volume(c)
+; Bx is a repeat flag, byte after is how many notes to go back, ie B7 FE is go back 2 notes and repeat 8 times
+; BF repeat infinite times
+; Cx
+; Fx is a terminator flag
+; FE go to next note by incrementing trk_status
+; FF end sound by storing FF to trk_status
+
 magnus_jump_sound_1:  ; magnus jump sound. @daa8
 .byte $10,$01,$0F,$8B
 .byte $59,$08,$FF
@@ -10709,12 +10727,16 @@ magnus_jump_sound_2:  ; magnus jump sound.2 @daaf
 .byte $EF,$01,$50,$01,$55,$01,$5A,$01,$B5,$FD,$FF
 ; boss main explosion sound@dad7
 .byte $31,$00,$1F,$00
-.byte $EF,$02,$0F,$20,$FF
+.byte $EF,$02
+.byte $0F,$20,$FF
 ; magnus transform sound @ dae0
 .byte $10,$01,$1F,$00
-.byte $EF,$03,$60,$01,$5A,$01,$58,$01,$56,$01,$54,$01,$52,$01,$50,$01,$4A,$01,$48,$01,$46,$01,$44,$04,$42,$04,$40,$01
+.byte $EF,$03
+.byte $60,$01,$5A,$01,$58,$01,$56,$01,$54,$01,$52,$01,$50,$01,$4A,$01,$48,$01,$46,$01,$44,$04,$42,$04,$40,$01
 .byte $B5,$F3,$FF
-.byte $31,$00,$1F,$00,$0C,$01,$0D,$01,$0E,$01,$EF,$02,$0F,$20,$FF
+; ??
+.byte $31,$00,$1F,$00
+.byte $0C,$01,$0D,$01,$0E,$01,$EF,$02,$0F,$20,$FF
 ; enemy damage sound @db12
 .byte $10,$02,$0F,$82
 .byte $29,$10,$FF
@@ -10732,7 +10754,8 @@ magnus_jump_sound_2:  ; magnus jump sound.2 @daaf
 .byte $55,$01,$53,$01,$51,$01,$4B,$01,$49,$01,$FF
 ; pause sound @db45
 .byte $13,$02,$1F,$00
-.byte $EF,$01,$39,$01,$1F,$01
+.byte $EF,$01
+.byte $39,$01,$1F,$01
 .byte $B7,$FE,$FF
 ; azak sound. @db52
 .byte $10,$01,$1F,$00
