@@ -4,10 +4,10 @@ vert_wpn_speed          = $FC ; inc speed of vertical and diagonal bullets $FC, 
 hori_wpn_speed          = $04 ; inc speed of horizontal and diagonal bullets $04, positive number goes right, 00 is supposedly vertical, lo bytes arnt considered because they're too small of increments but still part of the game engine
 max_bullets             = $04 ; max bullets on screen allowed
 max_bullet_frames       = $20 ; how many frames the bullet is on screen for
-missile_frames_int      = $30 ; how many frames the bullet is on screen for
-max_missile_frames      = $40 ; how many frames the bullet is on screen for
+missile_frames_int      = $30 ; how many frames the missile is on screen for
+max_missile_frames      = $40 ; max frames the missile is on screen for before exploding
 plr_max_jmp_time        = $0C
-plr_init_jmp_speed      = $FC
+plr_init_jmp_speed      = $FC ; vertical up speed when player presses jump button, player slows down from there because of gravity
 horiz_lvl_length        = $0B
 sideroom_time           = $05
 plr_y_wpn_offset        = $06 ; how high from midsection of plr do we set the new bullet
@@ -104,7 +104,7 @@ plr_y_prog_lo           = $6F
 plr_y_prog_hi           = $70
 plr_y_prog_pg           = $71
 subtitle_timer          = $72
-unram_20                = $73
+game_cmplt_cnt          = $73     ; increment ever time a game is completed
 rodimus_ram             = $74
 sub_state               = $75     ; 0000 0xxx : side room loaded, sideroom exited(dont reload), sideroom timeout, , | last 3 bytes are used to address the sideroom checkpoint and offset the current level with 14
 lvl9_clear              = $76
@@ -112,7 +112,7 @@ chkpt_counter           = $77
 score_1_up_lo           = $78   ; next score needed for 1S-up
 score_1_up_mid          = $79   
 score_1_up_hi           = $7A 
-unram_21                = $7B 
+unused_ram_1            = $7B 
 
 ; just some notes from Venutech
 ; it may seem like I use the term stage and level interchangably, but level discretely reffers to the part before the boss and stage could refer to the same thing or both the level and the boss, because the game has an intro before the whole stage and none for the boss.
@@ -140,7 +140,7 @@ text_flash_pal_ram_B    = $A7       ; quite useless
 text_flash_pal_ram      = $A8
 
 player_palette_ram      = $AA
-unram_12                = $B8
+unused_ram_2            = $B8
 nametable_addr_hi       = $B9
 nametable_addr_lo       = $BA
 palette_addr_hi         = $BB       ; palette address starts at 23C0 or 27C0 for horizontal scrolling
@@ -296,7 +296,7 @@ APU_TRICTRL2    = $4009         ; Triangle Control Register #2 (?)
 APU_TRIFREQ1    = $400A         ; Triangle Frequency Register #1 (W)
 APU_TRIFREQ2    = $400B         ; Triangle Frequency Register #2 (W)
 APU_NOISECTRL   = $400C         ; Noise Control Register #1 (W)
-;;APU_ = $400D  ; Unused (???)
+;;APU_ = $400D  ; Unused (yes, noise channel doesnt use this register)
 APU_NOISEFREQ1  = $400E         ; Noise Frequency Register #1 (W)
 APU_NOISEFREQ2  = $400F         ; Noise Frequency Register #2 (W)
 APU_MODCTRL     = $4010         ; Delta Modulation Control Register (W)
@@ -335,25 +335,35 @@ aud_tf_insig_a:         ; TF insignia flip sound info a @$8004
 aud_tf_insig_b:         ; TF insignia flip sound info b @$8013
 .byte $15,$01,$0F,$00,$2B,$04,$31,$02,$32,$04,$27,$02,$27,$04,$60,$10,$FF
 aud_tf_insig_c:         ; TF insignia flip sound info c @$8024
-.byte $25,$7F,$00,$00,$24,$04,$26,$02,$27,$04,$20,$02,$20,$04,$24,$01,$25,$01,$26,$01,$27,$01,$28,$01,$29,$01,$2A,$01,$2B,$01,$30,$04,$FF
+.byte $25,$7F,$00,$00
+.byte $24,$04,$26,$02,$27,$04,$20,$02,$20,$04,$24,$01,$25,$01,$26,$01,$27,$01,$28,$01,$29,$01,$2A,$01,$2B,$01,$30,$04,$FF
 aud_tf_insig_d:         ; TF insignia flip sound info d @$8045
-.byte $35,$00,$00,$00,$03,$04,$03,$02,$03,$04,$03,$02,$03,$04,$FF
+.byte $35,$00,$00,$00
+.byte $03,$04,$03,$02,$03,$04,$03,$02,$03,$04,$FF
 aud_game_over_a:        ; game over a @$8054
-.byte $05,$01,$0F,$00,$39,$04,$39,$02,$37,$02,$1F,$02,$37,$02,$39,$04,$40,$02,$3B,$02,$37,$02,$32,$02,$34,$02,$37,$06,$39,$02,$FF
+.byte $05,$01,$0F,$00
+.byte $39,$04,$39,$02,$37,$02,$1F,$02,$37,$02,$39,$04,$40,$02,$3B,$02,$37,$02,$32,$02,$34,$02,$37,$06,$39,$02,$FF
 aud_game_over_b:        ; game over b @$8073
-.byte $15,$01,$0F,$00,$24,$04,$24,$02,$22,$02,$1F,$02,$22,$02,$24,$04,$20,$0A,$22,$06,$24,$02,$FF
+.byte $15,$01,$0F,$00
+.byte $24,$04,$24,$02,$22,$02,$1F,$02,$22,$02,$24,$04,$20,$0A,$22,$06,$24,$02,$FF
 aud_game_over_c:        ; game over c @$808A
-.byte $25,$7F,$00,$00,$29,$04,$29,$02,$27,$02,$1F,$02,$27,$02,$29,$04,$25,$0A,$27,$06,$29,$02,$FF
+.byte $25,$7F,$00,$00
+.byte $29,$04,$29,$02,$27,$02,$1F,$02,$27,$02,$29,$04,$25,$0A,$27,$06,$29,$02,$FF
 aud_game_over_d:        ;tftheme/game over d @$80a1
-.byte $35,$00,$00,$00,$03,$04,$03,$02,$03,$04,$03,$02,$03,$04,$03,$02,$B5,$FF,$1F,$04,$03,$02,$FF
+.byte $35,$00,$00,$00
+.byte $03,$04,$03,$02,$03,$04,$03,$02,$03,$04,$03,$02,$B5,$FF,$1F,$04,$03,$02,$FF
 aud_rod_endscreen:      ; rodimus endscreen/bumblebee screen @$80B8
-.byte $12,$02,$1F,$00,$EF,$02,$40,$01,$45,$01,$47,$01,$50,$01,$B6,$FC,$DF,$02,$40,$01,$45,$01,$47,$01,$50,$01,$B7,$FC,$BF,$F4
+.byte $12,$02,$1F,$00
+.byte $EF,$02,$40,$01,$45,$01,$47,$01,$50,$01,$B6,$FC,$DF,$02,$40,$01,$45,$01,$47,$01,$50,$01,$B7,$FC,$BF,$F4
 aud_subtitle_a:         ; Subtitle sound a @$80D6
-.byte $30,$00,$00,$00,$07,$10,$FF
+.byte $30,$00,$00,$00
+.byte $07,$10,$FF
 aud_subtitle_b:         ; Subtitle sound b @$80DD
-.byte $10,$01,$01,$00,$69,$10,$FF
+.byte $10,$01,$01,$00
+.byte $69,$10,$FF
 aud_subtitle_c:         ; Subtitle sound c @$80E4
-.byte $10,$01,$1F,$00,$EF,$01,$29,$01,$24,$01,$22,$01,$19,$01,$B8,$FC,$FF
+.byte $10,$01,$1F,$00
+.byte $EF,$01,$29,$01,$24,$01,$22,$01,$19,$01,$B8,$FC,$FF
 ; unused buffer area
 .byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
 ; Main code segment for the program
@@ -509,7 +519,7 @@ pre_stage_prep_b:
   sta stage_boss                ; store if stage or boss in ram
   lda stage_orientation_table,Y
   sta stage_orientation         ; store stage orientation to ram
-  lda unram_20                  ; load @$73
+  lda game_cmplt_cnt                  ; load @$73
   sta $00
   cmp #$07
   bcc :+
@@ -554,13 +564,13 @@ b_8267:
 b_827d:
   inc current_level             ; next level
   lda #$00
-  sta unram_21
+  sta unused_ram_1
   sta sub_state
   ldy current_level             ; load current level to Y
   cpy #$14
   bcc b_829e
   jsr rodimus_check             ; @$D076 a bit mangled in the code, but its not too difficult to figure out
-  inc unram_20
+  inc game_cmplt_cnt            ; increment game complete counter
   ldy #$00
   lda  rodimus_ram
   and #$FE                      ; check for letters, play as rodiumus is in 0bit, letters are in the restr
@@ -871,9 +881,9 @@ game_rtn_1:                         ; pre-stage screen, endscreen, gameover scre
   sta $01
   lda hiScoreHi
   sta $02
-  lda #$C0
+  lda #$C0        ; x position
   sta $0E
-  lda #$98
+  lda #$98        ; y position
   sta $0f
   jsr draw_score
 :
@@ -962,7 +972,7 @@ controller_check:
   bne :-
   rts
 demo_run_shoot:
-  lda #$82
+  lda #$82                  ; hold run and shoot for demo
   sta controller_current
   rts
 load_palette_ram_to_ppu:
@@ -1800,7 +1810,7 @@ update_palette_a:
   rts
   
 ;=========================================================
-not_called_subroutine_1:  ;*****************************
+not_called_subroutine_1:  ;***************************** its called, but indirectly? no, its not
   ldy #$00
   lda ($05),Y     ; load first byte from nonexistant table
   sta $00         ; store ppu address high byte
@@ -2523,6 +2533,10 @@ b_910f:
   ora #$20
   sta plr_sprite_status       ; set 5bit when A is pressed
   jsr play_jump_sound
+
+;====================================
+; jump routine
+
 init_plr_jump:                ; already jumping or just started jumping
   lda jump_hold
   and #$40
@@ -5300,9 +5314,9 @@ b_a7da:
   stx current_enemy
   lda eny_spr_status,X
   bpl b_a820
-  lda #$A8
+  lda #>b_a820
   pha
-  lda #$20
+  lda #<b_a820
   pha
   lda eny_spr_status,X
   and #$10
@@ -5311,7 +5325,7 @@ b_a7da:
   and #$40
   beq b_a7f8
   jmp eny_spr_clear_data
-b_a7f8:
+b_a7f8:                     ; something gets called from here and its direct... so is messing things up****************
   lda eny_spr_substatus,X
   and #$10
   bne dec_boss_wpn_timer_9
@@ -5323,6 +5337,7 @@ b_a7f8:
   lda eny_misc_jmp_tbl+1,Y
   sta $03
   lda eny_spr_type,X
+;*********** a810 this gets called from somewhere.....
   bmi b_a82c
   asl
   tay
@@ -6524,7 +6539,7 @@ b_b104:
   sta eny_spr_status,X
   rts
 enemy_misc_rtn_19:
-  lda unram_20
+  lda game_cmplt_cnt
   and #$03
   asl
   asl
@@ -6993,7 +7008,7 @@ enemy_misc_rtn_6:
   bne b_b52a
   ldy #$21
 b_b52a:
-  sty unram_12
+  sty unused_ram_2
   rts
 bos_05: ; b52d                Kabusu A
   lda eny_spr_substatus,X
@@ -7765,7 +7780,7 @@ eny_pu_jet: ; bb41
   sta $00
   lda #$01
   sta $01
-  lda unram_20
+  lda game_cmplt_cnt
   cmp #$03
   bcc b_bb51
   lda #$FF
@@ -9383,7 +9398,7 @@ scroll_logo:
   tya
   lsr
   clc
-  adc #$0A
+  adc #$0A              ; offset subtitle towards the center of the screen 0A tiles
   sta $02
   lda #$22
   adc #$00
@@ -9636,10 +9651,24 @@ draw_lives:
   sta PPU_VRAM_IO
   rts
 
-title_tbl: ;CFDC-D075  Title Attribute table
- 	.byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  .byte $00,$00,$00,$00,$05,$05,$05,$05,$05,$05,$05,$01,$A0,$A0,$A0,$A0,$A0,$A0,$A0,$A0
-  .byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF   
+title_tbl: ;CFDC-D075  Title Attribute tables
+ 	.byte $00,$00,$00,$00
+  .byte $00,$00,$00,$00
+  .byte $00,$00,$00,$00
+  .byte $00,$00,$00,$00
+  .byte $00,$00,$00,$00
+  .byte $00,$00,$00,$00
+  .byte $05,$05,$05,$05
+  .byte $05,$05,$05,$01
+
+  .byte $A0,$A0,$A0,$A0
+  .byte $A0,$A0,$A0,$A0
+  .byte $FF,$FF,$FF,$FF
+  .byte $FF,$FF,$FF,$FF
+  .byte $FF,$FF,$FF,$FF
+  .byte $FF,$FF,$FF,$FF
+  .byte $FF,$FF,$FF,$FF
+  .byte $FF,$FF,$FF,$FF   
 title_palette_tbl:  ; @d01c
 	.byte $0F,$30,$10,$02
   .byte $0F,$30,$10,$16
