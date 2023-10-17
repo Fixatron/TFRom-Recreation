@@ -19,14 +19,14 @@ current_enemy           = $0D
 
 timer_lo_byte           = $19
 timer_hi_byte           = $1A
-which_player            = $1B    ; 00= player 1, ff= player 2
+which_player            = $1B     ; 00= player 1, ff= player 2
 rtn_trk_0               = $1C
-rtn_trk_a               = $1D    ; $80 = title screen, 10 = title screen initialized, 04= start pushed at title, 08=level start/game over, 00= in game. 0bit = stuff in stack
-rtn_trk_b               = $1E
+rtn_trk_a               = $1D     ; $80 = title screen, 40=paused 10 = title screen initialized, 04= start pushed at title, 08=level start/game over, 00= in game. 0bit = stuff in stack
+demo_status             = $1E     ; ff= demo, 00= no demo
 flash_counter           = $1F
-unram_27                = $20
-sel_status              = $21    ; selection status for title screen, 0= 1 player, FF=2 players
-state                   = $22    ; level state %0000 0000 start pushed at title, level complete, warp 2 stages, sideroom trigger,?,trigger warp zone,explode player,lvl end chkpoint reached  01 = level checkpoint reached
+boss_explosion_counter  = $20
+sel_status              = $21     ; selection status for title screen, 0= 1 player, FF=2 players
+state                   = $22     ; level state %0000 0000 start pushed at title, level complete, warp 2 stages, sideroom trigger,?,trigger warp zone,explode player,lvl end chkpoint reached  01 = level checkpoint reached
 p1ScoreLo               = $23
 p1ScoreMid              = $24
 p1ScoreHi               = $25
@@ -68,7 +68,7 @@ stage_boss              = $48   ; 00 is level, 01 is boss
 eny_status_ram          = $49
 eny_time_ram            = $4A   ; related to the boss wpn timer
 level_backup            = $4B
-unram_7                 = $4C
+eny_chkpt_cntr                 = $4C
 num_bosses              = $4D   ; only stage 2 has 2 bosses
 jump_hold               = $4E   ; how long was jump button held for, 0c is max, 02 is about the lowest
 trnsfrmng_frame_counter = $4F
@@ -238,7 +238,7 @@ eny_wpn_timer           = $054D
 ; enemy ram
 enemy_sprite_data_start = $0600
 eny_spr_status          = $0600     ; 80=alive,90=hit/transform,00=inactive,d0=explode,f0=explode
-eny_spr_substatus       = $0601     ; 01=vert direction, 19=frozen,20=stationary powerup,80=flip scprite horizontal %0000 0000 flip sprite horiz,,powerup?,,,,horiz direction,vert direction
+eny_spr_substatus       = $0601     ; 01=vert direction, 08= no damage to player 19=frozen,20=stationary powerup,80=flip scprite horizontal %0000 0000 flip sprite horiz,,powerup?,,no damage to player,,horiz direction,vert direction
 eny_spr_x_pos_lo        = $0602
 eny_spr_x_pos_hi        = $0603
 eny_spr_x_pos_page      = $0604
@@ -365,7 +365,8 @@ aud_subtitle_c:         ; Subtitle sound c @$80E4
 .byte $10,$01,$1F,$00
 .byte $EF,$01,$29,$01,$24,$01,$22,$01,$19,$01,$B8,$FC,$FF
 ; unused buffer area
-.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF
+.byte $FF,$FF,$FF,$FF,$FF,$FF,$FF
 ; Main code segment for the program
 .segment "CODE"
 
@@ -401,11 +402,11 @@ vblankwait2:
   lda #$00
   sta hiScoreHi
   jsr clear_player_scores
-init_title:
+demo_rtn:
   jsr set_PPU_MASK_b  ; remove sprites and background from screen
   jsr set_PPU_CTRL_b 
   lda #$FF
-  sta rtn_trk_b       ; store $FF to $1E
+  sta demo_status       ; store $FF to $1E
   lda #$10
   sta rtn_trk_a       ; store $10 to $1D
   jsr draw_title              ; @$CCC6
@@ -417,13 +418,13 @@ init_title:
   lda #$80                      ; ready $80 for subtitle and 96 frame counter
   sta frame_counter_96
   jsr set_demo_pl1              ; Set player 1 for demo
-  jmp init_title                 ; jump back up to repeat initializing level
+  jmp demo_rtn                 ; jump back up to repeat initializing level
 title_loop_jmp:
   jsr start_pushed_at_title     ; this subroutine seems to be only used just when start is pushed at title before Ultra Magnus shows on flashing screen
   jsr disable_audio_channels    ; disable audio channels and set audio ram statuses to $FF
   jsr clear_player_scores       ; Clear player scores
   lda #$00
-  sta rtn_trk_b
+  sta demo_status
   jsr reset_player_ram
   lda sel_status                ; 0= 1 player ff= 2 players selected on title screen
   bne set_demo_pl1              ; branch if 2 players is selected @$22=$FF
@@ -432,13 +433,13 @@ title_loop_jmp:
 set_demo_pl1:
   lda #$00
   sta which_player              ; set current player to player 1 
-pre_stage_prep:
+stage_intro_rtn:
   jsr pre_stage_screen          ; Setup the pre stage screen
   lda #$00                      ; clear unknown ram locations
   sta room_timer_lo
   sta room_timer_hi
   sta sideroom_state
-pre_stage_prep_a:
+plr_lvl_start_pos:
   lda #$00
   sta x_scroll                  ; clear x and y scroll in ram
   sta y_scroll_lo
@@ -462,11 +463,11 @@ pre_stage_prep_a:
   and #$40                      ; check for upwards levels, 3 or 10
   beq reset_vert_prog           ; branch if not to setup horizontal level
   lda #$00
-  sta plr_y_prog_lo             ; store 00 enemy sprite x offset
+  sta plr_y_prog_lo             ; store 00 
   lda #$C0
-  sta plr_y_prog_hi             ; store C0 enemey sprite y offset
+  sta plr_y_prog_hi             ; store C0 plr starting y position for stage 3 and 10
   lda #$03
-  sta plr_y_prog_pg             ; store 03 enemy orientation
+  sta plr_y_prog_pg             ; store 03 plr starting y page for stage 3 and 10
   jmp get_plr_start_position    ; skip the part where we clear the player progression in RAM if level isnt 3 or 10
 reset_vert_prog:
   lda #$00                      ; clear enemy offsets on all levels except 3 and 10
@@ -481,12 +482,12 @@ get_plr_start_position:
   sta plr_y_pos_hi              ; store to player vertical position
   lda player_x_pos_tbl,Y        ; @$C9D4
   sta plr_x_pos_hi              ; store to player horizontal position
-pre_stage_prep_b:
+pre_stage_prep:
   lda #$00
   sta controller_p1_current     ; clear player 1 controller input
   sta plr_sprite_status         ; reset flight status
   sta subtitle_timer            ; reset subtitle timer
-  sta unram_7
+  sta eny_chkpt_cntr
   sta rtn_trk_0
   sta state
   sta rtn_trk_a
@@ -519,12 +520,12 @@ pre_stage_prep_b:
   sta stage_boss                ; store if stage or boss in ram
   lda stage_orientation_table,Y
   sta stage_orientation         ; store stage orientation to ram
-  lda game_cmplt_cnt                  ; load @$73
+  lda game_cmplt_cnt            ; load @$73 how many times the game was completed
   sta $00
-  cmp #$07
+  cmp #$07                      ; check if game is beaten 7 times
   bcc :+
   lda #$0F
-  sta $00
+  sta $00                       ; once the game is completed 7 times reduce the player's accelleration?!?!?! damn, thats cruel
 :                               ; b_822f
   lda player_acceleration_tbl,Y ; load player speed, although its always 20, except stage 7
   sec
@@ -560,7 +561,7 @@ b_8267:
   bne b_827d
   lda lvl9_clear
   beq b_827d
-  jmp pre_stage_prep
+  jmp stage_intro_rtn
 b_827d:
   inc current_level             ; next level
   lda #$00
@@ -585,12 +586,12 @@ b_820a:
   lda #$04
   and controller_p1_current
   bne b_820a                    ; branch if select is pushed
-  jmp pre_stage_prep
+  jmp stage_intro_rtn
 b_82ac:
   jsr set_PPU_MASK_b
   jsr set_PPU_CTRL_b
   jsr disable_audio_channels
-  lda rtn_trk_b
+  lda demo_status
   bpl :+
   rts
 :                               ; decrement lives
@@ -608,10 +609,10 @@ b_82ac:
   jmp :++
 :
   lda other_pl_stored_data
-  bmi :++++
+  bmi start_demo_rtn
 :
   lda sub_state
-  bmi :++++++
+  bmi pre_stage_prep_after_sideroom
   lda other_pl_stored_data
   bmi :++                   ; ***********this is around the line @82DF on the 6502 Debugger and @0x2E0 on the hex file
   ldy #$FF
@@ -622,18 +623,18 @@ b_82ac:
   sty which_player
   jsr swap_player_ram
 :
-  jmp pre_stage_prep
-:
+  jmp stage_intro_rtn
+start_demo_rtn:
   lda #$FF
-  sta rtn_trk_b
-  jmp init_title
+  sta demo_status
+  jmp demo_rtn
 main_jmp_1:
   jsr set_PPU_MASK_b
   jsr set_PPU_CTRL_b
   jsr disable_audio_channels
   lda state
   and #$10                  ; @$0313
-  bne :++                   ; jump if we triggered the mining guy room
+  bne :++                   ; jump if we triggered the mining guy or guardian room
   lda sideroom_state        ; if sideroom_state is -ve we've entered the warp zone
   bpl :+
   lda #$80
@@ -642,7 +643,7 @@ main_jmp_1:
   sta bk_crnt_lvl
   lda #$1C
   sta current_level         ; load warp zone with bumblebee, level 1C 
-  jmp pre_stage_prep_a      ; @$8186 load sideroom
+  jmp plr_lvl_start_pos      ; @$8186 load sideroom
 :                           ; exiting the warp area
   lda bk_crnt_lvl           ; load backup of current level
   clc                 
@@ -650,15 +651,15 @@ main_jmp_1:
   sta current_level
   lda #$00
   sta sideroom_state        ; reset sideroom_state
-  jmp pre_stage_prep
-:
+  jmp stage_intro_rtn
+:                           ; branch here when loading a sideroom
   lda sub_state
-  bmi :+
+  bmi pre_stage_prep_after_sideroom
   jsr bkup_lvl_prog_for_side_lvl
-  jmp pre_stage_prep_a
-:
+  jmp plr_lvl_start_pos
+pre_stage_prep_after_sideroom:
   jsr load_lvl_prog_bkup    ; @$9689
-  jmp pre_stage_prep_b      ; @$81D8
+  jmp pre_stage_prep      ; @$81D8
 swap_player_ram:
   ldx #$00
 :
@@ -747,7 +748,7 @@ nmi:                        ; beginning of frame
   jsr audio_rtn
   jsr write_pl1_score
   jsr get_player_input
-  jsr controller_input_check_b
+  jsr chk_ctrl_start_press
   bit rtn_trk_a
   bvs pull_stack_and_rti
   lda state
@@ -757,7 +758,7 @@ nmi:                        ; beginning of frame
 :
   lda sideroom_state
   bpl :+
-  jmp enemy_misc_rtn_1
+  jmp enemy_rtn
 :
   lda state
   bmi pull_stack_and_rti
@@ -825,10 +826,10 @@ side_room_rtn:
   jsr plr_col_spr_rtn
   jsr wpn_start_rtn
   jsr wpn_end_rtn
-  jsr enemy_misc_rtn_7
+  jsr eny_spawn_chkpt
   jsr enemy_sprite_rtn
-  jsr enemy_misc_rtn_8
-  jsr enemy_misc_rtn_9
+  jsr eny_mov_despawn
+  jsr chk_plr_eny_col
   jsr wpn_eny_hit_detection
   jmp pull_stack_and_rti
 warp_trigger:
@@ -844,10 +845,10 @@ warp_trigger:
   lda #$20
   sta state                 ; warp 2 stages
   jmp pull_stack_and_rti
-enemy_misc_rtn_1:
-  jsr enemy_misc_rtn_7
+enemy_rtn:
+  jsr eny_spawn_chkpt
   jsr enemy_sprite_rtn
-  jsr enemy_misc_rtn_8
+  jsr eny_mov_despawn
   lda state
   lsr
   bcc :+
@@ -871,7 +872,7 @@ game_rtn_1:                         ; pre-stage screen, endscreen, gameover scre
   jsr audio_rtn
   jsr player_bullet_enemy_routine
   jsr enemy_sprite_rtn
-  jsr enemy_misc_rtn_8
+  jsr eny_mov_despawn
   lda current_level
   and #$02
   bne :+
@@ -912,10 +913,10 @@ gameplay_rtn:
   jsr chk_sideroom_chkpt
   jsr wpn_start_rtn
   jsr wpn_end_rtn
-  jsr enemy_misc_rtn_7
+  jsr eny_spawn_chkpt
   jsr enemy_sprite_rtn
-  jsr enemy_misc_rtn_8
-  jsr enemy_misc_rtn_9
+  jsr eny_mov_despawn
+  jsr chk_plr_eny_col
   jsr wpn_eny_hit_detection
   jsr lvl_8_10_flash_pal
   lda current_level         ; ********@852F and @0x54x
@@ -935,7 +936,7 @@ get_player_input:           ; @$853E
   ldx controller_p2_current
 :
   stx controller_current
-  lda rtn_trk_b
+  lda demo_status
   bpl :+
   jsr demo_run_shoot
  : 
@@ -1019,21 +1020,21 @@ ram_misc_30:    ; something to do with plr eny collision
   sta $05
   ldy #$0F
 :
-  asl $00
-  rol $01
-  rol $04
-  rol $05
-  lda $04
+  asl $00   ; 
+  rol $01   ; 
+  rol $04   ; 
+  rol $05   ; 
+  lda $04   ; 
   sec
-  sbc $02
-  sta $06
-  lda $05
-  sbc $03
+  sbc $02   ; 
+  sta $06   ; 
+  lda $05   ; 
+  sbc $03   ; 
   bcc :+
-  sta $05
-  lda $06
-  sta $04
-  inc $00
+  sta $05   ; 
+  lda $06   ; 
+  sta $04   ; 
+  inc $00   ; 
 :
   dey
   bpl :--
@@ -1145,21 +1146,21 @@ hex2dec:
   ora $06
   sta $06         ; add remainder
   rts
-controller_input_check_b:
+chk_ctrl_start_press:
   lda controller_p1_current
   and #$08                  ; check for start button
   beq :+++                  ; branch out if start was not pushed
   eor controller_p1_last
   and #$08                  ; check for start button last frame
   beq :+++                  ; branch out if start wasnt pushed last frame either
-  lda rtn_trk_b
-  bpl :+
+  lda demo_status
+  bpl :+                    ; if no demo, then pause was initiated
   lda #$00
   sta ram_PPU_Mask
   ldx #$FF
   txs
-  jmp init_title    ;#$8700~
-:
+  jmp demo_rtn    ;#$8700~
+:                           ; pause initiated
   bit rtn_trk_0
   bvs :+
   lda #$40
@@ -1168,14 +1169,14 @@ controller_input_check_b:
   ora #$40
   sta rtn_trk_a
   jsr disable_audio_channels
-  jmp play_pause_sound   ;@$da03 (86f4)
-:
+  jmp play_pause_sound      ; @$da03 (86f4)
+:                           ; unpause initiated
   lda #$00
   sta rtn_trk_0
   lda rtn_trk_a
   and #$BF
   sta rtn_trk_a
-  jsr play_stage_music   ;@$d87c
+  jsr play_stage_music      ; @$d87c
 :
   rts
 set_PPU_MASK_a:
@@ -1264,24 +1265,24 @@ clear_oam_ram:
   bne :-
   rts
 rng_rtn:
-  lda rng_ram     ; load 00 (fc) %1111 1100
-  sbc rng_counter ; subtract 00 (-01=fb) %1111 1011
-  ror             ; rotate 00 right twice %0111 1101
-  ror             ; %1011 1110 be
-  eor rng_ram     ; exclusive or 00 %0100 0010 42
-  adc #$03        ; add with carry 03 45
-  sta rng_ram     ; store 03 to 97 45
-  inc rng_counter ; increment 98 to 01 02
-  lda rng_counter ; load 01
-  and #$01        ; and 01
-  beq :+          ; branch if equal, but its not, its 01
-  lda #$FF        ; load ff to a
-  eor rng_ram     ; flip bits from 03 to FC
-  sta rng_ram     ; store fc to rng value
+  lda rng_ram     ; load 00 (fc) %1111 1100               ; 0000 0000 0000 0011 1111 1010
+  sbc rng_counter ; subtract 00 (-01=fb) %1111 1011       ; 0000 0000 0000 0010 1111 1000
+  ror             ; rotate 00 right twice %0111 1101      ; 0000 0000 0000 0001 0111 1100
+  ror             ; %1011 1110 be                         ; 0000 0000 0000 0000 0011 1110
+  eor rng_ram     ; exclusive or 00 %0100 0010 42         ; 0000 0000 0000 0001 1100 0100
+  adc #$03        ; add with carry 03 45                  ; 0000 0011 0000 0101 1100 0111
+  sta rng_ram     ; store 03 to 97 45                     ; 0000 0011 0000 0101 1100 0111
+  inc rng_counter ; increment 98 to 01 02                 ; 0000 0001 0000 0010 0000 0011
+  lda rng_counter ; load 01                               ; 0000 0001 0000 0010 0000 0011
+  and #$01        ; and 01                                ; 0000 0001 0000 0000 0000 0001
+  beq :+          ; branch if equal, but its not, its 01  ; branch    no branch branch
+  lda #$FF        ; load ff to a                          ;           1111 1111
+  eor rng_ram     ; flip bits from 03 to FC               ;           0000 0101
+  sta rng_ram     ; store fc to rng value                 ;           1111 1010
 :
-  rts             ; return
+  rts             ; return                                ; 0000 0001 1111 1010 1100 0111
 increment_score:
-  lda rtn_trk_b
+  lda demo_status
   bmi b_exit
   lda which_player
   bne :+
@@ -2877,7 +2878,7 @@ b_9361:
 b_936f:
   lda stage_orientation
   bpl clear_plr_y_speed
-load_state_40:
+load_state_40:            ; level completed
   lda #$40
   sta state
   rts
@@ -4241,7 +4242,7 @@ wpn_spr_03:               ; @9dd7 Explosion B
   .byte $00,$89,$00,$F8
   .byte $F8,$88,$00,$00
   .byte $00,$8A,$00,$00
-wpn_spr_04:               ; @9de8 small explosion (used below)
+wpn_spr_04:               ; @9de8 small explosion (used below) trypticon bullet?
   .byte $01
   .byte $FC,$81,$00,$FC
 wpn_spr_05:               ; @9ded enemy bullet
@@ -4813,17 +4814,17 @@ bos_spr_1Ab:                  ; @a451
   .byte $FC,$EB,$01,$FC
 
 
-enemy_misc_rtn_7:
-  lda stage_orientation
-  and #$C0
+eny_spawn_chkpt:
+  lda stage_orientation   ; get stage orientation
+  and #$C0                ; check for vertical level
   beq b_a460
-  jsr lvl_misc_rtn_3
+  jsr eny_spawn_vert_chkpt      ; jump if vertical level
   rts
-b_a460:
-  jsr eny_spawn_chkpt
+b_a460:                   ; horizontal level
+  jsr eny_spawn_horiz_chkpt
   jsr dec_frm_cnt_96
   rts
-eny_spawn_chkpt:          ; this routine checks if player is within 1-1.5 pages from enemy spawn point and spawns enemy
+eny_spawn_horiz_chkpt:          ; this routine checks if player is within 1-1.5 pages from enemy spawn point and spawns enemy
   jsr get_eny_chkpt
   lda plr_x_prog_pg
   clc
@@ -5030,17 +5031,17 @@ enemy_new_pos:
 level_sub_a:
   lda #$00
   sta subtitle_timer
-  sta unram_7
+  sta eny_chkpt_cntr
   lda stage_orientation
   and #$C0                        ; check for vertical level
-  bne b_a60f                      ; branch if vertical level, 40 down or 80 up
+  bne b_a60f                      ; branch if vertical level, 40 down or 80 up to skip check enemy checkpoint routine
   lda #$0F
   sta $0C                         ; loop the following section 0F times
-b_a5ea:
+chk_eny_chkpt:
   jsr get_eny_chkpt
   lda plr_x_prog_pg
   clc
-  adc #$01
+  adc #$01                        ; add 1 to player x page
   sta $03
   lda plr_x_prog_hi
   sta $02
@@ -5048,57 +5049,57 @@ b_a5ea:
   sec
   sbc $02
   lda $01
-  sbc $03
-  bcs b_a60a
+  sbc $03                         ; subtract enemy checkpoint - player x position
+  bcs b_a60a                      ; branch if have not reached checkpoint
   lda #$0F
   sta $00
   jsr rdy_eny_x_y_typ
 b_a60a:
   dec $0C
-  bpl b_a5ea
+  bpl chk_eny_chkpt               ; loop back 0F times
   rts
 b_a60f:
-  jsr lvl_misc_rtn_8
-  bne b_a619
-  lda #$00
-  sta unram_7
+  jsr chk_eny_chkpt_rtn
+  bne b_a619              ; branch if not at the end of table
+  lda #$00                ; load 00 into eny_chkpt_cntr if we're at the end of the table
+  sta eny_chkpt_cntr
   rts
 b_a619:
   lda plr_y_prog_hi
-  sta $02
+  sta $02                 ; store player y prog to 02, high point
   clc
   adc #$F0
-  sta $04
+  sta $04                 ; store player y prog - 0f to 04, the low point
   lda plr_y_prog_pg
-  sta $03
+  sta $03                 ; store player y page to 03
   adc #$00
-  sta $05
-  jsr lvl_misc_rtn_9
+  sta $05                 ; store the low page to 05
+  jsr chk_plr_eny_chkpt_range
   bcs b_a632
   jsr lvl_misc_rtn_a10
 b_a632:
-  inc unram_7
+  inc eny_chkpt_cntr
   jmp b_a60f
-lvl_misc_rtn_3:
+eny_spawn_vert_chkpt:
   lda #$04
   sta $08
 lvl_misc_rtn_a11:
-  jsr lvl_misc_rtn_8
-  bne b_a647
+  jsr chk_eny_chkpt_rtn
+  bne chk_plr_y_eny_chkpt
   lda #$00
-  sta unram_7
+  sta eny_chkpt_cntr
   jmp lvl_misc_rtn_a11
-b_a647:
+chk_plr_y_eny_chkpt:
   lda plr_y_prog_hi
-  sta $04
+  sta $04                 ; store player y prog to 04
   sec
   sbc #$40
-  sta $02
+  sta $02                 ; store player y prog + 40 above to 02
   lda plr_y_prog_pg
-  sta $05
+  sta $05                 ; store player y page to 05
   sbc #$00
-  sta $03
-  jsr lvl_misc_rtn_9
+  sta $03                 ; store player y page with offset to 03
+  jsr chk_plr_eny_chkpt_range
   bcs b_a663
   jsr lvl_misc_rtn_a10
   jmp b_a685
@@ -5106,79 +5107,79 @@ b_a663:
   lda plr_y_prog_hi
   clc
   adc #$F0
-  sta $02
+  sta $02                     ; store the high point, player progress high + f0 , below player
   lda plr_y_prog_pg
   adc #$00
-  sta $03
+  sta $03                     ; store the offset page to 03
   lda plr_y_prog_hi
   clc
   adc #$30
-  sta $04
+  sta $04                     ; lower the low point 1 page and 30 y prog hi and store to 04 and 05 for the page
   lda plr_y_prog_pg
   adc #$01
   sta $05
-  jsr lvl_misc_rtn_9
+  jsr chk_plr_eny_chkpt_range
   bcs b_a685
   jsr lvl_misc_rtn_a10
 b_a685:
-  inc unram_7
+  inc eny_chkpt_cntr
   dec $08
   bne lvl_misc_rtn_a11
   rts
-lvl_misc_rtn_8:
+chk_eny_chkpt_rtn:
   lda current_level
   and #$FE
   tay
-  lda lvl_addr_tbl_3,Y  ; @$c130
+  lda vert_lvl_eny_spawn_tbl,Y  ; @$c130
   sta $00
-  lda lvl_addr_tbl_3+1,Y
+  lda vert_lvl_eny_spawn_tbl+1,Y
   sta $01
-  lda unram_7
+  lda eny_chkpt_cntr
   asl
-  sta $09
-  asl
+  sta $09               ; offset times 2
+  asl                   ; offset times 4
   clc
-  adc $09
+  adc $09               ; offset times 6
   clc
-  adc $00
+  adc $00               ; add offset to address location
   sta $00
   lda $01
   adc #$00
   sta $01
   ldy #$01
-  lda ($00),Y
-  cmp #$FF
+  lda ($00),Y           ; load the second byte from the table
+  cmp #$FF              ; compare with a terminator flag
   rts
-lvl_misc_rtn_9:
-  dey 
-  lda ($00),Y
+chk_plr_eny_chkpt_range:; carry clear if player within checkpoint range, carry set if not within checkpoint range
+  dey                   ; decrement y so its now 0, presumably it was 01 coming in here because we were checking for a terminator with y=01
+  lda ($00),Y           ; load first byte
   sec
-  sbc $02
+  sbc $02               ; tbl_byte_00 - plr_y_prog_hi high point
   iny 
   lda ($00),Y
-  sbc $03
-  bcc b_a6cf
-  dey
+  sbc $03               ; tbl_byte_01 - plr_y_prog_pg high point
+  bcc b_a6cf            ; branch if player if below table byte 00,01
+  dey                   ; decrement y and now check for the low point because our high point is above the table checkpoint y value
   lda ($00),Y
   sec
-  sbc $04
+  sbc $04               ; plr_y_prog_hi low point
   iny
   lda ($00),Y
-  sbc $05
+  sbc $05               ; plr_y_prog_pg low point
   rts
 b_a6cf:
   sec
   rts
 lvl_misc_rtn_a10:
   ldy #$05
-  lda ($00),Y
+  lda ($00),Y           ; get the last byte from the table row
   asl
   asl
   asl
   asl
   tax
   lda eny_spr_status,X
-  bpl b_a6e0
+  bpl b_a6e0            ; branch if enemy status slot is empty and load another enemy
   rts
 b_a6e0:
   jsr set_new_enemy
@@ -5278,7 +5279,7 @@ b_a792:
   sta state             ; store 01 to state, indicating level is completed
   lda #$00
   sta flash_counter
-  sta unram_27
+  sta boss_explosion_counter
 b_a7a0:
   rts
 b_a7a1:
@@ -5291,7 +5292,7 @@ b_a7a1:
   sta state
   lda #$00
   sta flash_counter
-  sta unram_27
+  sta boss_explosion_counter
   rts
 b_a7b7:                   ; this gets loaded at the pre-stage screen
   lda #$80
@@ -5391,21 +5392,21 @@ b_a868:
   and #$E7
   sta eny_spr_substatus,X
   rts
-enemy_misc_rtn_8:
+eny_mov_despawn:
   ldx #$00
   lda #$0F
   sta $04
 j_a877:
   lda eny_spr_status,X
-  bpl b_a8fa
+  bpl nxt_eny_ram_slot
   lda eny_spr_substatus,X
   and #$10
-  bne b_a8fa
+  bne nxt_eny_ram_slot
   lda eny_x_spd_lo,X
   sta $00
   lda eny_x_spd_hi,X
   sta $01
-  jsr enemy_misc_rtn_15
+  jsr eny_x_y_mov_rtn
   lda eny_y_spd_lo,X
   sta $00
   lda eny_y_spd_hi,X
@@ -5413,7 +5414,7 @@ j_a877:
   inx
   inx
   inx
-  jsr enemy_misc_rtn_15
+  jsr eny_x_y_mov_rtn
   dex
   dex
   dex
@@ -5429,7 +5430,7 @@ j_a877:
   sbc $00
   lda eny_spr_x_pos_page,X
   sbc $01
-  bcc b_a8f5
+  bcc remove_eny_spr
   lda plr_x_prog_hi
   clc
   adc #$88
@@ -5442,7 +5443,7 @@ j_a877:
   sbc $00
   lda eny_spr_x_pos_page,X
   sbc $01
-  bcs b_a8f5
+  bcs remove_eny_spr
   lda eny_spr_y_pos_hi,X
   sec
   sbc plr_y_prog_hi
@@ -5450,17 +5451,17 @@ j_a877:
   lda eny_spr_y_pos_page,X
   sbc plr_y_prog_pg
   sta $01
-  bpl b_a907
+  bpl b_a907                ; branch if player is above enemy
   jsr flip_bits_1
   lda $01
-  bne b_a8f5
+  bne remove_eny_spr        ; branch if player is 1 page or more away
   lda $00
   cmp #$70
-  bcc b_a8fa
-b_a8f5:
+  bcc nxt_eny_ram_slot      ; go to next ram slot if player is closer than 70 y progress high
+remove_eny_spr:
   lda #$00
   sta eny_spr_status,X
-b_a8fa:
+nxt_eny_ram_slot:
   txa
   clc
   adc #$10
@@ -5475,13 +5476,13 @@ b_a907:
   sec
   sbc #$01
   sta $01
-  bcc b_a8fa
-  bne b_a8f5
+  bcc nxt_eny_ram_slot
+  bne remove_eny_spr
   lda $00
   cmp #$70
-  bcc b_a8fa
-  jmp b_a8f5
-enemy_misc_rtn_15:
+  bcc nxt_eny_ram_slot
+  jmp remove_eny_spr
+eny_x_y_mov_rtn:
   ldy #$00
   lda $01
   bpl b_a922
@@ -5619,13 +5620,13 @@ boss_defeated:
   inc flash_counter         ; increment flash counter
   lda flash_counter
   cmp #$C0
-  bcs b_aa69                ; branch when clash counter reaches C0
+  bcs b_aa69                ; branch when flash counter reaches C0
   and #$0F
   bne b_aa68
-  lda unram_27
+  lda boss_explosion_counter
   cmp #$07
   bcs b_aa68
-  inc unram_27
+  inc boss_explosion_counter
   lda #$0F
   sta $00
   ldx #$00
@@ -5643,11 +5644,11 @@ boss_defeated:
   lda current_level
   and #$FE
   tay
-  lda eny_pos_addr_tbl,y  ; @$c95f,y enemy pos addr tbl
+  lda boss_explosion_tbl,y  ; @$c95f,y enemy pos addr tbl
   sta $02
-  lda eny_pos_addr_tbl+1,Y
+  lda boss_explosion_tbl+1,Y
   sta $03
-  lda unram_27
+  lda boss_explosion_counter
   asl
   tay
   lda ($02),Y
@@ -6103,7 +6104,7 @@ ramjet_cymbalP_timer:
   lda $00
   cmp #$04
   bcs :--                   ; exit if enemy is more than 04 vertical pixels above player
-  jsr ram_misc_27
+  jsr eny_wpn_pos_rtn
   bcc :--                   ; exit
   lda eny_time_ram
   sta eny_boss_wpn_timer,X  ; add time to enemy/boss weapon timer
@@ -6132,7 +6133,7 @@ dec_boss_wpn_timer_2:
 b_ae0a:
   rts
 b_ae0b:
-  jsr ram_misc_27
+  jsr eny_wpn_pos_rtn
   bcc b_ae0a
   sty $0B
   jsr ram_misc_28
@@ -6290,7 +6291,7 @@ ram_misc_32:
   lda $01
   sta $05
 ram_misc_31:
-  jsr ram_misc_27
+  jsr eny_wpn_pos_rtn
   bcc b_af5a
   lda #$00
   sta eny_wpn_x_speed_lo,Y
@@ -6341,7 +6342,7 @@ fire_eny_wpn:
   lda #$Fe
   sta $05
 j_af9c:               ; this section of the subroutine is repeated above ****
-  jsr ram_misc_27
+  jsr eny_wpn_pos_rtn
   bcc b_afbd
   lda #$00
   sta eny_wpn_y_speed_lo,Y
@@ -6365,7 +6366,7 @@ b_afc7:
   lda #$03
   sta $0B
 b_afcb:
-  jsr ram_misc_27
+  jsr eny_wpn_pos_rtn
   bcc b_b00f
   lda #$00
   sta $00
@@ -6401,21 +6402,21 @@ b_b00f:
   lda eny_time_ram
   sta eny_boss_wpn_timer,X
   rts
-ram_misc_34:
+find_eny_wpn_rdy:
   ldy #$00
-b_b017:
-  lda eny_wpn_status,Y
+:
+  lda eny_wpn_status,Y      ; 0540 - 05F0 are for enemy weapon stuff
   bpl b_b027
   tya
   clc
   adc #$10
   tay
-  cpy #$C0
-  bcc b_b017
+  cpy #$C0                  ; check up to 05F0
+  bcc :-
   ldy #$FF
 b_b027:
   rts
-ram_misc_27:
+eny_wpn_pos_rtn:
   jsr eny_set_wpn_time
   lda eny_spr_status,X
   and #$20
@@ -6435,29 +6436,29 @@ ram_misc_27:
   lda stage_boss
   asl
   tay
-  lda mid_tbl_b,y    ; @$b1a2,y
+  lda eny_wpn_off_tbl,y    ; @$b1a2,y
   sta $00
-  lda mid_tbl_b+1,Y
+  lda eny_wpn_off_tbl+1,Y
   sta $01
   lda eny_spr_type,X
   asl
   tay
   lda ($00),Y
-  sta $03
+  sta $03             ; store lower value from table to 03
   iny
   lda ($00),y
-  sta $02
+  sta $02             ; store upper value from table to 02
   lda $03
-  sta $00
+  sta $00             ; store lower value from 03 to 00 ram
   lda #$00
-  sta $01
+  sta $01             ; store 00 to 01 ram
   lda eny_spr_substatus,X
-  bmi b_b078
-  jsr flip_bits_0
-b_b078:
-  jsr ram_misc_34
-  cpy #$FF
-  beq b_b0a8
+  bmi :+              ; b_b078  branch if enemy is flipped horizontally with 80 in substatus
+  jsr flip_bits_0     ; flip positive to negative
+:
+  jsr find_eny_wpn_rdy
+  cpy #$FF                ; ff would have been loaded if all eny_wpn_status' are negative from 540 up to 5F0
+  beq b_b0a8              ; clc and exit if all are negative
   lda eny_spr_x_pos_hi,X
   clc
   adc $00
@@ -6471,18 +6472,18 @@ b_b078:
   sta eny_wpn_y_pos_hi,Y
   lda $02
   bpl b_b0aa
-  lda eny_spr_y_pos_page,X
+  lda eny_spr_y_pos_page,X  ; add the carry here if the offset is negative
   adc #$FF
   sta eny_wpn_y_pos_page,Y
-  jmp b_b0b2
+  jmp fire_eny_bullet
 b_b0a8:
   clc
   rts
-b_b0aa:
+b_b0aa:                     ; add the carry here if the offset is positive
   lda eny_spr_y_pos_page,X
   adc #$00
   sta eny_wpn_y_pos_page,Y
-b_b0b2:
+fire_eny_bullet:
   lda #$80
   sta eny_wpn_status,Y
   lda #$04
@@ -6538,22 +6539,22 @@ b_b104:
   ora #$20
   sta eny_spr_status,X
   rts
-enemy_misc_rtn_19:
-  lda game_cmplt_cnt
-  and #$03
+boss_vert_move_rtn:
+  lda game_cmplt_cnt      ; how many times game was complete
+  and #$03                ; only count up to 3, increase vertical speed every game completion up to 3 times
   asl
   asl
   asl
   asl
-  asl
+  asl                     ; shift left 5 times 0000 00xx => 0xx0 0000
   clc
-  adc #$80
+  adc #$80                ; at 7bit => 1xx0 0000
   sta $00
   lda #$00
   sta $01
   lda eny_spr_substatus,X
   and #$01
-  bne b_b14e
+  bne b_b14e              ; branch if enemy is accelerating left
   lda y_scroll_lo
   sec
   sbc $00
@@ -6626,34 +6627,36 @@ flash_st8_10_pal:
   sta text_flash_pal_ram_B
   rts
 
-mid_tbl_b:          ; @$B1A2-B1A5
-  .word mid_tbl_b_2 ; @$B1A6
-  .word mid_tbl_b_3 ; @$B226
-mid_tbl_b_2:        ; @$B1A6-B225
-  .byte $0C,$03,$0C,$F9,$00,$00,$00,$04
-  .byte $00,$00,$00,$00,$0C,$00,$00,$F7
-  .byte $00,$00,$00,$00,$00,$00,$00,$00
-  .byte $00,$00,$00,$00,$0A,$03,$00,$00
-  .byte $00,$00,$00,$00,$00,$00,$06,$F8
-  .byte $00,$00,$00,$00,$00,$08,$00,$00
-  .byte $00,$00,$00,$00,$0C,$03,$00,$00
-  .byte $00,$00,$00,$00,$00,$00,$00,$00
-  .byte $00,$00,$00,$00,$00,$00,$00,$00
-  .byte $00,$00,$00,$00,$04,$00,$04,$00
-  .byte $00,$00,$00,$00,$00,$00,$00,$00
-  .byte $00,$00,$0C,$08,$04,$08,$00,$00
-  .byte $00,$00,$00,$00,$00,$00,$00,$00
-  .byte $00,$00,$00,$00,$00,$00,$00,$00
-  .byte $00,$00,$00,$00,$00,$00,$00,$00
-  .byte $00,$00,$00,$00,$00,$00,$00,$00
-mid_tbl_b_3:        ; @$B226-B25B
-	.byte $00,$00,$00,$00,$00,$00,$00,$00
-  .byte $00,$00,$00,$00,$00,$00,$00,$00
-  .byte $00,$00,$00,$00,$00,$00,$00,$00
-  .byte $00,$00,$00,$00,$00,$00,$00,$00
-	.byte $00,$00,$00,$00,$00,$00,$00,$00
-  .byte $00,$00,$00,$00,$00,$00,$00,$00
-  .byte $00,$00,$00,$00,$00,$00
+eny_wpn_off_tbl:            ; @$B1A2-B1A5
+  .word eny_wpn_off_tbl_lvl ; @$B1A6
+  .word eny_wpn_off_tbl_bos ; @$B226
+eny_wpn_off_tbl_lvl:        ; @$B1A6-B225
+;         x eny wpn offset
+;         |   y eny wpn offset
+  .byte $0C,$03,$0C,$F9,$00,$00,$00,$04 ; 00 ramjet,blitzwing,bot,Crack (lobster)
+  .byte $00,$00,$00,$00,$0C,$00,$00,$F7 ; 04 Gosupu(rocket),hammer(plumbus),tosher(ufo),heru(mouse drone)
+  .byte $00,$00,$00,$00,$00,$00,$00,$00 ; 08 platform,Platform,Gau,Laggar
+  .byte $00,$00,$00,$00,$0A,$03,$00,$00 ; 0C platform,laserbeak,condor,Zunonbat(closed)
+  .byte $00,$00,$00,$00,$00,$00,$06,$F8 ; 10 Zunobat(flying),Marakirasu,Guardian,Azak
+  .byte $00,$00,$00,$00,$00,$08,$00,$00 ; 14 Ratbat,Ratbat(tape),Snow Commander,Wasta(orange dome ufo)
+  .byte $00,$00,$00,$00,$0C,$03,$00,$00 ; 18 Zaffuru(Rosie),bugs,Starscream(Jet),Starscream(Bot)
+  .byte $00,$00,$00,$00,$00,$00,$00,$00 ; 1C Gido,Gido,Takara Baby,Energon Cube
+  .byte $00,$00,$00,$00,$00,$00,$00,$00 ; 20 Explosion A,Gido,Explosion B,
+  .byte $00,$00,$00,$00,$04,$00,$04,$00 ; 24 Burcane Ball,,Rabu(wall pyramid)/ganzo left side,rabu/ganzo(wallslug)right side
+  .byte $00,$00,$00,$00,$00,$00,$00,$00 ; 28 Megatron poster,,,
+  .byte $00,$00,$0C,$08,$04,$08,$00,$00 ; 2C ,pickaxe,goldbar,Gau
+  .byte $00,$00,$00,$00,$00,$00,$00,$00 ; 30 Ramjet,
+  .byte $00,$00,$00,$00,$00,$00,$00,$00 ; 34 P,F,D,B
+  .byte $00,$00,$00,$00,$00,$00,$00,$00 ; 38 1Up,R,O,D
+  .byte $00,$00,$00,$00,$00,$00,$00,$00 ; 3C I,M,U,S
+eny_wpn_off_tbl_bos:        ; @$B226-B25B
+	.byte $00,$00,$00,$00,$00,$00,$00,$00 ; 00 planet,platform,platform,platform
+  .byte $00,$00,$00,$00,$00,$00,$00,$00 ; 04 platform,Kabusu,Kabusu,Decepticon-red
+  .byte $00,$00,$00,$00,$00,$00,$00,$00 ; 08 cymbals-Dred,Nemesis,,Decepticon-Blue
+  .byte $00,$00,$00,$00,$00,$00,$00,$00 ; 0C Unused firewheel(Nemesis palette)cymbals-Dblue,Scary Spider,Decepticon-Purp,cymbals-Purp
+	.byte $00,$00,$00,$00,$00,$00,$00,$00 ; 10 Trypticon,Trypticonblast/Explosion A,Menasor,Bruticus/Megatron Bullet
+  .byte $00,$00,$00,$00,$00,$00,$00,$00 ; 14 Bruticus,Megatron,,Bumblebee(Bot)
+  .byte $00,$00,$00,$00,$00,$00         ; 18 Bumblebee,Menasor Laser,brainwaves
 
 eny_00:                   ; swooping Ramjet
   lda #$08                ; load 08 to 00 ram
@@ -7416,7 +7419,7 @@ b_b84e:
 bos_09: ; b877    nemesis
   jsr enemy_misc_rtn_6
   inc eny_exp_timer,X
-  jsr enemy_misc_rtn_19
+  jsr boss_vert_move_rtn
   lda eny_boss_wpn_timer,X
   beq :+
   dec eny_boss_wpn_timer,X
@@ -7424,7 +7427,7 @@ bos_09: ; b877    nemesis
 :             ; b_b889
   lda #$50
   sta eny_status_ram              ; store 50 to eny_status_ram
-  jsr ram_misc_27
+  jsr eny_wpn_pos_rtn
   bcc b_b8c6
   lda #$00
   sta eny_wpn_x_speed_lo,Y
@@ -7593,7 +7596,7 @@ eny_1b: ; b9a1              Starscrem bot
   rts
 bos_10:  ; b9d0
   inc eny_exp_timer,X
-  jsr enemy_misc_rtn_19
+  jsr boss_vert_move_rtn
   lda #$78
   sta eny_status_ram
   lda #$11
@@ -7601,7 +7604,7 @@ bos_10:  ; b9d0
   jmp b_b4b3
 bos_12: ; b9e1
   inc eny_exp_timer,X
-  jsr enemy_misc_rtn_19
+  jsr boss_vert_move_rtn
   lda #$80
   sta eny_status_ram
   lda #$19
@@ -7613,7 +7616,7 @@ bos_12: ; b9e1
   jmp j_b4bb
 bos_14: ; b9fa
   inc eny_exp_timer,X
-  jsr enemy_misc_rtn_19
+  jsr boss_vert_move_rtn
   lda #$50
   sta eny_status_ram
   lda #$13                  ; spawn bruticus bullet
@@ -7625,7 +7628,7 @@ bos_14: ; b9fa
   jmp j_b4bb
 bos_15: ; ba13
   inc eny_exp_timer,X
-  jsr enemy_misc_rtn_19
+  jsr boss_vert_move_rtn
   lda #$80
   sta eny_status_ram
   lda #$13                  ; spawn bruticus bullet
@@ -7780,7 +7783,7 @@ eny_pu_jet: ; bb41
   sta $00
   lda #$01
   sta $01
-  lda game_cmplt_cnt
+  lda game_cmplt_cnt    ; increase powerup jet speed every game completion up to 3 times
   cmp #$03
   bcc b_bb51
   lda #$FF
@@ -7950,193 +7953,193 @@ eny_chkpt_tbl: ; @$BC6D-BFDF  table of enemy placements which are also used to s
   .word eny_chkpt_warp                        ; .byte $D6,$BF         ; warp zone 
       ; Xhi,Xpg,Yhi,Ypg,sprite type 
 eny_chkpt_brain1:                 ; @bca7 prime brainwave going out
-	.byte $80,$00,$38,$00,$1A
-  .byte $80,$00,$38,$00,$1A
-  .byte $80,$00,$38,$00,$1A
+	.byte $80,$00,$38,$00,$1A       ; brainwave
+  .byte $80,$00,$38,$00,$1A       ; brainwave
+  .byte $80,$00,$38,$00,$1A       ; brainwave
   .byte $FF,$FF,$FF,$FF,$00
 eny_chkpt_brain2:                 ; @bcbb
-  .byte $30,$00,$00,$00,$1A
-  .byte $80,$00,$00,$00,$1A
-  .byte $D0,$00,$00,$00,$1A
+  .byte $30,$00,$00,$00,$1A       ; brainwave
+  .byte $80,$00,$00,$00,$1A       ; brainwave
+  .byte $D0,$00,$00,$00,$1A       ; brainwave
   .byte $FF,$FF,$FF,$FF,$00
-eny_chkpt_s1:                     ; @bccf
-  .byte $80,$02,$80,$00,$04
-  .byte $80,$03,$80,$00,$30
-  .byte $60,$04,$80,$00,$04
-  .byte $80,$04,$80,$00,$30
-  .byte $00,$05,$70,$00,$29
-  .byte $80,$05,$80,$00,$30
-  .byte $60,$06,$80,$00,$04
-  .byte $80,$06,$80,$00,$30
-  .byte $80,$07,$80,$00,$33
-  .byte $80,$08,$80,$00,$04
-  .byte $00,$09,$80,$00,$01
-  .byte $00,$0A,$70,$00,$29
-  .byte $80,$0A,$80,$00,$04
-  .byte $00,$0B,$70,$00,$29
+eny_chkpt_s1:                     ; @bccf wheres the first ramjets and blitzwings?
+  .byte $80,$02,$80,$00,$04       ; gosupu
+  .byte $80,$03,$80,$00,$30       ; ramjet powerup
+  .byte $60,$04,$80,$00,$04       ; gosupu
+  .byte $80,$04,$80,$00,$30       ; ramjet powerup
+  .byte $00,$05,$70,$00,$29       ; hidden energon cube
+  .byte $80,$05,$80,$00,$30       ; ramjet powerup
+  .byte $60,$06,$80,$00,$04       ; gosupu
+  .byte $80,$06,$80,$00,$30       ; ramjet powerup
+  .byte $80,$07,$80,$00,$33       ; ramjet rodimus letter
+  .byte $80,$08,$80,$00,$04       ; gosupu
+  .byte $00,$09,$80,$00,$01       ; blitzwing
+  .byte $00,$0A,$70,$00,$29       ; hidden energon cube
+  .byte $80,$0A,$80,$00,$04       ; gosupu
+  .byte $00,$0B,$70,$00,$29       ; hidden energon cube
   .byte $FF,$FF,$FF,$FF,$00
 eny_chkpt_b1:; @bd1a
-  .byte $90,$00,$50,$00,$00
+  .byte $90,$00,$50,$00,$00       ; planet
   .byte $FF,$FF,$FF,$FF,$00
 eny_chkpt_s2:  ; @bd24
-  .byte $D0,$00,$A0,$00,$07
-  .byte $D8,$01,$6F,$00,$18
-  .byte $60,$02,$30,$00,$29
-  .byte $80,$02,$78,$00,$07
-  .byte $80,$02,$30,$00,$30
-  .byte $68,$03,$A7,$00,$18
-  .byte $80,$03,$68,$00,$30
-  .byte $17,$04,$38,$00,$29
-  .byte $80,$05,$78,$00,$30
-  .byte $40,$06,$B8,$00,$07
-  .byte $68,$06,$77,$00,$18
-  .byte $A0,$06,$50,$00,$33
-  .byte $A8,$06,$28,$00,$29
-  .byte $28,$07,$28,$00,$29
-  .byte $00,$09,$60,$00,$1A
-  .byte $00,$0A,$30,$00,$30
-  .byte $08,$0A,$78,$00,$07
-  .byte $48,$0B,$B7,$00,$18
+  .byte $D0,$00,$A0,$00,$07       ; heru
+  .byte $D8,$01,$6F,$00,$18       ; zaffuru
+  .byte $60,$02,$30,$00,$29       ; hidden energon cube
+  .byte $80,$02,$78,$00,$07       ; heru
+  .byte $80,$02,$30,$00,$30       ; ramjet powerup
+  .byte $68,$03,$A7,$00,$18       ; zaffuru
+  .byte $80,$03,$68,$00,$30       ; ramjet powerup
+  .byte $17,$04,$38,$00,$29       ; hidden energon cube
+  .byte $80,$05,$78,$00,$30       ; ramjet powerup
+  .byte $40,$06,$B8,$00,$07       ; heru
+  .byte $68,$06,$77,$00,$18       ; zaffuru
+  .byte $A0,$06,$50,$00,$33       ; ramjet rodimus letter
+  .byte $A8,$06,$28,$00,$29       ; hidden energon cube
+  .byte $28,$07,$28,$00,$29       ; hidden energon cube
+  .byte $00,$09,$60,$00,$1A       ; starscream jet
+  .byte $00,$0A,$30,$00,$30       ; ramjet powerup
+  .byte $08,$0A,$78,$00,$07       ; heru
+  .byte $48,$0B,$B7,$00,$18       ; zaffuru
   .byte $FF,$FF,$FF,$FF,$00
 eny_chkpt_b2:  ; @bd83
-  .byte $90,$00,$50,$00,$00
-  .byte $D0,$00,$70,$00,$00
+  .byte $90,$00,$50,$00,$00       ; planet
+  .byte $D0,$00,$70,$00,$00       ; planet
   .byte $FF,$FF,$FF,$FF,$00
 eny_chkpt_b3:  ; @bd92
-  .byte $18,$00,$90,$00,$01
-  .byte $50,$00,$40,$00,$04
-  .byte $78,$00,$80,$00,$02
-  .byte $C8,$00,$58,$00,$0E
+  .byte $18,$00,$90,$00,$01       ; platform
+  .byte $50,$00,$40,$00,$04       ; platform
+  .byte $78,$00,$80,$00,$02       ; platform
+  .byte $C8,$00,$58,$00,$0E       ; decepticon purple
   .byte $FF,$FF,$FF,$FF,$00
-eny_chkpt_s4:                   ; @bdab
-  .byte $A0,$02,$58,$00,$30
-  .byte $C0,$03,$48,$00,$30
-  .byte $78,$04,$74,$00,$11
-  .byte $88,$04,$58,$00,$0F
-  .byte $98,$04,$58,$00,$0F
-  .byte $D0,$04,$60,$00,$29
-  .byte $A0,$05,$68,$00,$33
-  .byte $78,$06,$74,$00,$11
-  .byte $90,$06,$40,$00,$29
-  .byte $80,$07,$60,$00,$29
-  .byte $88,$07,$58,$00,$0F
-  .byte $80,$08,$68,$00,$30
-	.byte $30,$08,$74,$00,$11
-  .byte $90,$09,$40,$00,$29
-  .byte $F8,$09,$58,$00,$0F
-  .byte $28,$0B,$48,$00,$0F
+eny_chkpt_s4:                     ; @bdab
+  .byte $A0,$02,$58,$00,$30       ; ramjet powerup
+  .byte $C0,$03,$48,$00,$30       ; ramjet powerup
+  .byte $78,$04,$74,$00,$11       ; marakirasu
+  .byte $88,$04,$58,$00,$0F       ; zunonbat (closed)
+  .byte $98,$04,$58,$00,$0F       ; zunonbat (closed)
+  .byte $D0,$04,$60,$00,$29       ; hidden energon cube
+  .byte $A0,$05,$68,$00,$33       ; ramjet rodimus letter
+  .byte $78,$06,$74,$00,$11       ; marakirasu
+  .byte $90,$06,$40,$00,$29       ; hidden energon cube
+  .byte $80,$07,$60,$00,$29       ; hidden energon cube
+  .byte $88,$07,$58,$00,$0F       ; zunonbat (closed)
+  .byte $80,$08,$68,$00,$30       ; ramjet powerup
+	.byte $30,$08,$74,$00,$11       ; marakirasu
+  .byte $90,$09,$40,$00,$29       ; hidden energon cube
+  .byte $F8,$09,$58,$00,$0F       ; zunonbat (closed)
+  .byte $28,$0B,$48,$00,$0F       ; zunonbat (closed)
   .byte $FF,$FF,$FF,$FF,$00
 eny_chkpt_b4:                 ; @be00
-  .byte $18,$00,$90,$00,$01
-  .byte $50,$00,$40,$00,$04
-  .byte $78,$00,$80,$00,$02
-  .byte $A0,$00,$5E,$00,$09
+  .byte $18,$00,$90,$00,$01       ; platform
+  .byte $50,$00,$40,$00,$04       ; platform
+  .byte $78,$00,$80,$00,$02       ; platform
+  .byte $A0,$00,$5E,$00,$09       ; nemesis
   .byte $FF,$FF,$FF,$FF,$FF
 eny_chkpt_s5:                 ; @be19
-  .byte $A0,$00,$78,$00,$08
-  .byte $40,$01,$78,$00,$08
-  .byte $D0,$01,$58,$00,$2B
-  .byte $C8,$02,$BC,$00,$0C
-  .byte $20,$03,$30,$00,$29
-  .byte $40,$03,$88,$00,$30
-  .byte $50,$03,$B0,$00,$29
-  .byte $B0,$03,$78,$00,$23
-  .byte $10,$04,$B0,$00,$29
-  .byte $18,$05,$40,$00,$33
-  .byte $C0,$05,$98,$00,$08
-  .byte $40,$06,$48,$00,$30
-  .byte $E0,$06,$60,$00,$08
-  .byte $90,$07,$58,$00,$2B
-  .byte $20,$08,$BC,$00,$0C
-  .byte $20,$08,$48,$00,$30
-  .byte $30,$09,$B0,$00,$29
-  .byte $38,$09,$78,$00,$23
-  .byte $80,$09,$B0,$00,$29
-  .byte $90,$0A,$58,$00,$2B
+  .byte $A0,$00,$78,$00,$08       ; platform vertical
+  .byte $40,$01,$78,$00,$08       ; platform vertical
+  .byte $D0,$01,$58,$00,$2B       ; volcano spawner
+  .byte $C8,$02,$BC,$00,$0C       ; platform horizontal
+  .byte $20,$03,$30,$00,$29       ; ball spawner
+  .byte $40,$03,$88,$00,$30       ; ramjet powerup
+  .byte $50,$03,$B0,$00,$29       ; ball spawner
+  .byte $B0,$03,$78,$00,$23       ; bug spawner
+  .byte $10,$04,$B0,$00,$29       ; ball spawner
+  .byte $18,$05,$40,$00,$33       ; ramjet rodimus letter
+  .byte $C0,$05,$98,$00,$08       ; platform vertical
+  .byte $40,$06,$48,$00,$30       ; ramjet powerup
+  .byte $E0,$06,$60,$00,$08       ; platform vertical
+  .byte $90,$07,$58,$00,$2B       ; spawner
+  .byte $20,$08,$BC,$00,$0C       ; platform horizontal
+  .byte $20,$08,$48,$00,$30       ; ramjet powerup
+  .byte $30,$09,$B0,$00,$29       ; spawner
+  .byte $38,$09,$78,$00,$23       ; spawner
+  .byte $80,$09,$B0,$00,$29       ; spawner
+  .byte $90,$0A,$58,$00,$2B       ; spawner
   .byte $FF,$FF,$FF,$FF,$00
 eny_chkpt_b5:                 ; @be82
-  .byte $18,$00,$60,$00,$01
-  .byte $50,$00,$40,$00,$04
-  .byte $78,$00,$80,$00,$02
-  .byte $BB,$00,$4A,$00,$12
+  .byte $18,$00,$60,$00,$01       ; platform
+  .byte $50,$00,$40,$00,$04       ; platform
+  .byte $78,$00,$80,$00,$02       ; platform
+  .byte $BB,$00,$4A,$00,$12       ; menasor
   .byte $FF,$FF,$FF,$FF,$00
 eny_chkpt_b6:                 ; @be9b
-  .byte $18,$00,$90,$00,$01
-  .byte $50,$00,$40,$00,$04
-  .byte $78,$00,$80,$00,$02
-  .byte $C8,$00,$58,$00,$07
+  .byte $18,$00,$90,$00,$01       ; platform
+  .byte $50,$00,$40,$00,$04       ; platform
+  .byte $78,$00,$80,$00,$02       ; platform
+  .byte $C8,$00,$58,$00,$07       ; decepticon red
   .byte $FF,$FF,$FF,$FF,$00
-eny_chkpt_s7:                 ; @beb4
-  .byte $20,$02,$80,$00,$30
-  .byte $40,$04,$70,$00,$29
-  .byte $A0,$04,$E0,$00,$13
-  .byte $00,$05,$80,$00,$30
-  .byte $40,$06,$70,$00,$29
-  .byte $A0,$06,$E0,$00,$13
-  .byte $40,$08,$70,$00,$29
-  .byte $E0,$08,$80,$00,$33
-  .byte $60,$08,$E0,$00,$13
-  .byte $E0,$09,$60,$00,$1A
-  .byte $17,$0B,$70,$00,$29
+eny_chkpt_s7:                 ; @beb4  alot of stuff is missing from this level, like ufos, swooping ramjets and more
+  .byte $20,$02,$80,$00,$30       ; ramjet powerup
+  .byte $40,$04,$70,$00,$29       ; hidden energon cube
+  .byte $A0,$04,$E0,$00,$13       ; azak
+  .byte $00,$05,$80,$00,$30       ; ramjet powerup
+  .byte $40,$06,$70,$00,$29       ; hidden energon cube
+  .byte $A0,$06,$E0,$00,$13       ; azak
+  .byte $40,$08,$70,$00,$29       ; hidden energon cube
+  .byte $E0,$08,$80,$00,$33       ; ramjet rodimus letter
+  .byte $60,$08,$E0,$00,$13       ; azak
+  .byte $E0,$09,$60,$00,$1A       ; starscream jet
+  .byte $17,$0B,$70,$00,$29       ; hidden energon cube
 eny_chkpt_vert:               ; @beeb
   .byte $FF,$FF,$FF,$FF,$00
 eny_chkpt_b7:                 ; @bef0
-  .byte $18,$00,$90,$00,$01
-  .byte $50,$00,$40,$00,$04
-  .byte $78,$00,$80,$00,$02
-  .byte $BA,$00,$5B,$00,$14
+  .byte $18,$00,$90,$00,$01       ; platform
+  .byte $50,$00,$40,$00,$04       ; platform
+  .byte $78,$00,$80,$00,$02       ; platform
+  .byte $BA,$00,$5B,$00,$14       ; bruticus
   .byte $FF,$FF,$FF,$FF,$00
 eny_chkpt_b8:                 ; @bf09
-  .byte $18,$00,$90,$00,$01
-  .byte $50,$00,$40,$00,$04
-  .byte $78,$00,$80,$00,$02
-  .byte $C8,$00,$58,$00,$0B
+  .byte $18,$00,$90,$00,$01       ; platform
+  .byte $50,$00,$40,$00,$04       ; platform
+  .byte $78,$00,$80,$00,$02       ; platform
+  .byte $C8,$00,$58,$00,$0B       ; Decepticon Blue
   .byte $FF,$FF,$FF,$FF,$00
 eny_chkpt_s9:                 ; @bf22
-  .byte $A8,$00,$A7,$00,$18
-  .byte $68,$01,$97,$00,$18
-  .byte $70,$01,$47,$00,$18
-  .byte $80,$01,$30,$00,$30
-  .byte $28,$02,$97,$00,$18
-  .byte $48,$02,$47,$00,$18
-  .byte $D8,$02,$98,$00,$18
-  .byte $60,$03,$20,$00,$29
-  .byte $A8,$03,$C0,$00,$2F
-  .byte $B8,$03,$C0,$00,$19
-  .byte $C8,$03,$C0,$00,$19
-  .byte $00,$04,$78,$00,$30
-  .byte $90,$05,$20,$00,$29
-  .byte $58,$07,$78,$00,$0F
-  .byte $68,$07,$78,$00,$0F
-  .byte $80,$07,$80,$00,$33
-  .byte $C8,$07,$28,$00,$0F
-  .byte $D8,$07,$28,$00,$0F
-  .byte $50,$08,$60,$00,$29
-  .byte $30,$09,$20,$00,$29
+  .byte $A8,$00,$A7,$00,$18       ; zaffuru
+  .byte $68,$01,$97,$00,$18       ; zaffuru
+  .byte $70,$01,$47,$00,$18       ; zaffuru
+  .byte $80,$01,$30,$00,$30       ; ramjet powerup
+  .byte $28,$02,$97,$00,$18       ; zaffuru
+  .byte $48,$02,$47,$00,$18       ; zaffuru
+  .byte $D8,$02,$98,$00,$18       ; zaffuru
+  .byte $60,$03,$20,$00,$29       ; hidden energon cube
+  .byte $A8,$03,$C0,$00,$2F       ; gau
+  .byte $B8,$03,$C0,$00,$19       ; bugs
+  .byte $C8,$03,$C0,$00,$19       ; bugs
+  .byte $00,$04,$78,$00,$30       ; ramjet powerup
+  .byte $90,$05,$20,$00,$29       ; hidden energon cube
+  .byte $58,$07,$78,$00,$0F       ; zunonbat (closed)
+  .byte $68,$07,$78,$00,$0F       ; zunonbat (closed)
+  .byte $80,$07,$80,$00,$33       ; ramjet rodimus letter
+  .byte $C8,$07,$28,$00,$0F       ; zunonbat (closed)
+  .byte $D8,$07,$28,$00,$0F       ; zunonbat (closed)
+  .byte $50,$08,$60,$00,$29       ; hidden energon cube
+  .byte $30,$09,$20,$00,$29       ; hidden energon cube
   .byte $FF,$FF,$FF,$FF,$00
 eny_chkpt_b9:                 ; @bf8b
-  .byte $18,$00,$90,$00,$01
-  .byte $50,$00,$40,$00,$04
-  .byte $78,$00,$80,$00,$02
-  .byte $C5,$00,$44,$00,$15
+  .byte $18,$00,$90,$00,$01       ; platform
+  .byte $50,$00,$40,$00,$04       ; platform
+  .byte $78,$00,$80,$00,$02       ; platform
+  .byte $C5,$00,$44,$00,$15       ; megatron
   .byte $FF,$FF,$FF,$FF,$00
 eny_chkpt_b10:                ; @bfa4
-  .byte $18,$00,$90,$00,$01
-  .byte $50,$00,$40,$00,$04
-  .byte $78,$00,$80,$00,$02
-  .byte $A8,$00,$54,$00,$10
+  .byte $18,$00,$90,$00,$01       ; platform
+  .byte $50,$00,$40,$00,$04       ; platform
+  .byte $78,$00,$80,$00,$02       ; platform
+  .byte $A8,$00,$54,$00,$10       ; trypticon
   .byte $FF,$FF,$FF,$FF,$00
-  eny_chkpt_siderm:           ; @bfbd sideroom
-  .byte $80,$00,$38,$00,$2D
+eny_chkpt_siderm:             ; @bfbd sideroom
+  .byte $80,$00,$38,$00,$2D       ; Gold bar/pickaxe guy?
   .byte $FF,$FF,$FF,$FF,$00
 eny_chkpt_oth:      	        ; @bfc7
-  .byte $80,$00,$58,$00,$12
-  .byte $E0,$00,$C0,$00,$3E
+  .byte $80,$00,$58,$00,$12       ; guardian
+  .byte $E0,$00,$C0,$00,$3E       ; rodimus U
   .byte $FF,$FF,$FF,$FF,$00
 eny_chkpt_warp:               ; @bfd6
-  .byte $80,$00,$CC,$00,$18
+  .byte $80,$00,$CC,$00,$18       ; bumblebee
   .byte $FF,$FF,$FF,$FF,$00
-
+ 
 lvl_addr_tbl_2: ; @$BFE0-C0C5
 	.word lvl_tbl_a,lvl_tbl_g ; .byte $1A,$C0,$AE,$C0 ; stage 1
   .word lvl_tbl_b,lvl_tbl_g ; .byte $36,$C0,$AE,$C0 ; stage 2
@@ -8237,7 +8240,7 @@ eny_tbl_d:                  ; @c124
   .byte $01,$01,$01,$01
   .byte $01,$01,$01,$02
 
-lvl_addr_tbl_3:     ; @$C130-C233
+vert_lvl_eny_spawn_tbl:     ; @$C130-C233
 	.word lvl_tbl_x   ; .byte $44,$C1
   .word lvl_tbl_x   ; .byte $44,$C1
   .word lvl_tbl_y   ; .byte $46,$C1  ; stage 3
@@ -8250,48 +8253,56 @@ lvl_addr_tbl_3:     ; @$C130-C233
   .word lvl_tbl_z   ; .byte $C0,$C1 ; stage 10
 lvl_tbl_x:          ; @c144
 	.byte $FF,$FF     ; horizontal stages
-lvl_tbl_y:          ; @c146  
-  .byte $57,$00,$E8,$00,$18,$00
-  .byte $18,$01,$70,$00,$21,$01
-  .byte $18,$01,$80,$00,$21,$02
-  .byte $18,$01,$90,$00,$21,$03
-  .byte $68,$01,$B0,$00,$14,$05
-	.byte $68,$01,$20,$00,$29,$06
-  .byte $A8,$01,$DC,$00,$27,$08
-  .byte $08,$02,$70,$00,$21,$09
-  .byte $08,$02,$80,$00,$21,$0A
-  .byte $37,$02,$E8,$00,$18,$0B
-  .byte $67,$02,$18,$00,$18,$0D
-  .byte $98,$02,$DC,$00,$27,$0E
-  .byte $08,$03,$E8,$00,$29,$0F
-  .byte $27,$03,$E8,$00,$18,$00
-  .byte $48,$03,$B0,$00,$14,$02
-  .byte $68,$03,$24,$00,$26,$03
-  .byte $98,$03,$E8,$00,$29,$05
-  .byte $E8,$03,$64,$00,$26,$06
-  .byte $28,$04,$DC,$00,$27,$07
-  .byte $38,$04,$B0,$00,$14,$08
+lvl_tbl_y:          ; @c146
+; for stages 3 and 6, we use the same spawn locations
+; we also use this table to find out if we need to spawn these enemies if player is within a given distance
+;         enemy y position high
+;         |   enemy y position page
+;         |   |   enemy x position high
+;         |   |   |   enemy x position page
+;         |   |   |   |   enemy sprite type
+;         |   |   |   |   |   enemy ram slot  
+  .byte $57,$00,$E8,$00,$18,$00   ; zaffuru
+  .byte $18,$01,$70,$00,$21,$01   ; gido
+  .byte $18,$01,$80,$00,$21,$02   ; gido
+  .byte $18,$01,$90,$00,$21,$03   ; gido
+  .byte $68,$01,$B0,$00,$14,$05   ; ratbat
+	.byte $68,$01,$20,$00,$29,$06   ;         hidden energon cube
+  .byte $A8,$01,$DC,$00,$27,$08   ; ganzo
+  .byte $08,$02,$70,$00,$21,$09   ; gido
+  .byte $08,$02,$80,$00,$21,$0A   ; gido
+  .byte $37,$02,$E8,$00,$18,$0B   ; zaffuru
+  .byte $67,$02,$18,$00,$18,$0D   ; zaffuru
+  .byte $98,$02,$DC,$00,$27,$0E   ; ganzo
+  .byte $08,$03,$E8,$00,$29,$0F   ;         hidden energon cube
+  .byte $27,$03,$E8,$00,$18,$00   ; zaffuru
+  .byte $48,$03,$B0,$00,$14,$02   ; ratbat
+  .byte $68,$03,$24,$00,$26,$03   ; ganzo, left side
+  .byte $98,$03,$E8,$00,$29,$05   ;         hidden energon cube
+  .byte $E8,$03,$64,$00,$26,$06   ; ganzo, left side
+  .byte $28,$04,$DC,$00,$27,$07   ; ganzo, right side facing left
+  .byte $38,$04,$B0,$00,$14,$08   ; ratbat
   .byte $FF,$FF
 lvl_tbl_z:          ; @c1c0
-  .byte $77,$00,$80,$00,$21,$00
-  .byte $88,$00,$BC,$00,$27,$01
-  .byte $D8,$00,$E8,$00,$29,$03
-  .byte $37,$01,$24,$00,$26,$04
-  .byte $67,$01,$80,$00,$21,$05
-  .byte $78,$01,$BC,$00,$27,$06
-	.byte $98,$01,$14,$00,$26,$07
-  .byte $18,$02,$30,$00,$29,$09
-  .byte $27,$02,$68,$00,$21,$0B
-  .byte $60,$02,$BC,$00,$27,$0C
-  .byte $88,$02,$14,$00,$26,$0D
-  .byte $00,$03,$BC,$00,$27,$0E
-  .byte $18,$03,$D8,$00,$29,$0F
-  .byte $37,$03,$C0,$00,$21,$00
-  .byte $70,$03,$14,$00,$26,$01
-  .byte $98,$03,$80,$00,$21,$02
-  .byte $08,$04,$24,$00,$26,$03
-  .byte $88,$04,$80,$00,$21,$04
-  .byte $88,$04,$68,$00,$21,$05
+  .byte $77,$00,$80,$00,$21,$00   ; gido
+  .byte $88,$00,$BC,$00,$27,$01   ; rabu, right
+  .byte $D8,$00,$E8,$00,$29,$03   ;         hidden energon cube
+  .byte $37,$01,$24,$00,$26,$04   ; rabu, left
+  .byte $67,$01,$80,$00,$21,$05   ; gido
+  .byte $78,$01,$BC,$00,$27,$06   ; rabu, right
+	.byte $98,$01,$14,$00,$26,$07   ; rabu, left
+  .byte $18,$02,$30,$00,$29,$09   ;         hidden energon cube
+  .byte $27,$02,$68,$00,$21,$0B   ; gido
+  .byte $60,$02,$BC,$00,$27,$0C   ; rabu, right
+  .byte $88,$02,$14,$00,$26,$0D   ; rabu, left
+  .byte $00,$03,$BC,$00,$27,$0E   ; rabu, right
+  .byte $18,$03,$D8,$00,$29,$0F   ;         hidden energon cube
+  .byte $37,$03,$C0,$00,$21,$00   ; gido
+  .byte $70,$03,$14,$00,$26,$01   ; rabu, left
+  .byte $98,$03,$80,$00,$21,$02   ; gido
+  .byte $08,$04,$24,$00,$26,$03   ; rabu, left
+  .byte $88,$04,$80,$00,$21,$04   ; gido
+  .byte $88,$04,$68,$00,$21,$05   ; gido
   .byte $FF,$FF
 
 ; Hit detection stuff
@@ -8525,9 +8536,7 @@ b_c3e4:
 eny_powerup_tbl:            ; @$C3EE-C3F5 I think it might be a random selection from this table, B,P,F,D,1Up
   .byte $34,$35,$36,$37,$38,$34,$35,$36
 
-
-
-enemy_misc_rtn_9:
+chk_plr_eny_col:
   lda plr_sprite_status
   and #$F7
   sta plr_sprite_status
@@ -8540,9 +8549,9 @@ j_c406:
   lda eny_spr_status,X
   bpl b_c40f                ; branch if ram slot is available/empty
   and #$50
-  beq b_c412
+  beq b_c412                ; branch if ram slot is 80, or maybe 20
 b_c40f:
-  jmp j_c494
+  jmp nxt_eny_slot_2                ; next enemy ram slot if enemy status is 10 or 40 or 50
 b_c412:
   lda stage_boss
   asl
@@ -8551,16 +8560,16 @@ b_c412:
   sta $00
   lda eny_hitbox_jmp_tbl+1,Y
   sta $01
-  lda #$06
+  lda #$06                  ; plr x hitbox
   sta $04
-  lda #$0C
+  lda #$0C                  ; plr y hitbox
   sta $05
   lda plr_sprite_status
-  bpl b_c434
+  bpl b_c434                ; branch if botmode
   lda #$0E
-  sta $04
+  sta $04                   ; plr x hitbox
   lda #$06
-  sta $05
+  sta $05                   ; plr y hitbox
 b_c434:
   lda eny_spr_type,X
   asl
@@ -8568,17 +8577,17 @@ b_c434:
   lda ($00),Y
   clc
   adc $04
-  sta $02
+  sta $02                   ; add and store player + enemy x hitbox
   iny
   lda ($00),Y
   clc
   adc $05
-  sta $03
+  sta $03                   ; add and store player + enemy y hitbox
   lda eny_spr_substatus,X
-  and #$08
-  beq b_c452
-  jmp j_c564
-b_c452:
+  and #$08                  ; check if enemy doesnt cause damage
+  beq powerup_collision
+  jmp platform_collision
+powerup_collision:
   jsr plr_stage_x_loc
   lda eny_spr_x_pos_hi,X
   sec
@@ -8589,10 +8598,10 @@ b_c452:
   sta $01
   jsr flip_bits_1
   lda $01
-  bne j_c494
+  bne nxt_eny_slot_2
   lda $00
   cmp $02
-  bcs j_c494
+  bcs nxt_eny_slot_2
   jsr plr_stage_y_loc
   lda eny_spr_y_pos_hi,X
   sec
@@ -8603,13 +8612,13 @@ b_c452:
   sta $01
   jsr flip_bits_1
   lda $01
-  bne j_c494
+  bne nxt_eny_slot_2
   lda $00
   cmp $03
-  bcs j_c494
+  bcs nxt_eny_slot_2
   lda state 
   beq get_powerup
-j_c494:
+nxt_eny_slot_2:                     ; check next enemy ram slot
   txa
   clc
   adc #$10
@@ -8635,12 +8644,12 @@ plr_collide_eny_wpn:
   sta eny_wpn_status,X  ; disable enemy bullet
   lda hits_taken
   cmp #$04              ; check if we've recieved max hits taken
-  bcc j_c494            ; branch if we still have hits left
+  bcc nxt_eny_slot_2            ; branch if we still have hits left
   lda power_up          ; remove barrier after 4 hits
   and #$DF              ; remove barrier
   sta power_up
   jsr play_stage_music  ; restart stage music when we lose barrier
-  jmp j_c494
+  jmp nxt_eny_slot_2
 plr_died:
   lda #$02              ; plr died
   sta state             ; load 02 to state
@@ -8654,10 +8663,10 @@ get_powerup:
   beq clear_powerup_sprite
   cmp #$1F                  ; 1f is energon cube
   beq get_energon_cube
-  cmp #$29                  ; 29 is blank space?
-  beq j_c494
+  cmp #$29                  ; 29 is blank space with an energon cube
+  beq nxt_eny_slot_2
   cmp #$23                  ; 23 is blank space?
-  beq j_c494
+  beq nxt_eny_slot_2
   cmp #$34                  ; 33 is jet w/powerup
   bcc plr_collide_eny_wpn
   ldy #$40                  ; dbl shot powerup is 40
@@ -8688,7 +8697,7 @@ clear_powerup_sprite:
   jsr play_powerup_sound
   lda eny_spr_type,X
   jsr get_eny_score
-  jmp j_c494
+  jmp nxt_eny_slot_2
 get_energon_cube:
   lda #$64
   sta incScoreLo            ; add 1000 points 
@@ -8718,7 +8727,7 @@ get_b_powerup:
   sta hits_taken
   ldy #$20                  ; ready to add barrier flag to powerup in ram
   jmp get_x_powerup
-j_c564:
+platform_collision:
   lda $03
   clc
   adc #$04
@@ -8776,12 +8785,12 @@ b_c5a5:
   lda plr_x_speed_hi
   eor $07
   bmi b_c5dd
-  lda #$00
+  lda #$00            ; player hit side of platform
   sta plr_x_speed_lo
   sta plr_x_speed_hi
 b_c5dd:
-  jmp j_c494
-b_c5e0:
+  jmp nxt_eny_slot_2
+b_c5e0:               ; player jumped into bottom of platform
   lda $06
   bne b_c5f3
   lda plr_y_speed_hi
@@ -8790,7 +8799,7 @@ b_c5e0:
   sta plr_y_speed_lo
   sta plr_y_speed_hi
   sta jump_hold
-  jmp j_c494
+  jmp nxt_eny_slot_2
 b_c5f3:
   lda jump_hold
   bpl b_c5fb
@@ -8802,7 +8811,7 @@ b_c5fb:
   cmp #$02
   bcc b_c605
   ldy #$10
-b_c605:
+b_c605:                     ; player landed on platform
   sty $00
   lda eny_y_spd_lo,X
   sec
@@ -8810,7 +8819,7 @@ b_c605:
   sta plr_y_speed_lo
   lda eny_y_spd_hi,X
   sbc #$00
-  sta plr_y_speed_hi
+  sta plr_y_speed_hi        ; give player same y speed as platform
   lda eny_x_spd_lo,X
   sta enemy_speed_lo
   lda eny_x_spd_hi,X
@@ -8818,7 +8827,7 @@ b_c605:
   lda plr_sprite_status
   ora #$08                  ; crouching?
   sta plr_sprite_status
-  jmp j_c494
+  jmp nxt_eny_slot_2
 chk_eny_wpn_status:
   ldx #$00
 chk_plr_hit:
@@ -8872,7 +8881,7 @@ chk_plr_hit:
   sta state                 ; player died, load 02 to status
   lda #$00
   sta flash_counter
-  sta unram_27
+  sta boss_explosion_counter
   jsr play_plr_exp_sound
   rts
 nxt_eny_wpn_slot:
@@ -8970,7 +8979,7 @@ eny_hitbox_table:           ; @c79c enemy hitbox stuff
   .byte $08,$08,$04,$04,$0A,$03,$08,$08 ; 18 Zaffuru(Rosie),bugs,Starscream(Jet),Starscream(Bot)
   .byte $00,$00,$00,$00,$08,$08,$04,$04 ; 1C Gido,Gido,Takara Baby,Energon Cube
   .byte $00,$00,$08,$08,$10,$04,$00,$00 ; 20 Explosion A,Gido,Explosion B,
-  .byte $04,$04,$0C,$04,$04,$08,$04,$08 ; 24 Burcane Ball,,Rabu(wall pyramid),ganzo(wallslug)
+  .byte $04,$04,$0C,$04,$04,$08,$04,$08 ; 24 Burcane Ball,,Rabu(wall pyramid)/ganzo left,rabu/ganzo(wallslug) right
   .byte $00,$00,$04,$04,$08,$08,$00,$00 ; 28 Megatron poster,,,
   .byte $08,$08,$08,$08,$04,$08,$04,$04 ; 2C ,pickaxe,goldbar,Gau
   .byte $0A,$04,$0A,$04,$0A,$04,$0A,$04 ; 30 Ramjet,
@@ -9030,7 +9039,7 @@ stage_misc_tbl_1:; @$rom495c-496e/memory c94c
   .byte $01,$03,$01,$01,$01,$01,$01,$01,$01,$01
 untbl_2:
   .byte $01,$01,$01,$01,$01,$01,$01,$01,$01
-eny_pos_addr_tbl:
+boss_explosion_tbl:
 	;.byte $73,$C9,$83,$C9,$93,$C9,$A3,$C9,$B3,$C9,$93,$C9,$B3,$C9,$93,$C9,$B3,$C9,$C3,$C9   ; addresses
   .word eny_pos_tbl_00,eny_pos_tbl_01,eny_pos_tbl_02,eny_pos_tbl_03,eny_pos_tbl_04
   .word eny_pos_tbl_02,eny_pos_tbl_04,eny_pos_tbl_02,eny_pos_tbl_04,eny_pos_tbl_05
@@ -9308,7 +9317,7 @@ title_timer_rtn:
   lda #$10
   sta rtn_trk_a
   lda #$00
-  sta rtn_trk_b       ; reset rtn_trk_b from its initial FF
+  sta demo_status       ; reset demo_status from its initial FF
   jsr set_PPU_CTRL_a  ; turn on screen
 :                             ; this loop is redundant*******
   jsr get_player_input        ; these 4 lines arnt needed here ******
@@ -9368,7 +9377,7 @@ title_timer_rtn:
   lda #$00
   sta rtn_trk_a
   lda #$FF
-  sta rtn_trk_b     ; title timed out, set rtn_trk_b with FF to start demo?
+  sta demo_status     ; title timed out, set demo_status with FF to start demo?
   rts
 scroll_logo:
   lda x_scroll      ; starting from FE, roll the x-scroll down for the title to roll in from the left
@@ -10529,8 +10538,8 @@ note_tbl:                ; @$D7C0-D7D7 note table, 20 is middle C
   .byte $8A,$03   ; 0B B
 set_apu_channel:
   sta apu_status_ram_6      ; which audio channel
-  bit rtn_trk_b
-  bmi :+                    ; rts if rtn_trk_b is negative
+  bit demo_status
+  bmi :+                    ; rts if demo_status is negative
   sta APU_CHANCTRL          ; send channel to apu
 :
   rts
@@ -10614,15 +10623,13 @@ play_stage_music:
   sec
   sbc #$14
   tax
-  lda audio_jump_tbl_1,x
+  lda audio_jump_tbl,x
   sta $00
-  lda audio_jump_tbl_1a,x
+  lda audio_jump_tbl+1,x
   sta $01
   jmp ($0000)
-audio_jump_tbl_1:
-  .byte <play_sideroom_music
-audio_jump_tbl_1a:
-  .byte >play_sideroom_music
+audio_jump_tbl:
+  .word play_sideroom_music
   .word play_sideroom_music               ; .byte <play_sideroom_music,>play_sideroom_music
   .word play_guardian_room_music          ; .byte <play_guardian_room_music,>play_guardian_room_music
   .word play_guardian_room_music          ; .byte <play_guardian_room_music,>play_guardian_room_music
@@ -10892,8 +10899,9 @@ sample_jmp_tbl:             ; @DA1E
 ;===============================
 ; sample tables
 ; first 4 bytes are the sample info:
-;   note length %---- iiii, duty cycle %---- --dd, volume %--?c vvvv, sweep
+;   note length %---- iiii, duty cycle %---- --dd, volume %--?c vvvv, sweep $eppp nsss
 ; the intention for the upper 4 bits of the first byte was for the channel, but wasnt used because the channel is called before
+; sweep 7bit is the sweep enable flag, 3bit is 0=up or 1=down, bits 2-0 is the shift counter (number of bits)
 ; rest of the bytes are notes, note lengths and flags
 ; A0 sets the volume in apu ctrl with the second byte, without setting the duty, the duty is plulled from ram
 ; A1 sets the sweep for the channel with the second byte
