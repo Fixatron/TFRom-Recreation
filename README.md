@@ -1,5 +1,5 @@
     ![lvl9 checkpoints](https://github.com/Fixatron/TFRom-Recreation/blob/main/images/Convoy_no_Nazo_Flyer_Back.jpg)
-![Screenshot of a comment on a GitHub issue showing an image, added in the Markdown, of an Octocat smiling and raising a tentacle.](https://myoctocat.com/assets/images/base-octocat.svg)
+![Screenshot of a comment on a GitHub issue showing an image, added in the Markdown, of an Octocat smiling and raising a tentacle.](https://github.com/Fixatron/TFRom-Recreation/blob/main/images/Convoy_no_Nazo_Flyer_Back.jpg)
 #  Information
     This is a decompilation of Transformers:Mystery of Convoy (spelled Comvoy) or Fight! Super Robot Lifeform Transformers: Convoy No Nazo
     Mostly a rom-study to learn NES 6502 assembly
