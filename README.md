@@ -7,6 +7,7 @@ Over time, I will update the annotations and look for improvements, but not this
 Decompiled with the help of FCEUX by Dr Venutech Archeville
 
 ##   Installation and Environment
+⋅⋅* Unordered sub-list. 
 *I followed the NES development environment setup tutorial from NESHacker on Youtube https://www.youtube.com/watch?v=RtY5FV5TrIU&pp=ygUKdnNjb2RlIG5lcw%3D%3D
 *I installed a Microsoft hex editor in VSCode, but I used HxD hex editor for comparing a dump to my compilation more often due to preference
 *I installed the ca65 Macro Assembler extenstion for VSCode and CC65 from https://cc65.github.io/
