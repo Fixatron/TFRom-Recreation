@@ -1,5 +1,5 @@
 {
   "executable": "C:\\cc65\\bin\\cl65",
-  "input": "tfrr.s",
-  "params": "--verbose --target nes -o tfrr.nes"
+  "input": "tf-hack.s",
+  "params": "--verbose --target nes -o tf-hack.nes"
 }

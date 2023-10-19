@@ -27,6 +27,8 @@
     -Boss up and down movement increases by 12.5% every game completion up to 3 times
     -Ramjet with powerup increases x speed by 25% every game completion up to 3 times
     -Most stages have 4 hidden energon bonus point powerups
+    -Player bullets dont have a hitbox, but use exact location to confirm a hit on enemy hitboxes. The game is far more enjoyable with a bit of a hitbox on bullets
+    -No F powerup on level 1,2 and 7
 
 #   Walkthrough
     -Stage 1: 
@@ -46,6 +48,8 @@
             Stage 9 requires the player to hit 5 checkpoints or start the stage over again. As long as these 5 checkpoints are hit, you can take any path to the end of the level.
            The Black Baby in stage 9 is the old Takara Logo
 
+           ... i was going to make some more of this tutorial to write about the siderooms and the powerup locations, but its easier with pictures or video, like a walkthrough. I've added possible improvements for a barrier meter and better bullet hitboxes to make playing not a torture. The developers were intentionally making it hard to play and it gets harder as we go along. What a nightmare, but it was 1986 and there was a rush to get this game out around Christmas, making this game quite a marvel for its time.
+
 #   RAM cheats
     - Store 40 to ram 0x22 to complete level (need to make 0x76 0 for level 9)
     - Store FF to 0x53 for all powerups (0x54 is number of hits taken)
@@ -56,14 +60,14 @@
 
 #   Things I want to change
 
-    - better hit boxes
+    - better hit boxes  ☑ : added a potential hitbox to the bullets
     - new character sprites
     - simultaneous 2 players
     - megaman style boss fights
     - pre-bossfight dialog
     - better music
     - pause menu
-    - health bar
+    - health bar    ☑ : added a potential shield_bar routine for the barrier
     - expand PRG Rom
     - improve ice mechanics
     - longer turning sprite times

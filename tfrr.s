@@ -64,11 +64,13 @@ enemy_speed_hi          = $44
 frame_counter_96        = $45   ; Resets every $60 frames, Counts to $18 by increments of 4, to indicate that the subtitle is done writing
 unram_17                = $46
 
+custom_shield_ram       = $47
+
 stage_boss              = $48   ; 00 is level, 01 is boss
 eny_status_ram          = $49
 eny_time_ram            = $4A   ; related to the boss wpn timer
 level_backup            = $4B
-eny_chkpt_cntr                 = $4C
+eny_chkpt_cntr          = $4C
 num_bosses              = $4D   ; only stage 2 has 2 bosses
 jump_hold               = $4E   ; how long was jump button held for, 0c is max, 02 is about the lowest
 trnsfrmng_frame_counter = $4F
@@ -91,6 +93,12 @@ bk_plrYProgLo           = $5f
 bk_plrYProgHi           = $60
 bk_plrYProgPg           = $61
 
+custom_health_bkup      = $62       ; use these two slots to store health data between levels
+custom_powerup_bkup     = $63
+
+custom_health_ram_a     = $64
+custom_bar_colour       = $65
+
 room_timer_lo           = $66
 room_timer_hi           = $67
 sideroom_state          = $68
@@ -111,7 +119,8 @@ lvl9_clear              = $76
 chkpt_counter           = $77
 score_1_up_lo           = $78   ; next score needed for 1S-up
 score_1_up_mid          = $79   
-score_1_up_hi           = $7A 
+score_1_up_hi           = $7A
+
 unused_ram_1            = $7B 
 
 ; just some notes from Venutech
@@ -271,6 +280,11 @@ enemy_sprite_y_pos      = $0740
 enemy_sprite_byte       = $0741
 enemy_sprite_attr       = $0742
 enemy_sprite_x_pos      = $0743
+
+shield_sprite_y_pos      = $07F0
+shield_sprite_byte       = $07F1
+shield_sprite_attr       = $07F2
+shield_sprite_x_pos      = $07F3
 
 ;; PPU defines
 PPU_CTRL        = $2000
@@ -547,7 +561,7 @@ vblankwait3:
   bvs b_8267
   bmi b_82ac
   beq b_8260
-  jmp main_jmp_1
+  jmp chk_warp_rtn
 b_8260:
   lda controller_p1_current
   and #$04                      ; is select pressed?
@@ -628,7 +642,7 @@ start_demo_rtn:
   lda #$FF
   sta demo_status
   jmp demo_rtn
-main_jmp_1:
+chk_warp_rtn:
   jsr set_PPU_MASK_b
   jsr set_PPU_CTRL_b
   jsr disable_audio_channels
@@ -744,7 +758,7 @@ nmi:                        ; beginning of frame
   jsr write_new_tile_column         
 :
   jsr set_nametable
-  jsr player_bullet_enemy_routine
+  jsr oam_sprite_rtn
   jsr audio_rtn
   jsr write_pl1_score
   jsr get_player_input
@@ -870,7 +884,7 @@ card_screen_rtn:
   jmp pull_stack_and_rti
 game_rtn_1:                         ; pre-stage screen, endscreen, gameover screen
   jsr audio_rtn
-  jsr player_bullet_enemy_routine
+  jsr oam_sprite_rtn
   jsr enemy_sprite_rtn
   jsr eny_mov_despawn
   lda current_level
@@ -1525,6 +1539,71 @@ write_score:
   sbc #$08      ; choose next digit
   sta $0E       ; store next digit x location to $0E
   rts
+;=======================================
+; proposed shield bar, works
+; need to set custom_health_ram to 0 at the start of the level and add a routine to collision detection to allow for more hits
+; shield_bar:
+;   ldx $0F                      ; current spot in OAM ram
+;   cpx #$E4                     ; compare from 0=071c to e4=07ff
+;   bcs :+                      ; branch out if no more spots left in OAM ram
+;   lda #$20                    ; starting x location of health tile 20= in line with the score, 58= just after the score
+;   sta custom_shield_ram       ; x location of health tile
+
+; ; health bar stuff start
+;   lda custom_health_ram_a
+;   lda #$00
+;   sta custom_bar_colour
+;   lda #$03
+;   sec
+;   sbc custom_health_ram_a
+;   tay
+;   lda #$00
+;   sta custom_bar_colour
+;   jsr send_health_oam_to_ram
+
+; ; health bar end, barrier bar start
+
+;   lda power_up                ; barrier_bar
+;   and #$20
+;   beq :+                      ; branch out if no barrier powerup
+;   lda hits_taken
+;   cmp #$04
+;   bcs :+                      ; branch out if 4 hits taken
+;   lda #$04
+;   sec
+;   sbc hits_taken
+;   tay
+;   lda #$02
+;   sta custom_bar_colour
+;   jsr send_health_oam_to_ram
+;   :
+;   stx $0F
+;   rts
+; send_health_oam_to_ram:
+;   cpx #$E4                     ; compare from 0=071c to e4=07ff
+;   bcs :-
+;   lda #$10
+;   sta sprite1_y_pos,X
+;   inx
+;   lda #$F3                    ; plr bullet
+;   sta sprite1_y_pos,X
+;   inx
+;   lda custom_bar_colour       ; attribute
+;   sta sprite1_y_pos,X
+;   inx
+;   lda custom_shield_ram
+;   sta sprite1_y_pos,X
+;   clc
+;   adc #$08
+;   sta custom_shield_ram
+;   inx
+;   dey
+;   bne send_health_oam_to_ram
+;   rts
+
+; 
+;=======================================
+
 flip_bits_1:    ; flip bits if negative
   lda $01       ; load $01 ram
   bpl :+        ; rts if positive
@@ -3843,9 +3922,9 @@ wpn_lookup_rtn:
   jsr get_num_tiles
   bcc b_9a28
 b_9a19:
-  ldx $0F
-  cpx #$E4
-  bcs b_9a28
+  ldx $0F                       ; load ram slot to x
+  cpx #$E4                      ; all ram from $071C to $07FF
+  bcs b_9a28                    ; branch out if no OAM ram slots left
   jsr load_sprite_tiles
   stx $0F
   dec $05
@@ -3872,12 +3951,13 @@ stage_boss_sprite_tbl:
   .word stage_eny_spr_tbl   ; @$9df2 ****
   .word boss_eny_spr_tbl   ; @$9ef2 ****
 
-player_bullet_enemy_routine:
-  ldx #$00
+oam_sprite_rtn:
+  ldx #$00                    ; load 00 for OAM ram position, starting at 071C, right after the score OAM ram
   stx $0F
   jsr player_sprite_rtn
   jsr wpn_sprite_rtn
   jsr enemy_status_chk
+  ;  jsr shield_bar
   ldx $0F               ; update OAM data starting at $0740
 j_9a3c:
   cpx #$E4
@@ -3951,7 +4031,7 @@ get_num_tiles:
   iny
   lda $00         ; load first tile y position
   bpl :+          ; branch out if first tile y position is positive
-  lda #$40        ; attribute to flip tiel horizontally
+  lda #$40        ; attribute to flip tile horizontally
   sta $06         ; store 40 to 06 ram
   lda #$FF
   sta $07         ; store ff to 07 ram
@@ -5076,7 +5156,7 @@ b_a619:
   sta $05                 ; store the low page to 05
   jsr chk_plr_eny_chkpt_range
   bcs b_a632
-  jsr lvl_misc_rtn_a10
+  jsr eny_chkpt_reached
 b_a632:
   inc eny_chkpt_cntr
   jmp b_a60f
@@ -5101,7 +5181,7 @@ chk_plr_y_eny_chkpt:
   sta $03                 ; store player y page with offset to 03
   jsr chk_plr_eny_chkpt_range
   bcs b_a663
-  jsr lvl_misc_rtn_a10
+  jsr eny_chkpt_reached
   jmp b_a685
 b_a663:
   lda plr_y_prog_hi
@@ -5120,7 +5200,7 @@ b_a663:
   sta $05
   jsr chk_plr_eny_chkpt_range
   bcs b_a685
-  jsr lvl_misc_rtn_a10
+  jsr eny_chkpt_reached
 b_a685:
   inc eny_chkpt_cntr
   dec $08
@@ -5170,7 +5250,7 @@ chk_plr_eny_chkpt_range:; carry clear if player within checkpoint range, carry s
 b_a6cf:
   sec
   rts
-lvl_misc_rtn_a10:
+eny_chkpt_reached:
   ldy #$05
   lda ($00),Y           ; get the last byte from the table row
   asl
@@ -5240,7 +5320,7 @@ b_a745:
   inx
   bne b_a745
   rts
-eny_spr_clear_data:
+eny_boss_destroyed:
   lda #$00
   sta eny_x_spd_lo,X
   sta eny_x_spd_hi,X
@@ -5285,7 +5365,7 @@ b_a7a0:
 b_a7a1:
   lda eny_spr_type,X
   cmp #$12
-  beq b_a7b7
+  beq set_meg_poster
   cmp #$1B
   bne b_a7a0
   lda #$04
@@ -5294,7 +5374,7 @@ b_a7a1:
   sta flash_counter
   sta boss_explosion_counter
   rts
-b_a7b7:                   ; this gets loaded at the pre-stage screen
+set_meg_poster:                   ; this gets loaded at the pre-stage screen
   lda #$80
   sta eny_spr_status,X
   lda #$28
@@ -5325,7 +5405,7 @@ b_a7da:
   lda eny_spr_status,X
   and #$40
   beq b_a7f8
-  jmp eny_spr_clear_data
+  jmp eny_boss_destroyed
 b_a7f8:                     ; something gets called from here and its direct... so is messing things up****************
   lda eny_spr_substatus,X
   and #$10
@@ -5338,7 +5418,7 @@ b_a7f8:                     ; something gets called from here and its direct... 
   lda eny_misc_jmp_tbl+1,Y
   sta $03
   lda eny_spr_type,X
-;*********** a810 this gets called from somewhere.....
+;*********** a810 this gets called from somewhere..... no, it doesnt actually
   bmi b_a82c
   asl
   tay
@@ -5348,7 +5428,7 @@ b_a7f8:                     ; something gets called from here and its direct... 
   lda ($02),Y
   sta $01
   jmp ($0000)
-b_a820:
+b_a820:                   ; this gets called from ust above with a hard coded address
   nop
   lda current_enemy
   clc
@@ -8377,13 +8457,17 @@ active_wpn_eny_hit_detection:   ; weapon/enemy hit detection for active player b
   lda eny_spr_x_pos_hi,Y
   sec
   sbc wpn_x_pos_hi,X
-  sta $00                   ; store difference of plr wpn and eny sprite x positioin
+  sta $00                   ; store difference of plr wpn and eny sprite x position
   lda eny_spr_x_pos_page,Y
   sbc wpn_x_pos_page,X
   sta $01                   ; store difference of x page position
-  jsr flip_bits_1
+  jsr flip_bits_1           ; flip bits to positive, if negative
   lda $01
   bne inc_eny_slot          ; bullet and enemy are on different pages, check next enemy slot
+;  lda $02                  ; this adds a x plr bullet hitbox of 08, to make the game more enjoyable **shield_bar**
+;  clc
+;  adc #$08
+;  sta $02
   lda $00
   cmp $02                   ; compare enemy x hitbox area
   bcs inc_eny_slot          ; missed enemy, check next enemy slot
@@ -8400,6 +8484,10 @@ active_wpn_eny_hit_detection:   ; weapon/enemy hit detection for active player b
   jsr flip_bits_1
   lda $01
   bne inc_eny_slot
+;  lda $03                  ; this adds a y plr bullet hitbox of 08, to make the game more enjoyable
+;  clc
+;  adc #$08
+;  sta $03
   lda $00
   cmp $03                   ; compare enemy y hitbox
   bcc eny_was_hit
@@ -8515,15 +8603,15 @@ show_powerup:
   lda eny_powerup_tbl,Y
   sta $00
   lda $00
-  cmp #$35
-  bne b_c3e4
+  cmp #$35              
+  bne b_c3e4          ; branch if powerup is not F and load it up
   lda current_level
   cmp #$00
-  beq b_c3e0
+  beq b_c3e0          ; dont allow F powerup to occur on level 1, replace with P powerup
   cmp #$02
-  beq b_c3e0
+  beq b_c3e0          ; dont allow F powerup to occur on level 2, replace with P powerup
   cmp #$0C
-  bne b_c3e4
+  bne b_c3e4          ; dont allow F powerup to occur on level 7, replace with P powerup
 b_c3e0:
   lda #$34
   sta $00
@@ -8533,7 +8621,7 @@ b_c3e4:
   sta eny_altmode,Y
   jmp enemy_stop
 
-eny_powerup_tbl:            ; @$C3EE-C3F5 I think it might be a random selection from this table, B,P,F,D,1Up
+eny_powerup_tbl:            ; @$C3EE-C3F5 I think it might be a random selection from this table, P,F,D,B,1Up
   .byte $34,$35,$36,$37,$38,$34,$35,$36
 
 chk_plr_eny_col:
@@ -8631,6 +8719,20 @@ nxt_eny_slot_2:                     ; check next enemy ram slot
 plr_collide_eny_wpn:
   lda power_up
   and #$20              ; player was hit, check for powerup
+
+;=================================
+; custom code for health bar stuff  *****shield_bar*****
+  ; bne :+
+  ; dec custom_health_ram_a
+  ; bne nxt_eny_slot_2
+  ; lda #$03
+  ; sta custom_health_ram_a; reload to full health after a death
+  ; jmp plr_died          ; no powerup, no health, you died
+  ; : ; but we need to comment out the line below
+
+;=================================
+
+
   beq plr_died          ; no powerup, you died
   lda eny_spr_type,X
   jsr get_eny_score     ; still get the points for a suicide kill
@@ -9268,7 +9370,7 @@ draw_title_attributes:
   sta PPU_ADDR
   ldx #$00
 :
-  lda title_tbl,X
+  lda title_attribute_tbl,X
   sta PPU_VRAM_IO
   inx
   cpx #$40          ; 64 bytes of title screen attribute data
@@ -9660,7 +9762,7 @@ draw_lives:
   sta PPU_VRAM_IO
   rts
 
-title_tbl: ;CFDC-D075  Title Attribute tables
+title_attribute_tbl: ;CFDC-D075  Title Attribute tables
  	.byte $00,$00,$00,$00
   .byte $00,$00,$00,$00
   .byte $00,$00,$00,$00
@@ -11137,10 +11239,11 @@ samp_barrier_t:           ; barrier powerup music.2 @e002
 .byte $19,$02,$29,$02,$20,$02,$30,$02,$22,$02,$32,$02,$20,$02,$30,$02
 .byte $15,$02,$25,$02,$14,$02,$24,$02,$15,$02,$25,$02,$17,$02,$27,$02
 .byte $BF,$F0
+
 .byte $BF,$F0             ; extra line ****** not needed, or maybe its from a deleted track
 
 
-; padding
+; padding       ***** shield_bar
 .byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
 .byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
 .byte $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF

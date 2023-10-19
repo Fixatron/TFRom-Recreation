@@ -3,3 +3,5 @@
 *.nes*
 .DS_Store
 tfrr.deb
+tf-hack.s
+tf-hack.chr
