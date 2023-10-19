@@ -1,5 +1,3 @@
-![lvl9 checkpoints](https://github.com/Fixatron/TFRom-Recreation/blob/main/images/level9map.png)
-![Level 9 map](https://github.com/Fixatron/TFRom-Recreation/blob/main/images/Convoy_no_Nazo_Flyer_Back.jpg)
 #  Information
     This is a decompilation of Transformers:Mystery of Convoy (spelled Comvoy) or Fight! Super Robot Lifeform Transformers: Convoy No Nazo
     Mostly a rom-study to learn NES 6502 assembly
@@ -47,6 +45,7 @@
             Theres a hidden energon cube shorly before starscream
 
     -Stage 9:
+![Level 9 map](https://github.com/Fixatron/TFRom-Recreation/blob/main/images/level9map.png)
             Stage 9 requires the player to hit 5 checkpoints or start the stage over again. As long as these 5 checkpoints are hit, you can take any path to the end of the level.
            The Black Baby in stage 9 is the old Takara Logo
 
