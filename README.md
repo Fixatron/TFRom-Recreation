@@ -45,6 +45,7 @@
             Theres a hidden energon cube shorly before starscream
 
     -Stage 9:
+    ![lvl9 checkpoints](/images/level9map.png)
             Stage 9 requires the player to hit 5 checkpoints or start the stage over again. As long as these 5 checkpoints are hit, you can take any path to the end of the level.
            The Black Baby in stage 9 is the old Takara Logo
 
@@ -97,6 +98,10 @@
     TFWiki Article on Transformers Mystery of Convoy https://tfwiki.net/wiki/Transformers:_Mystery_of_Convoy
     GameFaqs Walkthrough https://gamefaqs.gamespot.com/nes/578338-transformers-convoy-no-nazo/faqs/47896
     Level 9 Map     https://gamefaqs.gamespot.com/nes/578338-transformers-convoy-no-nazo/map/3988?raw=1
+    Strategy guide https://www.tfraw.com/p/family-computer-victory-dojo.html
+    Manga Translation https://www.tfraw.com/p/victory-dojo-transformers-mystery-of.html
+    Another tie-in Manga https://www.tfraw.com/p/famicom-how-to-manga-transformers.html
+
 
 #   NES Assembly resourses
     6502 Instruction Set    https://www.masswerk.at/6502/6502_instruction_set.html
