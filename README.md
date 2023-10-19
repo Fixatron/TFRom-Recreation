@@ -1,4 +1,4 @@
-    ![lvl9 checkpoints](https://github.com/Fixatron/TFRom-Recreation/blob/main/images/level9map.png)
+    ![lvl9 checkpoints](https://github.com/Fixatron/TFRom-Recreation/blob/main/images/level9map.png?raw=true)
 
 ##  Information
     This is a decompilation of Transformers:Mystery of Convoy (spelled Comvoy) or Fight! Super Robot Lifeform Transformers: Convoy No Nazo
