@@ -34,7 +34,7 @@ Decompiled with the help of FCEUX by Dr Venutech Archeville
 - There is an error in the code when checking for a 1up
 
 ##   Walkthrough
- - Stage 1: 
+- Stage 1: 
   * ![Level 1 Map](https://github.com/Fixatron/TFRom-Recreation/blob/main/images/stages/st1.png)
   * Hold right as the level starts and jump over the first swooping decepticon jet. 
   * Run under the subsequent jets and under the Gosupu (rocket). Shoot the powerup ramjet, but watch out for the jet that swoops just after the Gosupu.
