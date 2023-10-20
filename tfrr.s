@@ -62,7 +62,7 @@ player_acceleration     = $42
 enemy_speed_lo          = $43
 enemy_speed_hi          = $44
 frame_counter_96        = $45   ; Resets every $60 frames, Counts to $18 by increments of 4, to indicate that the subtitle is done writing
-unram_17                = $46
+num_timed_eny                = $46
 
 custom_shield_ram       = $47
 
@@ -433,7 +433,7 @@ demo_rtn:
   sta frame_counter_96
   jsr set_demo_pl1              ; Set player 1 for demo
   jmp demo_rtn                 ; jump back up to repeat initializing level
-title_loop_jmp:
+exit_title_screen:
   jsr start_pushed_at_title     ; this subroutine seems to be only used just when start is pushed at title before Ultra Magnus shows on flashing screen
   jsr disable_audio_channels    ; disable audio channels and set audio ram statuses to $FF
   jsr clear_player_scores       ; Clear player scores
@@ -496,7 +496,7 @@ get_plr_start_position:
   sta plr_y_pos_hi              ; store to player vertical position
   lda player_x_pos_tbl,Y        ; @$C9D4
   sta plr_x_pos_hi              ; store to player horizontal position
-pre_stage_prep:
+stage_start_prep:
   lda #$00
   sta controller_p1_current     ; clear player 1 controller input
   sta plr_sprite_status         ; reset flight status
@@ -517,7 +517,7 @@ pre_stage_prep:
   sta plr_max_x_speed_lo
   lda #$02
   sta plr_max_x_speed_hi
-  sta unram_17
+  sta num_timed_eny
   lda #$03
   sta plr_max_y_speed_hi        ; set max y speed of 03
   lda #$00
@@ -626,7 +626,7 @@ b_82ac:
   bmi start_demo_rtn
 :
   lda sub_state
-  bmi pre_stage_prep_after_sideroom
+  bmi stage_prep_after_sideroom
   lda other_pl_stored_data
   bmi :++                   ; ***********this is around the line @82DF on the 6502 Debugger and @0x2E0 on the hex file
   ldy #$FF
@@ -668,12 +668,12 @@ chk_warp_rtn:
   jmp stage_intro_rtn
 :                           ; branch here when loading a sideroom
   lda sub_state
-  bmi pre_stage_prep_after_sideroom
+  bmi stage_prep_after_sideroom
   jsr bkup_lvl_prog_for_side_lvl
   jmp plr_lvl_start_pos
-pre_stage_prep_after_sideroom:
+stage_prep_after_sideroom:
   jsr load_lvl_prog_bkup    ; @$9689
-  jmp pre_stage_prep      ; @$81D8
+  jmp stage_start_prep      ; @$81D8
 swap_player_ram:
   ldx #$00
 :
@@ -840,7 +840,7 @@ side_room_rtn:
   jsr plr_col_spr_rtn
   jsr wpn_start_rtn
   jsr wpn_end_rtn
-  jsr eny_spawn_chkpt
+  jsr eny_spawn_rtn
   jsr enemy_sprite_rtn
   jsr eny_mov_despawn
   jsr chk_plr_eny_col
@@ -860,7 +860,7 @@ warp_trigger:
   sta state                 ; warp 2 stages
   jmp pull_stack_and_rti
 enemy_rtn:
-  jsr eny_spawn_chkpt
+  jsr eny_spawn_rtn
   jsr enemy_sprite_rtn
   jsr eny_mov_despawn
   lda state
@@ -927,7 +927,7 @@ gameplay_rtn:
   jsr chk_sideroom_chkpt
   jsr wpn_start_rtn
   jsr wpn_end_rtn
-  jsr eny_spawn_chkpt
+  jsr eny_spawn_rtn
   jsr enemy_sprite_rtn
   jsr eny_mov_despawn
   jsr chk_plr_eny_col
@@ -1028,22 +1028,22 @@ set_nametable:              ; @$85CA
   sta ram_PPU_CTRL
   sta PPU_CTRL              ; turn on screen
   jmp ppu_scroll
-ram_misc_30:    ; something to do with plr eny collision
+ram_misc_30:    ; something to do with plr eny bullet trajectory
   lda #$00
   sta $04
   sta $05
   ldy #$0F
 :
-  asl $00   ; 
-  rol $01   ; 
-  rol $04   ; 
-  rol $05   ; 
+  asl $00   ; initially, its 0. 
+  rol $01   ; roll left x/y difference high 
+  rol $04   ; roll left into 04 ram
+  rol $05   ; roll left into 05 ram
   lda $04   ; 
   sec
-  sbc $02   ; 
+  sbc $02   ; subtract by x/y difference high divided by 2
   sta $06   ; 
   lda $05   ; 
-  sbc $03   ; 
+  sbc $03   ; initially zero
   bcc :+
   sta $05   ; 
   lda $06   ; 
@@ -1216,9 +1216,9 @@ clear_screen:
   lda #$20              ;***********0x734
   sta $01
   lda #$20
-  jsr write_blank_screen_a
+  jsr write_blank_screen
   lda #$24              ; run the same stuff to the @2400 block of PPU data
-write_blank_screen_a:
+write_blank_screen:
   sta PPU_ADDR
   lda #$00
   sta PPU_ADDR
@@ -4894,7 +4894,7 @@ bos_spr_1Ab:                  ; @a451
   .byte $FC,$EB,$01,$FC
 
 
-eny_spawn_chkpt:
+eny_spawn_rtn:
   lda stage_orientation   ; get stage orientation
   and #$C0                ; check for vertical level
   beq eny_spawn_horiz_rtn
@@ -4984,18 +4984,18 @@ get_eny_chkpt:
   rts
 eny_spawn_on_timer:
   lda frame_counter_96
-  beq start_frm_cnt_96
+  beq restart_eny_spwn_timer
   dec frame_counter_96
   rts
-start_frm_cnt_96:
+restart_eny_spwn_timer:
   lda #$60
   sta frame_counter_96
-  lda unram_17
+  lda num_timed_eny
   sta $00
   ldx #$00
   jsr find_open_eny_ram_slot
   lda $00
-  beq b_a549
+  beq c_exit
   jsr rng_rtn
   lda rng_ram
   and #$01
@@ -5023,15 +5023,15 @@ start_frm_cnt_96:
   lda ($00),Y
   sta $0B
   cmp #$FF
-  beq b_a549
+  beq c_exit
   and #$C0
-  bne b_a54a
+  bne eny_duplicate
   lda $0B
   sta eny_spr_type,X
   jsr enemy_new_pos
-b_a549:
+c_exit:
   rts
-b_a54a:
+eny_duplicate:
   lda $0B
   and #$3F
   sta eny_spr_type,X
@@ -5050,8 +5050,8 @@ b_a54a:
   tay
   lda ($05),Y
   sta $01
-b_a570:
-  lda unram_17
+duplicate_enemy:
+  lda num_timed_eny
   asl
   asl
   asl
@@ -5061,14 +5061,14 @@ b_a570:
   tax
   lda #$0B
   sec
-  sbc unram_17
+  sbc num_timed_eny
   sta $00
   jsr find_open_eny_ram_slot
   lda $00
-  beq b_a549
+  beq c_exit
   lda $0B
   and #$40
-  beq b_a59b
+  beq vert_eny_dup
   lda $02
   clc
   adc #$10
@@ -5076,18 +5076,18 @@ b_a570:
   lda $03
   adc #$00
   sta $03
-b_a59b:
+vert_eny_dup:
   lda $02
   sta eny_spr_y_pos_hi,X
   lda $03
   sta eny_spr_y_pos_page,X
   lda $0B
-  bpl b_a5b0
+  bpl horiz_eny_dup
   lda $04
   clc
   adc #$10
   sta $04
-b_a5b0:
+horiz_eny_dup:
   lda $04
   sta eny_exp_timer,X
   lda $0B
@@ -5096,7 +5096,7 @@ b_a5b0:
   jsr enemy_new_pos
   jsr set_new_enemy_no_reset_exp_timer
   dec $01
-  bne b_a570
+  bne duplicate_enemy
   rts
 enemy_new_pos:
   lda plr_x_prog_hi
@@ -9492,7 +9492,7 @@ title_timer_rtn:
   sta rtn_trk_a
   pla                       ; pull stuff from stack so we dont do title screen stuff anymore
   pla
-  jmp title_loop_jmp        ; loop back if timer hi byte is less than 4 @$815F
+  jmp exit_title_screen        ; loop back if timer hi byte is less than 4 @$815F
 :                           ; stop title screen and start demo routine next time we load up the screen
   jsr set_PPU_MASK_b
   jsr set_PPU_CTRL_b

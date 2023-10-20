@@ -31,17 +31,18 @@ Decompiled with the help of FCEUX by Dr Venutech Archeville
 - No F powerup on level 1,2 and 7
 - Player's acceleration is reduced after every playthrough, but gets maxed out after 7 completions
 - The player's acceleration is reduced by almost half once you beat the game 7 times
-
+- There is an error in the code when checking for a 1up
 
 ##   Walkthrough
 -Stage 1: 
+![Level 1 Map](https://github.com/Fixatron/TFRom-Recreation/blob/main/images/stages/st1.png)
 * Hold right as the level starts and jump over the first swooping decepticon jet. 
 * Run under the subsequent jets and under the Gosupu (rocket). Shoot the powerup ramjet, but watch out for the jet that swoops just after the Gosupu.
 * Running along, there is a Gosupu directly under a moon, right after this is the jet with the first Rodimus letter, R.
 * Hidden energon cube at plrxprog 048000
 * Hidden energon cube is at plrxprog0xA078F8, w/ plrxpos0xBF78, or between the two large moons before the end of the level. Jump as high as you can in the middle of the two moons and shoot once to the right to reveal an energon cube. Dont shoot the cube, it can be killed and you wont get any points.
 -Boss 1:
-* Go to the grey platform which looks like Optimus Prime's bumper under the boss and transform into a truck by holding down.
+![Boss 1](https://github.com/Fixatron/TFRom-Recreation/blob/main/images/stages/st1-boss.png)
 * Fire 4 vertical bullets into the glowing part of the planet and complete the stage.
 -Stage 2:
 * More of a platforming level, but still get the hell out of there.
@@ -51,6 +52,8 @@ Decompiled with the help of FCEUX by Dr Venutech Archeville
 ![Level 9 map](https://github.com/Fixatron/TFRom-Recreation/blob/main/images/level9map.png)
 * Stage 9 requires the player to hit 5 checkpoints or start the stage over again. As long as these 5 checkpoints are hit, you can take any path to the end of the level.
 * The Black Baby in stage 9 is the old Takara Logo
+-Boss 9:
+![Boss 9](https://github.com/Fixatron/TFRom-Recreation/blob/main/images/stages/st9-boss.png)
 
    ... i was going to make some more of this tutorial to write about the siderooms and the powerup locations, but its easier with pictures or video, like a walkthrough. I've added possible improvements for a barrier meter and better bullet hitboxes to make playing not a torture. The developers were intentionally making it hard to play and it gets harder as we go along. What a nightmare, but it was 1986 and there was a rush to get this game out around Christmas, making this game quite a marvel for its time.
 
