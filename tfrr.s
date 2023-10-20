@@ -4897,12 +4897,12 @@ bos_spr_1Ab:                  ; @a451
 eny_spawn_chkpt:
   lda stage_orientation   ; get stage orientation
   and #$C0                ; check for vertical level
-  beq b_a460
+  beq eny_spawn_horiz_rtn
   jsr eny_spawn_vert_chkpt      ; jump if vertical level
   rts
-b_a460:                   ; horizontal level
+eny_spawn_horiz_rtn:            ; horizontal level b_a460, this is the routine that handles horizontal enemy spawn checkpoints as well as loading enemies on a timer
   jsr eny_spawn_horiz_chkpt
-  jsr dec_frm_cnt_96
+  jsr eny_spawn_on_timer
   rts
 eny_spawn_horiz_chkpt:          ; this routine checks if player is within 1-1.5 pages from enemy spawn point and spawns enemy
   jsr get_eny_chkpt
@@ -4982,7 +4982,7 @@ get_eny_chkpt:
   sta $01                 ; get enemy x location checkpoint to ram
   dey
   rts
-dec_frm_cnt_96:
+eny_spawn_on_timer:
   lda frame_counter_96
   beq start_frm_cnt_96
   dec frame_counter_96
@@ -5003,9 +5003,9 @@ start_frm_cnt_96:
   lda current_level
   asl
   tay
-  lda lvl_addr_tbl_2,Y    ; @$BFE0
+  lda eny_spawn_timer_table,Y    ; @$BFE0
   sta $00
-  lda lvl_addr_tbl_2+1,Y
+  lda eny_spawn_timer_table+1,Y
   sta $01
   lda plr_x_prog_pg
   asl
@@ -5042,9 +5042,9 @@ b_a54a:
   lda current_level
   asl
   tay
-  lda enemy_addr_tbl_1,y  ; $@C0C6
+  lda eny_num_per_page,y  ; $@C0C6
   sta $05
-  lda enemy_addr_tbl_1+1,Y
+  lda eny_num_per_page+1,Y
   sta $06
   lda plr_x_prog_pg
   tay
@@ -8220,23 +8220,38 @@ eny_chkpt_warp:               ; @bfd6
   .byte $80,$00,$CC,$00,$18       ; bumblebee
   .byte $FF,$FF,$FF,$FF,$00
  
-lvl_addr_tbl_2: ; @$BFE0-C0C5
-	.word lvl_tbl_a,lvl_tbl_g ; .byte $1A,$C0,$AE,$C0 ; stage 1
-  .word lvl_tbl_b,lvl_tbl_g ; .byte $36,$C0,$AE,$C0 ; stage 2
-  .word lvl_tbl_g,lvl_tbl_g ; .byte $AE,$C0,$AE,$C0 ; stage 3
-  .word lvl_tbl_c,lvl_tbl_g ; .byte $4E,$C0,$AE,$C0 ; stage 4
-  .word lvl_tbl_d,lvl_tbl_g ; .byte $66,$C0,$AE,$C0 ; stage 5
-  .word lvl_tbl_g,lvl_tbl_g ; .byte $AE,$C0,$AE,$C0 ; stage 6
-  .word lvl_tbl_e,lvl_tbl_g ; .byte $7E,$C0,$AE,$C0 ; stage 7
-  .word lvl_tbl_g,lvl_tbl_g ; .byte $AE,$C0,$AE,$C0 ; stage 8
-	.word lvl_tbl_f,lvl_tbl_g ; .byte $96,$C0,$AE,$C0 ; stage 9
-  .word lvl_tbl_g,lvl_tbl_g ; .byte $AE,$C0,$AE,$C0 ; stage 10
-  .word lvl_tbl_g,lvl_tbl_g ; .byte $AE,$C0,$AE,$C0
-  .word lvl_tbl_g,lvl_tbl_g ; .byte $AE,$C0,$AE,$C0
-  .word lvl_tbl_g,lvl_tbl_g ; .byte $AE,$C0,$AE,$C0
-  .word lvl_tbl_g,lvl_tbl_g ; .byte $AE,$C0,$AE,$C0
-  .word lvl_tbl_g           ; .byte $AE,$C0
-lvl_tbl_a:                  ; @c01a
+eny_spawn_timer_table: ; @$BFE0-C0C5
+	.word eny_pg_spwn_tbl_a,eny_pg_spwn_tbl_g ; .byte $1A,$C0,$AE,$C0 ; stage 1
+  .word eny_pg_spwn_tbl_b,eny_pg_spwn_tbl_g ; .byte $36,$C0,$AE,$C0 ; stage 2
+  .word eny_pg_spwn_tbl_g,eny_pg_spwn_tbl_g ; .byte $AE,$C0,$AE,$C0 ; stage 3
+  .word eny_pg_spwn_tbl_c,eny_pg_spwn_tbl_g ; .byte $4E,$C0,$AE,$C0 ; stage 4
+  .word eny_pg_spwn_tbl_d,eny_pg_spwn_tbl_g ; .byte $66,$C0,$AE,$C0 ; stage 5
+  .word eny_pg_spwn_tbl_g,eny_pg_spwn_tbl_g ; .byte $AE,$C0,$AE,$C0 ; stage 6
+  .word eny_pg_spwn_tbl_e,eny_pg_spwn_tbl_g ; .byte $7E,$C0,$AE,$C0 ; stage 7
+  .word eny_pg_spwn_tbl_g,eny_pg_spwn_tbl_g ; .byte $AE,$C0,$AE,$C0 ; stage 8
+	.word eny_pg_spwn_tbl_f,eny_pg_spwn_tbl_g ; .byte $96,$C0,$AE,$C0 ; stage 9
+  .word eny_pg_spwn_tbl_g,eny_pg_spwn_tbl_g ; .byte $AE,$C0,$AE,$C0 ; stage 10
+  .word eny_pg_spwn_tbl_g,eny_pg_spwn_tbl_g ; .byte $AE,$C0,$AE,$C0
+  .word eny_pg_spwn_tbl_g,eny_pg_spwn_tbl_g ; .byte $AE,$C0,$AE,$C0
+  .word eny_pg_spwn_tbl_g,eny_pg_spwn_tbl_g ; .byte $AE,$C0,$AE,$C0
+  .word eny_pg_spwn_tbl_g,eny_pg_spwn_tbl_g ; .byte $AE,$C0,$AE,$C0
+  .word eny_pg_spwn_tbl_g           ; .byte $AE,$C0
+
+; these are the enemies loaded on a timer
+; each page has 2 bytes
+; for some reason, this first stage extends an additional 2 pages beyond 0B, maybe there was a longer stage, seems like only stage 1
+; negative bytes have multiples taken from another table, same with 6bit, but the placement is different
+; 40 added to the enemy sprite duplicates them below
+; 80 added to the enemy sprite duplicates them horizontally
+; C0 added to the enemy sprite duplicates them diagonally
+
+eny_pg_spwn_tbl_a:                  ; @c01a
+
+;         sprite type to be spawned at page 0 of player x progress, RNG choice A   
+;         |   sprite type to be spawned at page 0 of player x progress, RNG choice B
+;         |   |   sprite type to be spawned at page 1 of player x progress, RNG choice A
+;         |   |   |   sprite type to be spawned at page 1 of player x progress, RNG choice B
+;         |   |   |   |
 	.byte $00,$00,$00,$00
   .byte $01,$01,$01,$01
   .byte $01,$03,$01,$03
@@ -8244,42 +8259,42 @@ lvl_tbl_a:                  ; @c01a
   .byte $05,$85,$05,$05
   .byte $85,$85,$85,$85
   .byte $00,$00,$06,$81
-lvl_tbl_b:                  ; @c036
+eny_pg_spwn_tbl_b:                  ; @c036
   .byte $00,$00,$00,$00
   .byte $01,$03,$01,$03
   .byte $03,$01,$03,$03
   .byte $03,$03,$06,$06
   .byte $06,$06,$06,$06
   .byte $85,$85,$85,$85
-lvl_tbl_c:                  ; @c04e
+eny_pg_spwn_tbl_c:                  ; @c04e
   .byte $00,$00,$00,$00
   .byte $24,$24,$FF,$FF
   .byte $8A,$8A,$8A,$8A
   .byte $8A,$8B,$FF,$FF
   .byte $8B,$8B,$8B,$8B
   .byte $8A,$8A,$8A,$8A
-lvl_tbl_d:                  ; @c066
+eny_pg_spwn_tbl_d:                  ; @c066
   .byte $0B,$24,$00,$24
   .byte $FF,$FF,$0B,$0B
   .byte $FF,$24,$0D,$24
   .byte $0D,$24,$FF,$24
   .byte $FF,$FF,$0D,$FF
   .byte $8B,$8B,$8B,$8B
-lvl_tbl_e:                  ; @c07e
+eny_pg_spwn_tbl_e:                  ; @c07e
   .byte $06,$06,$86,$86
   .byte $03,$03,$03,$16
   .byte $03,$16,$03,$16
   .byte $03,$06,$03,$06
   .byte $03,$00,$16,$97
   .byte $16,$00,$06,$97
-lvl_tbl_f:                  ; @c096
+eny_pg_spwn_tbl_f:                  ; @c096
   .byte $FF,$FF,$FF,$FF
   .byte $FF,$FF,$FF,$FF
   .byte $FF,$FF,$0A,$0A
   .byte $FF,$FF,$FF,$FF
   .byte $FF,$FF,$0B,$0B
   .byte $0B,$0B,$FF,$FF
-lvl_tbl_g:                  ; @c0ae
+eny_pg_spwn_tbl_g:                  ; @c0ae
   .byte $FF,$FF,$FF,$FF
   .byte $FF,$FF,$FF,$FF
   .byte $FF,$FF,$FF,$FF
@@ -8287,35 +8302,41 @@ lvl_tbl_g:                  ; @c0ae
   .byte $FF,$FF,$FF,$FF
   .byte $FF,$FF,$FF,$FF
 
-enemy_addr_tbl_1: ; @$C0C6-C12F
-	.word eny_tbl_a,eny_tbl_a ; .byte $00,$C1,$00,$C1 ; stage 1
-  .word eny_tbl_a,eny_tbl_a ; .byte $00,$C1,$00,$C1 ; stage 2
-  .word eny_tbl_b,eny_tbl_a ; .byte $0C,$C1,$00,$C1 ; stage 3
-  .word eny_tbl_b,eny_tbl_b ; .byte $0C,$C1,$0C,$C1 ; stage 4
-  .word eny_tbl_a,eny_tbl_b ; .byte $00,$C1,$0C,$C1 ; stage 5
-  .word eny_tbl_a,eny_tbl_a ; .byte $00,$C1,$00,$C1 ; stage 6
-  .word eny_tbl_c,eny_tbl_a ; .byte $18,$C1,$00,$C1 ; stage 7
-  .word eny_tbl_b,eny_tbl_a ; .byte $0C,$C1,$00,$C1 ; stage 8
-	.word eny_tbl_d,eny_tbl_b ; .byte $24,$C1,$0C,$C1 ; stage 9
-  .word eny_tbl_a,eny_tbl_b ; .byte $00,$C1,$0C,$C1 ; stage 10
-  .word eny_tbl_a,eny_tbl_a ; .byte $00,$C1,$00,$C1
-  .word eny_tbl_a,eny_tbl_a ; .byte $00,$C1,$00,$C1
-  .word eny_tbl_a,eny_tbl_a ; .byte $00,$C1,$00,$C1
-  .word eny_tbl_a,eny_tbl_a ; .byte $00,$C1,$00,$C1
-  .word eny_tbl_a           ; .byte $00,$C1
-eny_tbl_a:                  ; @c100
+; number of enemies to be loaded on each page timer
+eny_num_per_page: ; @$C0C6-C12F
+	.word eny_tm_spwn_tbl_a,eny_tm_spwn_tbl_a ; .byte $00,$C1,$00,$C1 ; stage 1
+  .word eny_tm_spwn_tbl_a,eny_tm_spwn_tbl_a ; .byte $00,$C1,$00,$C1 ; stage 2
+  .word eny_tm_spwn_tbl_b,eny_tm_spwn_tbl_a ; .byte $0C,$C1,$00,$C1 ; stage 3
+  .word eny_tm_spwn_tbl_b,eny_tm_spwn_tbl_b ; .byte $0C,$C1,$0C,$C1 ; stage 4
+  .word eny_tm_spwn_tbl_a,eny_tm_spwn_tbl_b ; .byte $00,$C1,$0C,$C1 ; stage 5
+  .word eny_tm_spwn_tbl_a,eny_tm_spwn_tbl_a ; .byte $00,$C1,$00,$C1 ; stage 6
+  .word eny_tm_spwn_tbl_c,eny_tm_spwn_tbl_a ; .byte $18,$C1,$00,$C1 ; stage 7
+  .word eny_tm_spwn_tbl_b,eny_tm_spwn_tbl_a ; .byte $0C,$C1,$00,$C1 ; stage 8
+	.word eny_tm_spwn_tbl_d,eny_tm_spwn_tbl_b ; .byte $24,$C1,$0C,$C1 ; stage 9
+  .word eny_tm_spwn_tbl_a,eny_tm_spwn_tbl_b ; .byte $00,$C1,$0C,$C1 ; stage 10
+  .word eny_tm_spwn_tbl_a,eny_tm_spwn_tbl_a ; .byte $00,$C1,$00,$C1
+  .word eny_tm_spwn_tbl_a,eny_tm_spwn_tbl_a ; .byte $00,$C1,$00,$C1
+  .word eny_tm_spwn_tbl_a,eny_tm_spwn_tbl_a ; .byte $00,$C1,$00,$C1
+  .word eny_tm_spwn_tbl_a,eny_tm_spwn_tbl_a ; .byte $00,$C1,$00,$C1
+  .word eny_tm_spwn_tbl_a           ; .byte $00,$C1
+eny_tm_spwn_tbl_a:                  ; @c100 number of enemies at a time to be loaded 
+;         number of enemies to load on timer for page 00
+;         |   number of enemies to load on timer for page 01
+;         |   |   number of enemies to load on timer for page 02
+;         |   |   |   number of enemies to load on timer for page 03
+;         |   |   |   |
 	.byte $01,$01,$01,$01
   .byte $01,$01,$01,$01
   .byte $01,$01,$01,$01
-eny_tbl_b:                  ; @c10c
+eny_tm_spwn_tbl_b:                  ; @c10c
   .byte $01,$01,$01,$01
   .byte $01,$01,$01,$01
   .byte $01,$01,$01,$02
-eny_tbl_c:                  ; @c118
+eny_tm_spwn_tbl_c:                  ; @c118
   .byte $01,$01,$01,$01
   .byte $02,$02,$01,$02
 	.byte $01,$01,$01,$01
-eny_tbl_d:                  ; @c124
+eny_tm_spwn_tbl_d:                  ; @c124
   .byte $01,$01,$01,$01
   .byte $01,$01,$01,$01
   .byte $01,$01,$01,$02

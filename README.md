@@ -23,13 +23,15 @@ Decompiled with the help of FCEUX by Dr Venutech Archeville
 - The vertical levels dont actually update new backgrounds, it loops the same 2 screens
 - Extra life every 10,000 points. (1000 actual points because the last 0 is a placeholder)
 - Level 9 uses 5 checkpoints or you start the stage over again. As long as these 5 checkpoints are hit, you can take any path to the end of the level.
-- The player's acceleration is reduced by almost half once you beat the game 7 times
 - Enemy powerup ramjet increases speed by 25% after every game completion, up to 75%, or 3 game completions
 - Boss up and down movement increases by 12.5% every game completion up to 3 times
 - Ramjet with powerup increases x speed by 25% every game completion up to 3 times
 - Most stages have 4 hidden energon bonus point powerups
 - Player bullets dont have a hitbox, but use exact location to confirm a hit on enemy hitboxes. The game is far more enjoyable with a bit of a hitbox on bullets
 - No F powerup on level 1,2 and 7
+- Player's acceleration is reduced after every playthrough, but gets maxed out after 7 completions
+- The player's acceleration is reduced by almost half once you beat the game 7 times
+
 
 ##   Walkthrough
 -Stage 1: 
