@@ -101,6 +101,7 @@ Decompiled with the help of FCEUX by Dr Venutech Archeville
 * Strategy guide https://www.tfraw.com/p/family-computer-victory-dojo.html
 * Manga Translation https://www.tfraw.com/p/victory-dojo-transformers-mystery-of.html
 * Another tie-in Manga https://www.tfraw.com/p/famicom-how-to-manga-transformers.html
+  * Cartridge information https://nescartdb.com/profile/view/2211/tatakae-chou-robotto-seimeitai-transformers-convoy-no-nazo
 
 
 ##   NES Assembly resourses
