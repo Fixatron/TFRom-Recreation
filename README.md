@@ -3,8 +3,8 @@ This is a decompilation of Transformers:Mystery of Convoy (spelled Comvoy) or Fi
 Mostly a rom-study to learn NES 6502 assembly
 I annotated what I could as I was learning
 Its finally able to be compiled into a working game
-Over time, I will update the annotations and look for improvements, but not this month
-Decompiled with the help of FCEUX by Dr Venutech Archeville
+Most of the code is correctly annotated, except for a few enemy movement subroutines
+Decompiled with the help of FCEUX by Dr Venutech Archeville (DeceptiKitty)
 
 ##   Installation and Environment
 * Unordered sub-list. 
@@ -16,6 +16,7 @@ Decompiled with the help of FCEUX by Dr Venutech Archeville
 * To compile, go to the *.s file and use the hotkey shift+ctrl+P and Run Build Task, should spit out a rom
 
 ##   Things I've learned
+- How to code in NES 6502 Assembly
 - At least 2 versions exist, only difference is the copyright at the title screen "©Takara 1986 " vs "© FMG 1987  "
 - Theres a sideroom with the pickaxe guy in stage 3 on the top right just before the end. Use the Ratbat tape as a platform. Also, in stage 6, left side, theres a pickaxe guy battle room. Level 10 also has a load point for this sideroom, but its blocked by a wall, so even if you do enter it the player get stuck when exiting the sideroom.
 - Theres a side room in stage 8 where the player fights a guardian, megatron appears and the reward is a U for RODIMUS
@@ -37,16 +38,16 @@ Decompiled with the help of FCEUX by Dr Venutech Archeville
 - Stage 1: 
   * ![Level 1 Map](https://github.com/Fixatron/TFRom-Recreation/blob/main/images/stages/st1.png)
   * Hold right as the level starts and jump over the first swooping decepticon jet. 
-  * Run under the subsequent jets and under the Gosupu (rocket). Shoot the powerup ramjet, but watch out for the jet that swoops just after the Gosupu.
+  * Run under the subsequent jets and under the Gosupu (rocket). Shoot the powerup ramjet, but watch out for the jet that swoops just after the first Gosupu.
   * Running along, there is a Gosupu directly under a moon, right after this is the jet with the first Rodimus letter, R.
-  * Hidden energon cube at plrxprog 048000
-  * Hidden energon cube is at plrxprog0xA078F8, w/ plrxpos0xBF78, or between the two large moons before the end of the level. Jump as high as you can in the middle of the two moons and shoot once to the right to reveal an energon cube. Dont shoot the cube, it can be killed and you wont get any points.
+  * Hidden energon cube are about! Dont shoot the cube, it can be destroyed and rendered useless.
 - Boss 1:
   * ![Boss 1](https://github.com/Fixatron/TFRom-Recreation/blob/main/images/stages/st1-boss.png)
   * Fire 4 vertical bullets into the glowing part of the planet and complete the stage.
 - Stage 2:
-  * More of a platforming level, but still get the hell out of there.
-  * Theres a hidden energon cube shorly before starscream
+  * More of a platforming level
+  * Theres a hidden energon cube shorly before Starscream
+  * Destroy Starscream's Ghost to rescue Goldbug and warp to stage 4
 
 - Stage 9:
   * ![Level 9 map](https://github.com/Fixatron/TFRom-Recreation/blob/main/images/level9map.png)
@@ -66,23 +67,22 @@ Decompiled with the help of FCEUX by Dr Venutech Archeville
 - 0x41 is player max x speed, 0x3f is player max y speed
 
 ##   Things I want to change
-- better hit boxes  ☑ : added a potential hitbox to the bullets
+- better hit boxes  ☑
 - new character sprites
 - simultaneous 2 players
 - megaman style boss fights
 - pre-bossfight dialog
 - better music
 - pause menu
-- health bar☑ : added a potential shield_bar routine for the barrier
+- health bar ☑
+- fire missiles in bot mode ☑
 - expand PRG Rom
 - improve ice mechanics
-- longer turning sprite times
-- allow player to keep moving while transforming
 - multi-directional shooting
 - script a new ending and storyline
 - use the stage 10 sideroom for different story notes depending on the playthrough number and player (Rodimus/Magnus)
 
-##  Things I've changed
+##  Things I've changed (RomHack)
 * added 08 hitbox to plr bullet x and y value
 * made a sprite routine for the player health and shield/barrier bar
 * translated title screen with changed character rom
@@ -137,8 +137,8 @@ Decompiled with the help of FCEUX by Dr Venutech Archeville
 * Strategy guide https://www.tfraw.com/p/family-computer-victory-dojo.html
 * Manga Translation https://www.tfraw.com/p/victory-dojo-transformers-mystery-of.html
 * Another tie-in Manga https://www.tfraw.com/p/famicom-how-to-manga-transformers.html
-  * Cartridge information https://nescartdb.com/profile/view/2211/tatakae-chou-robotto-seimeitai-transformers-convoy-no-nazo
-
+* Cartridge information https://nescartdb.com/profile/view/2211/tatakae-chou-robotto-seimeitai-transformers-convoy-no-nazo
+* Discord https://discord.childrenofprimus.com
 
 ##   NES Assembly resourses
 * 6502 Instruction Set    https://www.masswerk.at/6502/6502_instruction_set.html
