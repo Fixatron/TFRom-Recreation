@@ -22,8 +22,8 @@ Decompiled with the help of FCEUX by Dr Venutech Archeville (DeceptiKitty)
 - Theres a side room in stage 8 where the player fights a guardian, megatron appears and the reward is a U for RODIMUS
 - Rodimus letters: (Stage:Letter) 1:R,2:O,4:D,5:I,7:M,8:U,9:S
 - The vertical levels dont actually update new backgrounds, it loops the same 2 screens
-- Extra life every 10,000 points. (1000 actual points because the last 0 is a placeholder)
-- Level 9 uses 5 checkpoints or you start the stage over again. As long as these 5 checkpoints are hit, you can take any path to the end of the level.
+- Extra life at 10,000 points, then every 20,000 points (1000 actual points because the last 0 is a placeholder)
+- Level 9 uses 5 checkpoints or it starts the stage over again. As long as these 5 checkpoints are hit, you can take any path to the end of the level.
 - Enemy powerup ramjet increases speed by 25% after every game completion, up to 75%, or 3 game completions
 - Boss up and down movement increases by 12.5% every game completion up to 3 times
 - Ramjet with powerup increases x speed by 25% every game completion up to 3 times
@@ -33,11 +33,12 @@ Decompiled with the help of FCEUX by Dr Venutech Archeville (DeceptiKitty)
 - Player's acceleration is reduced after every playthrough, but gets maxed out after 7 completions
 - The player's acceleration is reduced by almost half once you beat the game 7 times
 - There is an error in the code when checking for a 1up
+- Holding select will hold the end/title screens, letting go will allow the next screen to load
 
 ##   Walkthrough
 - Stage 1: 
   * ![Level 1 Map](https://github.com/Fixatron/TFRom-Recreation/blob/main/images/stages/st1.png)
-  * Hold right as the level starts and jump over the first swooping decepticon jet. 
+  * Hold right as the level starts and jump over the first swooping decepticon jet. This level is a run and gun, keep going.
   * Run under the subsequent jets and under the Gosupu (rocket). Shoot the powerup ramjet, but watch out for the jet that swoops just after the first Gosupu.
   * Running along, there is a Gosupu directly under a moon, right after this is the jet with the first Rodimus letter, R.
   * Hidden energon cube are about! Dont shoot the cube, it can be destroyed and rendered useless.
@@ -68,19 +69,19 @@ Decompiled with the help of FCEUX by Dr Venutech Archeville (DeceptiKitty)
 
 ##   Things I want to change
 - better hit boxes  ☑
-- new character sprites
-- simultaneous 2 players
-- megaman style boss fights
-- pre-bossfight dialog
-- better music
-- pause menu
 - health bar ☑
 - fire missiles in bot mode ☑
-- expand PRG Rom
+- new character sprites
+- simultaneous 2 players (not enough room)
+- megaman style boss fights (not enough room)
+- pre-bossfight dialog (maybe, using the level 10 sideroom)
+- better music (maybe)
+- expand PRG Rom (not necessary to make a decent game, but would be nice to have more content)
 - improve ice mechanics
 - multi-directional shooting
 - script a new ending and storyline
 - use the stage 10 sideroom for different story notes depending on the playthrough number and player (Rodimus/Magnus)
+- reasonable points for enemies that werent previously expected to be destroyed
 
 ##  Things I've changed (RomHack)
 * added 08 hitbox to plr bullet x and y value
@@ -89,7 +90,7 @@ Decompiled with the help of FCEUX by Dr Venutech Archeville (DeceptiKitty)
 * made routine to hold player's health
 * adjusted player enemy collision routine to account for player health
 * adjusted player weapon collision routine to account for player health
-* grabbed some unused ram in zero page to get some routines done, 64 for player health, 47 to hold an x value for oam ram, 65 to hold the colour of the status bar
+* grabbed some unused ram in zero page ($Ex) to get some routines done
 * removed not_called_subroutine_1 and 2
 * edited title screen palette table
 * fixed the error in samp_tf2010_t

@@ -782,7 +782,7 @@ nmi:                        ; beginning of frame
   lsr
   bcs roll_out_rtn          ; do rollout routine at the end of stage if 0000 0001 set
   lda sub_state
-  bmi side_room_rtn         ; run sideroom routine if sub_state is negative
+  bmi sideroom_rtn         ; run sideroom routine if sub_state is negative
   jsr gameplay_rtn            ; @$8511 do regular game routine if substate not negative
 pull_stack_and_rti:
   lda rtn_trk_a
@@ -832,7 +832,7 @@ explode_plr:
   sta state
 :
   jmp pull_stack_and_rti
-side_room_rtn:
+sideroom_rtn:
   jsr side_room_timer
   lda sub_state
   and #$20
@@ -8028,7 +8028,7 @@ eny_chkpt_tbl: ; @$BC6D-BFDF  table of enemy placements which are also used to s
   .word eny_chkpt_vert,eny_chkpt_b10          ; .byte $EB,$BE,$A4,$BF ; stage 10, boss 10
   .word eny_chkpt_siderm,eny_chkpt_brain1     ; .byte $BD,$BF,$A7,$BC ; pickaxe room st3/10, brainwave out
   .word eny_chkpt_siderm,eny_chkpt_brain2     ; .byte $BD,$BF,$BB,$BC ; pickaxe room st6, brainwave in
-  .word eny_chkpt_oth,eny_chkpt_vert          ; .byte $C7,$BF,$EB,$BE ; guardian room,?
+  .word eny_chkpt_guardian,eny_chkpt_vert          ; .byte $C7,$BF,$EB,$BE ; guardian room,?
   .word eny_chkpt_vert,eny_chkpt_vert         ; .byte $EB,$BE,$EB,$BE ; unused pickaxe room, ?
   .word eny_chkpt_warp                        ; .byte $D6,$BF         ; warp zone 
       ; Xhi,Xpg,Yhi,Ypg,sprite type 
@@ -8212,7 +8212,7 @@ eny_chkpt_b10:                ; @bfa4
 eny_chkpt_siderm:             ; @bfbd sideroom
   .byte $80,$00,$38,$00,$2D       ; Gold bar/pickaxe guy?
   .byte $FF,$FF,$FF,$FF,$00
-eny_chkpt_oth:      	        ; @bfc7
+eny_chkpt_guardian:      	        ; @bfc7
   .byte $80,$00,$58,$00,$12       ; guardian
   .byte $E0,$00,$C0,$00,$3E       ; rodimus U
   .byte $FF,$FF,$FF,$FF,$00
