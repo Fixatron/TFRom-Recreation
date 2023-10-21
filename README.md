@@ -78,6 +78,36 @@ Decompiled with the help of FCEUX by Dr Venutech Archeville
 - improve ice mechanics
 - longer turning sprite times
 - allow player to keep moving while transforming
+- multi-directional shooting
+- script a new ending and storyline
+- use the stage 10 sideroom for different story notes depending on the playthrough number and player (Rodimus/Magnus)
+
+##  Things I've changed
+* added 08 hitbox to plr bullet x and y value
+* made a sprite routine for the player health and shield/barrier bar
+* translated title screen with changed character rom
+* made routine to hold player's health
+* adjusted player enemy collision routine to account for player health
+* adjusted player weapon collision routine to account for player health
+* grabbed some unused ram in zero page to get some routines done, 64 for player health, 47 to hold an x value for oam ram, 65 to hold the colour of the status bar
+* removed not_called_subroutine_1 and 2
+* edited title screen palette table
+* fixed the error in samp_tf2010_t
+* energon cubes now add full health 
+* D powerups now add full health
+* dimmed the colours used for the flashing screen transitions
+* added ability to launch missiles with select in bot mode
+* reduced the delay between being able to fire another missile in truck mode with a global variable
+* keep powerup and barrier hits taken when going to next level, but restore health bar
+* changed barrier music
+* increase player speed with every playthrough, instead of decreasing
+* allowed flight in vertical levels
+* removed two routines* screen_reset and dec_zero_ram
+* corrected an error when doing a 1up check
+* added level 10 sideroom back, but its just an empty room, for now
+* spell check on "Congratulation!"
+* hidden large subroutine in the audio section that wasnt being used
+
 
 ##   Tools
 - YYCHR  https://w.atwiki.jp/yychr
@@ -96,6 +126,7 @@ Decompiled with the help of FCEUX by Dr Venutech Archeville
 * Commercial from 1986 https://www.youtube.com/watch?v=Zr9narWQvTE&ab_channel=BillyPan
 * Takara Promo Video from 1986 https://www.youtube.com/watch?v=1jVBzq4ud2U&ab_channel=TFRaw%21%21TransformersMultimediaArchive
 * Guardian Room stage 8 https://www.youtube.com/watch?v=ciftJMN4MxA&ab_channel=PatrickSo&t=340s
+* My first MoC video https://www.youtube.com/watch?v=db-pN0WLpgI&ab_channel=Deceptikitty
 
 
 ##   Related Links
