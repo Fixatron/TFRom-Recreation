@@ -5,6 +5,8 @@ I annotated what I could as I was learning
 Its finally able to be compiled into a working game
 Most of the code is correctly annotated, except for a few enemy movement subroutines
 Decompiled with the help of FCEUX by Dr Venutech Archeville (DeceptiKitty)
+Original Game title is: Tatakae! Chou Robotto Seimeitai Transformers: Convoy no Nazo 戦え！超ロボット生命体 トランスフォーマー コンボイの謎
+or Fight! Super Robot Lifeform Transformers: The Mystery of Convoy
 
 ##   Installation and Environment
 * Unordered sub-list. 
@@ -17,6 +19,7 @@ Decompiled with the help of FCEUX by Dr Venutech Archeville (DeceptiKitty)
 
 ##   Things I've learned
 - How to code in NES 6502 Assembly
+- The code is relatively sophisticated, but there was an apparant rush to meet a deadline and some things were left
 - At least 2 versions exist, only difference is the copyright at the title screen "©Takara 1986 " vs "© FMG 1987  "
 - Theres a sideroom with the pickaxe guy in stage 3 on the top right just before the end. Use the Ratbat tape as a platform. Also, in stage 6, left side, theres a pickaxe guy battle room. Level 10 also has a load point for this sideroom, but its blocked by a wall, so even if you do enter it the player get stuck when exiting the sideroom.
 - Theres a side room in stage 8 where the player fights a guardian, megatron appears and the reward is a U for RODIMUS
@@ -82,6 +85,7 @@ Decompiled with the help of FCEUX by Dr Venutech Archeville (DeceptiKitty)
 - script a new ending and storyline
 - use the stage 10 sideroom for different story notes depending on the playthrough number and player (Rodimus/Magnus)
 - reasonable points for enemies that werent previously expected to be destroyed
+- add a special sprite for the endscreen
 
 ##  Things I've changed (RomHack)
 * added 08 hitbox to plr bullet x and y value
@@ -127,12 +131,17 @@ Decompiled with the help of FCEUX by Dr Venutech Archeville (DeceptiKitty)
 * Commercial from 1986 https://www.youtube.com/watch?v=Zr9narWQvTE&ab_channel=BillyPan
 * Takara Promo Video from 1986 https://www.youtube.com/watch?v=1jVBzq4ud2U&ab_channel=TFRaw%21%21TransformersMultimediaArchive
 * Guardian Room stage 8 https://www.youtube.com/watch?v=ciftJMN4MxA&ab_channel=PatrickSo&t=340s
+* TF Chiptunes https://www.youtube.com/watch?v=wZyM6kFGWj8&ab_channel=StudioMegaane
+  * https://www.youtube.com/watch?v=RrDoWdKgQFM&ab_channel=StudioMegaane
+  * https://www.youtube.com/watch?v=HuhMyjP-byU&ab_channel=StudioMegaane
+  * https://www.youtube.com/watch?v=S4VJ1KDWTeo&ab_channel=StudioMegaane
 * My first MoC video https://www.youtube.com/watch?v=db-pN0WLpgI&ab_channel=Deceptikitty
 
 
 ##   Related Links
 * Wikipedia Article on Transformers Mystery of Convoy https://en.m.wikipedia.org/wiki/Transformers:_Mystery_of_Convoy
 * TFWiki Article on Transformers Mystery of Convoy https://tfwiki.net/wiki/Transformers:_Mystery_of_Convoy
+* Japanese Wikipedia article https://ja.wikipedia.org/wiki/%E3%83%88%E3%83%A9%E3%83%B3%E3%82%B9%E3%83%95%E3%82%A9%E3%83%BC%E3%83%9E%E3%83%BC_%E3%82%B3%E3%83%B3%E3%83%9C%E3%82%A4%E3%81%AE%E8%AC%8E
 * GameFaqs Walkthrough https://gamefaqs.gamespot.com/nes/578338-transformers-convoy-no-nazo/faqs/47896
 * Level 9 Map     https://gamefaqs.gamespot.com/nes/578338-transformers-convoy-no-nazo/map/3988?raw=1
 * Strategy guide https://www.tfraw.com/p/family-computer-victory-dojo.html
@@ -140,7 +149,19 @@ Decompiled with the help of FCEUX by Dr Venutech Archeville (DeceptiKitty)
 * Another tie-in Manga https://www.tfraw.com/p/famicom-how-to-manga-transformers.html
 * Cartridge information https://nescartdb.com/profile/view/2211/tatakae-chou-robotto-seimeitai-transformers-convoy-no-nazo
 * Discord https://discord.childrenofprimus.com
+* Japanese review https://chara.ge/matome/transformers-mystery-convoy-review/
+* Another Japanese review https://dic.pixiv.net/a/%E3%82%B3%E3%83%B3%E3%83%9C%E3%82%A4%E3%81%AE%E8%AC%8E
 
 ##   NES Assembly resourses
 * 6502 Instruction Set    https://www.masswerk.at/6502/6502_instruction_set.html
 * Wikibooks 6502 Asm      https://en.wikibooks.org/wiki/6502_Assembly
+
+##  Story
+The Earth is now in a desperate situation due to an evil army known as the Decepticons, who aim to seize Earth's rich resources and conquer it.
+In order to love the Earth and protect peace, the Cybertrons challenged the Decepticons to a fight.
+However, in the battle, the Cybertron's supreme commander, Optimus Prime, was injured and collapsed.
+The dying Supreme Commander of Cybertron, Optimus Prime, appoints City Commander Ultra Magnus to take command of Scramble City.
+He handed over the "Matrix" that was stored inside Optimus Prime's body.
+Under orders from Supreme Commander Optimus Prime, Ultra Magnus bravely challenges the Decepticons to restore peace to Earth.
+(From the manual)
+In short, the explanation is that in the movie "Transformers: The Movie", Optimus Prime dies and Ultra Magnus inherits the Matrix.
