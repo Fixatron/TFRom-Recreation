@@ -151,6 +151,8 @@ or Fight! Super Robot Lifeform Transformers: The Mystery of Convoy
 * Discord https://discord.childrenofprimus.com
 * Japanese review https://chara.ge/matome/transformers-mystery-convoy-review/
 * Another Japanese review https://dic.pixiv.net/a/%E3%82%B3%E3%83%B3%E3%83%9C%E3%82%A4%E3%81%AE%E8%AC%8E
+* Reference to developer Hiroshi Okamoto https://gdri.smspower.org/wiki/index.php/Locomotive
+* Original reference to Okamoto-San https://web.archive.org/web/20140828202915/http://animex.jp/?p=6210
 
 ##   NES Assembly resourses
 * 6502 Instruction Set    https://www.masswerk.at/6502/6502_instruction_set.html
