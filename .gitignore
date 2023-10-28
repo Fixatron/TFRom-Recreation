@@ -1,6 +1,7 @@
 *.o
 *.nes
 *.nes*
+*.cdl
 .DS_Store
 tfrr.deb
 tf-hack.s
