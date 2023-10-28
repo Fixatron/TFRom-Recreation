@@ -1,5 +1,5 @@
 {
   "executable": "C:\\cc65\\bin\\cl65",
   "input": "tf-hack.s",
-  "params": "--verbose --target nes -o tf-hack.nes"
+  "params": "-Wl --dbgfile,temp\\tf-hack.dbg -g -m temp\\map.txt --verbose --target nes -o tf-hack.nes"
 }

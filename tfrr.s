@@ -327,10 +327,11 @@ JOY2_FRAME      = $4017         ; Joypad #2/SOFTCLK (RW)
     
   .byte $4E, $45, $53, $1A  ; iNES header identifier ().byte "NES", $1A  )
   .byte 2               ; 2x 16KB PRG code
-  .byte 4               ; 4x  8KB CHR data
+  .byte 8               ; 4x  8KB CHR data
   .byte $31             ; mapper 1, vertical mirroring
   .byte $00             ; 7th byte is 0 so it stays legacy iNES header, I would like to update it to iNES 2.0, but not sure, I guess I could try but its got my tag
-  .byte $56, $65, $6E, $75, $74, $65, $63, $68 ; $21 couldnt include exclamation mark ;This says "VENUTECH!"
+  .byte $00,$00,$00,$00,$00,$00,$00,$00 ; had to remove the tag here because mesen didnt like it very much, kept trying to run the game in PAL mode
+  ; .byte $56, $65, $6E, $75, $74, $65, $63, $68 ; $21 couldnt include exclamation mark ;This says "VENUTECH!"
  
 .segment "VECTORS"
   ;; When an NMI happens (once per frame if enabled) the label nmi:
@@ -3495,10 +3496,10 @@ siderm_timeout:
 
 ; Player Weapon stuff
 wpn_start_rtn:          ; look for button press and do stuff while dealing with a timer
-  jsr wpn1_timer_rtn_1
+  jsr chk_wpn_bullet_input
   jsr wpn2_timer_rtn_1
   rts
-wpn1_timer_rtn_1:
+chk_wpn_bullet_input:
   lda controller_current
   and #$02              ; check if B is pressed
   bne dec_wpn1_timer    ; branch if B is pressed
@@ -3522,7 +3523,7 @@ wpn1_timer_rtn_0:
   jsr play_sound_wpn
   jsr fire_wpn
   lda plr_sprite_status ; check truck mode
-  bmi b_975f            ; jump if truck weapon fire
+  bmi fire_vert_wpn            ; jump if truck weapon fire
   lda #$00
   sta wpn_y_spd_lo,X    ; load 0 vertical bullet speed
   sta wpn_y_spd_hi,X
@@ -3544,7 +3545,7 @@ set_wpn_speed:
   lda $01
   sta wpn_x_spd_hi,x
   jmp chk_wpn_pu
-b_975f:
+fire_vert_wpn:
   lda #$00
   sta wpn_y_spd_lo,X
   lda #vert_wpn_speed   ; #$FC
