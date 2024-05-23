@@ -8,7 +8,7 @@ The Energon cube is hidden somewhere and there is a mystery hidden inside of it 
 
 
 Enemies include not only the familiar Decepticons from Transformers, but also mechanical lifeforms that inhabit each stage, making the battles even more intense. (he mechanical life form is an original character for the Family Computer Cassette)
-Ultra Magnus will lose one person if he touches an enemy or is attacked 
+Ultra Magnus will lose one life if he touches an enemy or is attacked 
 Scroll method and stage introduction
 Transformers Mystery of Convoy has two types of scroll surfaces
 Horizontal scrolling screen (1,2,4,5,7,9) If you move Ultra Magnus/the trailer to the right with the controller, the screen will also scroll to the right
@@ -28,6 +28,84 @@ Name of each stage
 8 Time Tunnel III
 9 Underground Machine City
 10 Time Tunnel IV
+
+Page 1===
+Thank you for purchasing Takara's Family Computer game cassette "Transformer Convoy"
+Have even more fun playing Transformers Mystery of Convoy.
+Please read this instruction manual carefully before using the product and please keep this instruciton manual in a safe place.
+- Atsuka
+
+Page 2===
+Precautions for Use
+Avoid subjecting the game cartridge to extreme temperature conditions and strong shocks. Also, please never disassemble it.
+Also, never allow any foreign object to come into contact with the connector on the front of the main unit while playing a game.
+Do not touch the terminals directly or let them get dirty, such as by getting thm wet. 
+Please do not use volitile oils such as thinner, benzine or alcohol to clean the plastic parts, as they may deteriorate
+Please play the game as far away from the TV screen
+When playing a game for a long time, please take a short break of 10 to 20 minutes every 2 hours for your eyes.
+
+
+Page 3===
+Game Prologue
+In order to love the Earth and protect peace, the Cybertrons challenged the Decepticons to a fight. 
+However, in the battle, the Cybertrons' supreme commander, Optimus Prime, was injured and collapsed.
+The dying Supreme Commander of Cybertron, Optimus Prime, appointed City Commander Ultra Magnus as the commander of Scramble City and handed over the Matrix that had been stored in Optimus Primes body.
+At the behest of Supreme Commander Optimus Prime, Ultra Magnus bravely challenges the Decepticons to...
+
+
+Page 4=== 
+...and operation explanation of each part of the controller
+* diagram of controller
+Page 5===
+Ultra Magnus :  A = jump
+                B = fire laser
+Trailer mode :  A = fires a powered laser forward
+                B = fire laser
+Press Select to change 1 Player or 2 Player mode
+Press the Start button to pause during a game. Pressing it again will continue the game
+
+Page 10===
+Airman Skywarp
+Skywarp has heat-guided missiles and various machine guns. He has a despicable personality and follows Megatron, absolutely.
+
+Air Staff Officer Starscream
+His speed is the fastest among his fellow jet fighters. He has a cunning personality and aims to replace Megatron as the boss.
+
+Page 11===
+Cybertron Intelligence Officer Bumble
+He transforms into a Volkswagon. His personality is entusiastic and courageous.
+
+Air Destruction Soldier Condor
+He flies through the air at great speed and is equipped with two laser guns. He's fast.
+
+Page 12===
+Combined Soldier Menasor
+Combined, he is extremly strong, with a punching force of 140 tons.
+He has a ferocious personality, can break anything with his punching power and deflects most bullets.
+
+Combined Soldier Bruticus
+Can even destroy a railway bridge with one hand.
+His personality is faithful to his duties and completes the task assigned to him without fail.
+
+Page 13===
+Great Emperor of Destruction Megatron
+His anti matter cannon generates a terrifying destructive force.
+He is king of the Decepticons and is a ferocious leader.
+
+Dino Base Dynosaurer
+Cemetary. Jump 32k with the rocket on his back in dinosaur form.
+He plays the roll of a communications center in urban conditions.
+He has the most destructive power among the Decepticons and has many weapons such as heat-tracing plasma.
+
+Page 14===
+What is the mystery of Optimus Prime?
+command from Optimus Prime to Ultra Magnus was as follows
+Find the Destron Zone and Combat Zone that are hidden somewhere on the stage!
+Dont forget to take the energon cube!
+There are many hidden characters and bonus points.
+Please feel free to explore.
+I wish you good luck.
+
 
 Where the item (Energon Cube) is hidden and whether there are any secret tricks are completely secret. Please find out for yourself as you play the game. Please note that Takara will not be able to answer any questions regarding this matter over the phone.
 

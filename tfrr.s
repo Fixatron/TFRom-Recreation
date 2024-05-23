@@ -101,7 +101,7 @@ custom_bar_colour       = $65
 
 room_timer_lo           = $66
 room_timer_hi           = $67
-sideroom_state          = $68
+warproom_state          = $68
 lives                   = $69
 current_level           = $6A     ; $00=lv1,$02=lv2,$04=lv3,$06=lv4,$08=lv5,$0A=lv6,$0C=lv7,$0E=lv8,$10=lv9,$12=lv10 $15=Prime Brainwave screen after title screen odd levels are bosses, $16 is mining guy, 17 is brainwaves coming in on magnus, level $18 is guardian room, 1D is kinkyu shirei endscreen, 
 bk_crnt_lvl             = $6B     ; used to backup current level when going to a secret area or side room
@@ -149,7 +149,7 @@ text_flash_pal_ram_B    = $A7       ; quite useless
 text_flash_pal_ram      = $A8
 
 player_palette_ram      = $AA
-unused_ram_2            = $B8
+eny_flash_colour_ram            = $B8
 nametable_addr_hi       = $B9
 nametable_addr_lo       = $BA
 palette_addr_hi         = $BB       ; palette address starts at 23C0 or 27C0 for horizontal scrolling
@@ -367,7 +367,7 @@ aud_game_over_c:        ; game over c @$808A
 aud_game_over_d:        ;tftheme/game over d @$80a1
 .byte $35,$00,$00,$00
 .byte $03,$04,$03,$02,$03,$04,$03,$02,$03,$04,$03,$02,$B5,$FF,$1F,$04,$03,$02,$FF
-aud_rod_endscreen:      ; rodimus endscreen/bumblebee screen @$80B8
+samp_warproom:      ; rodimus endscreen/bumblebee screen @$80B8
 .byte $12,$02,$1F,$00
 .byte $EF,$02,$40,$01,$45,$01,$47,$01,$50,$01,$B6,$FC,$DF,$02,$40,$01,$45,$01,$47,$01,$50,$01,$B7,$FC,$BF,$F4
 aud_subtitle_a:         ; Subtitle sound a @$80D6
@@ -453,7 +453,7 @@ stage_intro_rtn:
   lda #$00                      ; clear unknown ram locations
   sta room_timer_lo
   sta room_timer_hi
-  sta sideroom_state
+  sta warproom_state
 plr_lvl_start_pos:
   lda #$00
   sta x_scroll                  ; clear x and y scroll in ram
@@ -585,7 +585,7 @@ b_827d:
   ldy current_level             ; load current level to Y
   cpy #$14
   bcc b_829e
-  jsr rodimus_check             ; @$D076 a bit mangled in the code, but its not too difficult to figure out
+  jsr endgame_check             ; @$D076 a bit mangled in the code, but its not too difficult to figure out
   inc game_cmplt_cnt            ; increment game complete counter
   ldy #$00
   lda  rodimus_ram
@@ -650,10 +650,10 @@ chk_warp_rtn:
   lda state
   and #$10                  ; @$0313
   bne :++                   ; jump if we triggered the mining guy or guardian room
-  lda sideroom_state        ; if sideroom_state is -ve we've entered the warp zone
+  lda warproom_state        ; if warproom_state is -ve we've entered the warp zone
   bpl :+
   lda #$80
-  sta sideroom_state        ; set sideroom_state to negative to indicate that we've entered the warp area
+  sta warproom_state        ; set warproom_state to negative to indicate that we've entered the warp area
   lda current_level
   sta bk_crnt_lvl
   lda #$1C
@@ -665,7 +665,7 @@ chk_warp_rtn:
   adc #$04                  ; add 2 levels; warp from stage 2 to 4 and 7 to 9
   sta current_level
   lda #$00
-  sta sideroom_state        ; reset sideroom_state
+  sta warproom_state        ; reset warproom_state
   jmp stage_intro_rtn
 :                           ; branch here when loading a sideroom
   lda sub_state
@@ -744,7 +744,7 @@ nmi:                        ; beginning of frame
 :
   and #$08
   bne :+
-  jmp game_rtn_1            ; jump to collision detection if A is not $08
+  jmp non_game_rtn            ; jump to collision detection if A is not $08
 :
   jmp card_screen_rtn       ; stage intro screen, game over screen, end screen
 :
@@ -771,9 +771,9 @@ nmi:                        ; beginning of frame
   beq :+
   jmp warp_trigger          ; jump to flashing screen stuff
 :
-  lda sideroom_state
+  lda warproom_state
   bpl :+
-  jmp enemy_rtn
+  jmp warproom_enemy_rtn
 :
   lda state
   bmi pull_stack_and_rti
@@ -808,7 +808,7 @@ roll_out_rtn:
   jsr wpn_end_rtn
   jmp pull_stack_and_rti
 rollout_boss_rtn:
-  jsr enemy_sprite_rtn
+  jsr enemy_status_rtn
   jsr boss_defeated
   jsr flash_background
   jmp pull_stack_and_rti
@@ -842,7 +842,7 @@ sideroom_rtn:
   jsr wpn_start_rtn
   jsr wpn_end_rtn
   jsr eny_spawn_rtn
-  jsr enemy_sprite_rtn
+  jsr enemy_status_rtn
   jsr eny_mov_despawn
   jsr chk_plr_eny_col
   jsr wpn_eny_hit_detection
@@ -856,13 +856,13 @@ warp_trigger:
   jmp pull_stack_and_rti
 :
   lda #$80
-  sta sideroom_state        ;***********@8483, @0x49x, not sure why this is necessary
+  sta warproom_state        ;***********@8483, @0x49x, not sure why this is necessary
   lda #$20
   sta state                 ; warp 2 stages
   jmp pull_stack_and_rti
-enemy_rtn:
+warproom_enemy_rtn:
   jsr eny_spawn_rtn
-  jsr enemy_sprite_rtn
+  jsr enemy_status_rtn
   jsr eny_mov_despawn
   lda state
   lsr
@@ -883,10 +883,10 @@ card_screen_rtn:
   sta $0F
   jsr player_sprite_rtn
   jmp pull_stack_and_rti
-game_rtn_1:                         ; pre-stage screen, endscreen, gameover screen
+non_game_rtn:                         ; pre-stage screen, endscreen, gameover screen
   jsr audio_rtn
   jsr oam_sprite_rtn
-  jsr enemy_sprite_rtn
+  jsr enemy_status_rtn
   jsr eny_mov_despawn
   lda current_level
   and #$02
@@ -929,7 +929,7 @@ gameplay_rtn:
   jsr wpn_start_rtn
   jsr wpn_end_rtn
   jsr eny_spawn_rtn
-  jsr enemy_sprite_rtn
+  jsr enemy_status_rtn
   jsr eny_mov_despawn
   jsr chk_plr_eny_col
   jsr wpn_eny_hit_detection
@@ -1861,9 +1861,9 @@ ready_level:
 :
   lda current_level
   cmp #$0B
-  beq update_palette
+  beq decepti_boss_red_pal
   cmp #$0F
-  beq update_palette_b
+  beq decepti_boss_blue_pal
   rts
 load_rodimus_palette:
   ldx #$02
@@ -1873,12 +1873,12 @@ load_rodimus_palette:
   dex
   bpl :-
   rts
-update_palette:
+decepti_boss_red_pal:
   lda #$05
-  jmp update_palette_a
-update_palette_b:
+  jmp update_decepti_pal
+decepti_boss_blue_pal:
   lda #$11
-update_palette_a:
+update_decepti_pal:
   ldx #$03
 :
   sta palette_data_start,X
@@ -2186,7 +2186,7 @@ move_plr_set_sprite:
   jsr stop_plr_x_speed
   jmp stop_plr_y_spd
 :                         ; landed on the ground, or is on the ground
-  jsr ram_misc_10
+  jsr end_plr_jump
 stop_plr_y_spd:
   lda #$00
   sta plr_y_speed_lo
@@ -2200,9 +2200,9 @@ ram_misc_15:
   jsr plr_y_col_rtn       ; check top collision, ground collision and set the carry if A is pressed last frame, not set if isnt being pressed and is set with 00 to plr_sprite_status if a was just pushed
   jmp move_plr_set_sprite
 :                         ; stop flying
-  jsr ram_misc_10
+  jsr end_plr_jump
   jmp ram_misc_15
-ram_misc_10:
+end_plr_jump:
   lda plr_sprite_status
   and #$DF
   sta plr_sprite_status
@@ -2835,7 +2835,7 @@ plr_x_move_rtn:
   bcs b_92db            ; branch if we're on a boss
   lda sub_state         ; 
   bmi b_92db
-  lda sideroom_state
+  lda warproom_state
   bmi b_92db
   lda stage_orientation
   and #$C0
@@ -3104,7 +3104,7 @@ stage_checkpoint:
   sta controller_current
   jmp plr_col_spr_rtn
 level_cleared:
-  lda sideroom_state
+  lda warproom_state
   bmi warp_2_stages
   lda #$40              ; storing 40 in state completes the level
   sta state
@@ -3113,7 +3113,7 @@ warp_2_stages:
   lda #$20
   sta state             ; 20 in state warps 2 stages
   lda #$00
-  sta sideroom_state
+  sta warproom_state
   rts
 get_plr_bg_tile:
   lda plr_x_prog_hi
@@ -3957,7 +3957,7 @@ oam_sprite_rtn:
   stx $0F
   jsr player_sprite_rtn
   jsr wpn_sprite_rtn
-  jsr enemy_status_chk
+  jsr enemy_sprite_rtn
   ;  jsr shield_bar
   ldx $0F               ; update OAM data starting at $0740
 j_9a3c:
@@ -3976,16 +3976,16 @@ player_sprite_rtn:
   lda player_sprite
   sta $00
   lda plr_sprite_status
-  bpl b_9a64        ; branch if not truck
+  bpl draw_plr_sprite        ; branch if not truck
   and #$40
-  bne b_9a64        ; branch if transforming
+  bne draw_plr_sprite        ; branch if transforming
   lda rodimus_ram
   lsr
-  bcc b_9a64        ; branch if rodimus not enabled
+  bcc draw_plr_sprite        ; branch if rodimus not enabled
   lda $00           ; load sprite type when truck and not transforming
   ora #$08          ; add 08 to sprite to get rodimus truck
   sta $00           ; store rodimus truck sprite value back to 00 ram
-b_9a64:
+draw_plr_sprite:
   lda plr_sprite_status
   ora #$01
   sta plr_sprite_status     ; plr_sprite_statue 0bit set when started loading sprite
@@ -5388,7 +5388,7 @@ set_meg_poster:                   ; this gets loaded at the pre-stage screen
   lda #$58
   sta eny_spr_y_pos_hi,X
   rts
-enemy_sprite_rtn:
+enemy_status_rtn:
   ldx #$00
   lda #$0F
   sta $0C
@@ -5410,7 +5410,7 @@ b_a7da:
 b_a7f8:                     ; something gets called from here and its direct... so is messing things up****************
   lda eny_spr_substatus,X
   and #$10
-  bne dec_boss_wpn_timer_9
+  bne enemy_frozen_rtn
   lda stage_boss
   asl
   tay
@@ -5463,12 +5463,12 @@ b_a83e:
   sta eny_altmode,X
 b_a85e:
   rts
-dec_boss_wpn_timer_9:
+enemy_frozen_rtn:
   lda eny_boss_wpn_timer,X
-  beq b_a868
+  beq unfreeze_enemy
   dec eny_boss_wpn_timer,X
   rts
-b_a868:
+unfreeze_enemy:
   lda eny_spr_substatus,X
   and #$E7
   sta eny_spr_substatus,X
@@ -5581,7 +5581,7 @@ b_a922:
   adc $02
   sta eny_spr_x_pos_page,X
   rts
-enemy_status_chk:
+enemy_sprite_rtn:
   lda #$00
   sta $08
   lda timer_lo_byte
@@ -5679,7 +5679,7 @@ j_a9de:
   iny
   jmp b_aa02
 b_a9f3:
-  lda sideroom_state
+  lda warproom_state
   bmi b_a9fb
   lda state
   bne b_aa02
@@ -5870,7 +5870,7 @@ ratbat_platform_x_rtn:
   lda $01
   sta eny_x_spd_hi,X
   rts
-enemy_misc_rtn_16:
+kabusu_wave_rtn:
   lda #$00
   sta $01
   lda eny_spr_substatus,X
@@ -6207,13 +6207,13 @@ ramjet_cymbalP_timer:
   sta eny_wpn_y_speed_lo,Y
   sta eny_wpn_y_speed_hi,Y  ; store enemy bullet y speed of 0
   rts
-dec_boss_wpn_timer_2:
+directed_eny_bullet_timer:
   lda eny_boss_wpn_timer,x
-  beq b_ae0b
+  beq fire_directed_eny_bullet
   dec eny_boss_wpn_timer,x
 b_ae0a:
   rts
-b_ae0b:
+fire_directed_eny_bullet:
   jsr eny_wpn_pos_rtn
   bcc b_ae0a
   sty $0B
@@ -6347,9 +6347,9 @@ b_af05:
   sta $04
   lda #$02
   sta $05
-  jsr ram_misc_31
+  jsr fire_guardian_wpn
   rts
-dec_boss_wpn_timer_4:
+dec_heru_wpn_timer:
   lda eny_boss_wpn_timer,X
   beq b_af1a                ; branch if boss weapon timer reaches 0 and fire another weapon
   dec eny_boss_wpn_timer,X
@@ -6371,7 +6371,7 @@ ram_misc_32:
   sta $04
   lda $01
   sta $05
-ram_misc_31:
+fire_guardian_wpn:
   jsr eny_wpn_pos_rtn
   bcc b_af5a
   lda #$00
@@ -6399,30 +6399,30 @@ b_af64:
   sbc eny_spr_x_pos_hi,X
   lda $01
   sbc eny_spr_x_pos_page,X
-  bcs b_af80
-  jmp fire_eny_wpn
+  bcs fire_turret_wpn_right
+  jmp fire_turret_wpn_left
 dec_boss_wpn_timer_6:     ; ******
   lda eny_boss_wpn_timer,X
-  beq b_af80
+  beq fire_turret_wpn_right
   dec eny_boss_wpn_timer,X
   rts
-b_af80:
+fire_turret_wpn_right:
   lda #$00
   sta $04
   lda #$02
   sta $05
-  jmp j_af9c
+  jmp fire_turret_wpn
 dec_boss_wpn_timer_7:     ; ******
   lda eny_boss_wpn_timer,X
-  beq fire_eny_wpn
+  beq fire_turret_wpn_left
   dec eny_boss_wpn_timer,X
   rts
-fire_eny_wpn:
+fire_turret_wpn_left:
   lda #$00
   sta $04
   lda #$Fe
   sta $05
-j_af9c:               ; this section of the subroutine is repeated above ****
+fire_turret_wpn:               ; this section of the subroutine is repeated above ****
   jsr eny_wpn_pos_rtn
   bcc b_afbd
   lda #$00
@@ -6438,7 +6438,7 @@ j_af9c:               ; this section of the subroutine is repeated above ****
   sta eny_boss_wpn_timer,X
 b_afbd:
   rts
-dec_boss_wpn_timer_8:
+spider_eny_wpn_timer:
   lda eny_boss_wpn_timer,X
   beq b_afc7
   dec eny_boss_wpn_timer,X
@@ -6846,7 +6846,7 @@ eny_03:  ; @$B323
   sta eny_status_ram
   lda #$10
   sta $0A
-  jsr dec_boss_wpn_timer_2  ; same as the first ****
+  jsr directed_eny_bullet_timer  ; same as the first ****
   rts
 eny_04:                   ; Crack (lobster)
   lda #$40
@@ -6929,7 +6929,7 @@ b_b3dd:
   jsr eny_wall_collision   ; @$ACB8 if collided with a wall, reverse direction
   lda #$40
   sta eny_status_ram
-  jsr dec_boss_wpn_timer_4
+  jsr dec_heru_wpn_timer
 b_b3ef:
   rts
 eny_08:                         ; b3f0 platform, also bos_01  
@@ -6977,7 +6977,7 @@ eny_0b:
   sta eny_x_spd_hi,X
   rts
 bos_00:
-  jsr enemy_misc_rtn_6
+  jsr boss_flash_colour
   lda eny_boss_wpn_timer,x
   beq spawn_kabusu
   dec eny_boss_wpn_timer,x
@@ -7006,10 +7006,10 @@ spawn_kabusu:
   jsr rng_rtn
   lda rng_ram
   and #$01
-  bne spawn_boss_enemy
+  bne :+
   lda #$06                      ; spawn Kabusu B
   sta $00
-spawn_boss_enemy:
+:
   lda $00
   sta eny_spr_type,Y
   jsr rng_rtn
@@ -7038,14 +7038,14 @@ b_b4b3:
   sta $0E
   lda #$10
   sta $0F
-j_b4bb:
-  jsr enemy_misc_rtn_6
+flash_colour_spawn_eny:
+  jsr boss_flash_colour
 dec_boss_wpn_timer_11:
   lda eny_boss_wpn_timer,X
-  beq b_b4c7
+  beq spawn_boss_enemy
   dec eny_boss_wpn_timer,X
   rts
-b_b4c7:
+spawn_boss_enemy:
   lda #$0F
   sta $00
   ldx #$00
@@ -7078,7 +7078,7 @@ b_b4c7:
   sta eny_boss_wpn_timer,X
 b_b50f:
   rts
-enemy_misc_rtn_6:
+boss_flash_colour:
   lda eny_spr_substatus,X
   ora #$80
   sta eny_spr_substatus,X
@@ -7092,7 +7092,7 @@ enemy_misc_rtn_6:
   bne b_b52a
   ldy #$21
 b_b52a:
-  sty unused_ram_2
+  sty eny_flash_colour_ram
   rts
 bos_05: ; b52d                Kabusu A
   lda eny_spr_substatus,X
@@ -7136,7 +7136,7 @@ bos_06:  ; b570         Kabusu B
   sta $07
   lda eny_spr_substatus,X
   sta $08
-  jsr enemy_misc_rtn_16
+  jsr kabusu_wave_rtn
   lda $06
   sta eny_y_spd_lo,X
   lda $07
@@ -7214,7 +7214,7 @@ b_b627:
   sta eny_status_ram
   lda #$40
   sta $0A
-  jsr dec_boss_wpn_timer_2
+  jsr directed_eny_bullet_timer
   rts
 enemy_misc_rtn_17:
   lda eny_spr_substatus,X
@@ -7360,7 +7360,7 @@ b_b74e:
   sta eny_status_ram      ; store 0x38 in enemy status ram for weapon timer
   lda #$40
   sta $0A
-  jsr dec_boss_wpn_timer_2
+  jsr directed_eny_bullet_timer
   rts
 eny_0f:                     ; zunonbat closed
   jsr plr_stage_x_loc       ; get player x location
@@ -7396,7 +7396,7 @@ eny_10: ; b787              ; zunonbat flying
   sta eny_status_ram
   lda #$00
   sta $0A
-  jsr dec_boss_wpn_timer_2
+  jsr directed_eny_bullet_timer
   rts
 eny_11: ; b7ac
   lda eny_spr_substatus,x
@@ -7495,10 +7495,10 @@ b_b84e:
   sta eny_status_ram
   lda #$40
   sta $0A
-  jsr dec_boss_wpn_timer_2
+  jsr directed_eny_bullet_timer
   rts
 bos_09: ; b877    nemesis
-  jsr enemy_misc_rtn_6
+  jsr boss_flash_colour
   inc eny_exp_timer,X
   jsr boss_vert_move_rtn
   lda eny_boss_wpn_timer,X
@@ -7540,7 +7540,7 @@ bos_0a: ; b8c7
   sta eny_status_ram
   lda #$00
   sta $0A
-  jsr dec_boss_wpn_timer_2
+  jsr directed_eny_bullet_timer
   rts
 eny_14: ; b8d3  ratbat
   lda #$10
@@ -7623,7 +7623,7 @@ bos_0d: ; b95b
   jsr move_enemy_vert
   lda #$80
   sta eny_status_ram
-  jsr dec_boss_wpn_timer_8
+  jsr spider_eny_wpn_timer
   rts
 bos_0e: ; b96e
   lda #$98
@@ -7694,7 +7694,7 @@ bos_12: ; b9e1
   sta $0F
   lda #$12
   sta $0E
-  jmp j_b4bb
+  jmp flash_colour_spawn_eny
 bos_14: ; b9fa
   inc eny_exp_timer,X
   jsr boss_vert_move_rtn
@@ -7706,7 +7706,7 @@ bos_14: ; b9fa
   sta $0F
   lda #$12
   sta $0E
-  jmp j_b4bb
+  jmp flash_colour_spawn_eny
 bos_15: ; ba13
   inc eny_exp_timer,X
   jsr boss_vert_move_rtn
@@ -7718,7 +7718,7 @@ bos_15: ; ba13
   sta $0F
   lda #$27
   sta $0E
-  jmp j_b4bb
+  jmp flash_colour_spawn_eny
 bos_16: ; ba2c
   lda #$B8
   sta eny_status_ram
@@ -7740,7 +7740,7 @@ eny_26: ; ba49
   sta eny_status_ram
   lda #$80
   sta $0A
-  jsr dec_boss_wpn_timer_2
+  jsr directed_eny_bullet_timer
   lda eny_spr_substatus,X
   ora #$80
   sta eny_spr_substatus,X
@@ -7750,7 +7750,7 @@ eny_27: ; ba5d
   sta eny_status_ram
   lda #$40
   sta $0A
-  jsr dec_boss_wpn_timer_2
+  jsr directed_eny_bullet_timer
   rts
 eny_2b: ; ba69
   lda eny_spr_substatus,X
@@ -7812,7 +7812,7 @@ eny_2a: ; bada
   sta eny_status_ram
   lda #$10
   sta $0A
-  jsr dec_boss_wpn_timer_2
+  jsr directed_eny_bullet_timer
   rts
 eny_2d: ; bae6
   lda #$00
@@ -9822,7 +9822,7 @@ takara_tbl:
 
 
 ; End screen stuff
-rodimus_check:              ; this is where the end screen stuff starts
+endgame_check:              ; this is where the end screen stuff starts
   jsr clear_screen
   jsr clear_oam_ram
   lda $8003                 ; load chr bank 3
@@ -10146,7 +10146,7 @@ start_pushed_at_title:
   jsr level_sub_a
   jsr brain_wave               ; load the mid brain wave at the title screen
   jsr disable_audio_channels
-  jsr play_sound_brain_wave
+  jsr play_sound_brainwave
   jsr set_PPU_CTRL_a
   jsr set_PPU_MASK_a
 :
@@ -10173,7 +10173,7 @@ start_pushed_at_title:
   sta current_level             ; level 17 is where the brain waves come together on magnus
   jsr level_sub_a
   jsr disable_audio_channels
-  jsr play_sound_brain_wave
+  jsr play_sound_brainwave
   jsr set_PPU_CTRL_a
   jsr set_PPU_MASK_a
 :
@@ -10876,7 +10876,7 @@ play_sound_tf_theme:
   lda #$22
   ldx #$04
   jmp load_audio_ram
-play_sound_brain_wave:
+play_sound_brainwave:
   lda #$23
   ldx #$00
   jmp load_audio_ram
@@ -10973,7 +10973,7 @@ sample_jmp_tbl:             ; @DA1E
     .byte $00
 	.word samp_guardian_t     ; .byte $76,$DE,$02     ; guardian room music.2
     .byte $02
-	.word aud_rod_endscreen   ; .byte $B8,$80,$01     ; rodimus endscreen @$80B8 / bumblebee screen
+	.word samp_warproom   ; .byte $B8,$80,$01     ; rodimus endscreen @$80B8 / bumblebee screen
     .byte $01
   .word aud_subtitle_a      ; .byte $D6,$80,$03     ; Subtitle sound a @$80D6
     .byte $03
